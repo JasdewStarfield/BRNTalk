@@ -1,0 +1,32 @@
+{
+  "id": "test_intro",
+  "messages": [
+    {
+      "type": "text",
+      "speaker": "System",
+      "text": "欢迎使用 BRNTalk 测试脚本。"
+    },
+    {
+      "type": "text",
+      "speaker": "NPC_A",
+      "text": "我这边有一个简单任务，你要不要接？"
+    },
+    {
+      "type": "choice",
+      "speaker": "System",
+      "text": "请选择你的回答：",
+      "choices": [
+        {
+          "id": "accept",
+          "text": "好的，我来试试。",
+          "nextConversation": "test_accept"
+        },
+        {
+          "id": "decline",
+          "text": "算了吧，下次再说。",
+          "nextConversation": "test_decline"
+        }
+      ]
+    }
+  ]
+}

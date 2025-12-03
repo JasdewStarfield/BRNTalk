@@ -1,0 +1,86 @@
+package yourscraft.jasdewstarfield.brntalk.data;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.util.GsonHelper;
+
+import java.util.Map;
+
+public class ConversationLoader extends SimpleJsonResourceReloadListener {
+    private static final Gson GSON = new GsonBuilder().create();
+
+    public ConversationLoader() {
+        super(GSON, "dialogues");
+    }
+
+    @Override
+    protected void apply(Map<ResourceLocation, JsonElement> jsons,
+                         ResourceManager resourceManager,
+                         ProfilerFiller profiler) {
+
+        TalkManager manager = TalkManager.getInstance();
+        manager.clear();
+
+        for (Map.Entry<ResourceLocation, JsonElement> entry : jsons.entrySet()) {
+            ResourceLocation rl = entry.getKey();
+            JsonElement element = entry.getValue();
+
+            if (!element.isJsonObject()) continue;
+            JsonObject root = element.getAsJsonObject();
+
+            String convId = GsonHelper.getAsString(root, "id", rl.getPath());
+            TalkConversation conv = new TalkConversation(convId);
+
+            JsonArray messages = GsonHelper.getAsJsonArray(root, "messages");
+
+            for (JsonElement msgEl : messages) {
+                if (!msgEl.isJsonObject()) continue;
+                JsonObject msgObj = msgEl.getAsJsonObject();
+
+                String typeStr = GsonHelper.getAsString(msgObj, "type", "text");
+                TalkMessage.Type type = TalkMessage.Type.fromString(typeStr);
+                String speaker = GsonHelper.getAsString(msgObj, "speaker", "");
+                String text = GsonHelper.getAsString(msgObj, "text", "");
+
+                TalkMessage msg = new TalkMessage(
+                        type,
+                        speaker,
+                        text,
+                        System.currentTimeMillis()
+                );
+
+                // 如果是 choice 类型，就读取 choices 数组
+                if (type == TalkMessage.Type.CHOICE && msgObj.has("choices")) {
+                    JsonArray choicesArr = msgObj.getAsJsonArray("choices");
+                    for (JsonElement choiceEl : choicesArr) {
+                        if (!choiceEl.isJsonObject()) continue;
+                        JsonObject choiceObj = choiceEl.getAsJsonObject();
+
+                        String choiceId = GsonHelper.getAsString(choiceObj, "id", "");
+                        String choiceText = GsonHelper.getAsString(choiceObj, "text", "");
+                        String nextConv = GsonHelper.getAsString(choiceObj, "nextConversation", "");
+
+                        TalkMessage.Choice choice = new TalkMessage.Choice(
+                                choiceId,
+                                choiceText,
+                                nextConv
+                        );
+                        msg.addChoice(choice);
+                    }
+                }
+
+                conv.addMessage(msg);
+            }
+
+            manager.registerConversation(conv);
+        }
+    }
+}
