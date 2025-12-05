@@ -123,10 +123,7 @@ public class TalkScreen extends Screen {
     // 工具方法：取当前选中聊天串的最后一条消息
     private TalkMessage getLastMessageOfSelected() {
         if (selectedThread == null) return null;
-        TalkConversation conv = selectedThread.getConversation();
-        var list = conv.getMessages();
-        if (list == null || list.isEmpty()) return null;
-        return list.getLast();
+        return selectedThread.getLastMessage();
     }
 
     // 点击列表项目，选中不同聊天串时，重新构建 UI
@@ -143,11 +140,8 @@ public class TalkScreen extends Screen {
         }
 
         TalkManager manager = TalkManager.getInstance();
-
-        // 触发新的聊天串（如果已经存在则更新时间）
-        TalkThread nextThread = manager.startThread(nextId);
-        if (nextThread == null) {
-            // 找不到对应脚本，简单提示
+        var conv = manager.getConversation(nextId);
+        if (conv == null) {
             if (Minecraft.getInstance().player != null) {
                 Minecraft.getInstance().player.displayClientMessage(
                         Component.literal("[BRNTalk] 未找到对话脚本: " + nextId),
@@ -157,8 +151,13 @@ public class TalkScreen extends Screen {
             return;
         }
 
-        this.selectedThread = nextThread;
-        // 跳转后重建界面，刷新列表 & 右侧内容 & 选项按钮
+        if (selectedThread == null) {
+            this.selectedThread = manager.startThread(nextId);
+        } else {
+            // 在同一个聊天串里继续追加新的脚本内容
+            selectedThread.appendConversation(conv);
+        }
+        // 聊天串内容更新后，刷新 UI：右侧消息 + 选项按钮
         rebuildUI();
     }
 
@@ -171,24 +170,16 @@ public class TalkScreen extends Screen {
 
         // 右侧聊天内容区域
         if (selectedThread != null) {
-            TalkConversation conv = selectedThread.getConversation();
-
+            var msgs = selectedThread.getMessages();
             int left = this.threadList.getX() + this.threadList.getWidth() + 10;
             int top = 20;
-            int maxWidth = this.width - left - 20;
             int lineHeight = 12;
-
             int y = top;
-            for (TalkMessage msg : conv.getMessages()) {
-                String line = msg.getSpeaker() + ": " + msg.getText();
 
-                // 简单一行一行画（后续可以换成自动换行、气泡 UI）
+            for (TalkMessage msg : msgs) {
+                String line = msg.getSpeaker() + ": " + msg.getText();
                 gfx.drawString(this.font, line, left, y, 0xFFFFFF);
                 y += lineHeight;
-                if (y > this.height - 80) {
-                    // 先不做真正滚动，简单防止画出屏幕外
-                    break;
-                }
             }
         } else {
             // 没有任何聊天串时的提示

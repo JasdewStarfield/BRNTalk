@@ -41,7 +41,11 @@ public class TalkManager {
         }
 
         long now = System.currentTimeMillis();
-        TalkThread thread = new TalkThread(conversationId, conv, now);
+
+        // 简单处理：同一个脚本 id 只有一个线程，多次 start 会覆盖旧的
+        TalkThread thread = new TalkThread(conversationId, now);
+        thread.appendConversation(conv);
+
         activeThreads.put(conversationId, thread);
         return thread;
     }
