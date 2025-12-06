@@ -71,7 +71,7 @@ public class Brntalk {
     }
 
     public void onRegisterCommands(RegisterCommandsEvent event) {
-        Commands.register(event.getDispatcher());
+        BrntalkCommands.register(event.getDispatcher());
         LOGGER.info("[BRNTalk] Command registered");
     }
 

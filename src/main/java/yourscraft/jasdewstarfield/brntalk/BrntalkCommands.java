@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
 import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
@@ -13,16 +14,16 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 
-public class Commands {
+public class BrntalkCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
-                net.minecraft.commands.Commands.literal("brntalk")
-                        .then(net.minecraft.commands.Commands.literal("showdemo")
-                                .executes(Commands::showDemoConversation)
+                Commands.literal("brntalk")
+                        .then(Commands.literal("showdemo")
+                                .executes(BrntalkCommands::showDemoConversation)
                         )
-                        .then(net.minecraft.commands.Commands.literal("start")
-                                .then(net.minecraft.commands.Commands.argument("id", StringArgumentType.string())
-                                        .executes(Commands::startConversationThread)
+                        .then(Commands.literal("start")
+                                .then(Commands.argument("id", StringArgumentType.string())
+                                        .executes(BrntalkCommands::startConversationThread)
                                 )
                         )
         );
