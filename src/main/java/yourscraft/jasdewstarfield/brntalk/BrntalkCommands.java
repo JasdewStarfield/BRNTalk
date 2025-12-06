@@ -6,8 +6,6 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
-import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
-import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import net.minecraft.commands.CommandSourceStack;
@@ -18,9 +16,6 @@ public class BrntalkCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("brntalk")
-                        .then(Commands.literal("showdemo")
-                                .executes(BrntalkCommands::showDemoConversation)
-                        )
                         .then(Commands.literal("start")
                                 .then(Commands.argument("id", StringArgumentType.string())
                                         .executes(BrntalkCommands::startConversationThread)
@@ -50,23 +45,5 @@ public class BrntalkCommands {
                 false
         );
         return 1;
-    }
-
-    private static int showDemoConversation(CommandContext<CommandSourceStack> ctx) {
-        CommandSourceStack source = ctx.getSource();
-        TalkConversation conv = TalkManager.getInstance().getConversation("demo");
-
-        if (conv == null) {
-            source.sendSuccess(() -> Component.literal("[BRNTalk] 找不到 demo 对话"), false);
-            return 0;
-        }
-
-        source.sendSuccess(() -> Component.literal("=== BRNTalk: " + conv.getId() + " ==="), false);
-        for (TalkMessage msg : conv.getMessages()) {
-            String line = msg.getSpeaker() + ": " + msg.getText();
-            source.sendSuccess(() -> Component.literal(line), false);
-        }
-
-        return 1; // 表示命令成功
     }
 }
