@@ -3,16 +3,33 @@ package yourscraft.jasdewstarfield.brntalk.client;
 import net.minecraft.client.Minecraft;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkScreen;
+import yourscraft.jasdewstarfield.brntalk.network.PayloadSync;
 import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
+import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
+
+import java.util.List;
 
 public class ClientPayloadHandler {
     public static void handleOpenTalkScreen(final TalkNetwork.OpenTalkScreenPayload payload,
                                             final IPayloadContext context) {
-        // 如果你以后把 registrar 改到 HandlerThread.NETWORK 之类，
-        // 这里就要用 enqueueWork；现在默认主线程，其实可以直接 setScreen。
         context.enqueueWork(() -> {
             Minecraft mc = Minecraft.getInstance();
             mc.setScreen(new TalkScreen());
         });
+    }
+
+    public static void handleSyncThreads(PayloadSync.SyncThreadsPayload payload,
+                                         IPayloadContext context) {
+        context.enqueueWork(() -> {
+            List<TalkThread> threads = payload.threads().stream()
+                    .map(PayloadSync.NetThread::toThread)
+                    .toList();
+            ClientTalkState.get().setThreads(threads);
+        });
+
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof TalkScreen screen) {
+            screen.onThreadsSynced();
+        }
     }
 }

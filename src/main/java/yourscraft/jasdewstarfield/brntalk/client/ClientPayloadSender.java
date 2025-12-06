@@ -7,4 +7,8 @@ public class ClientPayloadSender {
     public static void requestOpenTalk() {
         PacketDistributor.sendToServer(new TalkNetwork.RequestOpenTalkPayload());
     }
+
+    public static void sendSelectChoice(String threadId, String choiceId) {
+        PacketDistributor.sendToServer(new TalkNetwork.SelectChoicePayload(threadId, choiceId));
+    }
 }

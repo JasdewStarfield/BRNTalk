@@ -54,7 +54,7 @@ public class TalkManager {
         return activeThreads.values();
     }
 
-    public Optional<TalkThread> getThread(String conversationId) {
-        return Optional.ofNullable(activeThreads.get(conversationId));
+    public TalkThread getActiveThread(String id) {
+        return activeThreads.get(id);
     }
 }

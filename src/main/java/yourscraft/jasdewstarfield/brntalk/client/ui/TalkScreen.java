@@ -1,8 +1,8 @@
 package yourscraft.jasdewstarfield.brntalk.client.ui;
 
-import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
+import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadSender;
+import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
-import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -10,14 +10,17 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+import javax.annotation.Nullable;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 
 public class TalkScreen extends Screen {
 
     private TalkThreadList threadList;
     private TalkThread selectedThread;
+
+    @Nullable
+    private String selectedThreadId;
 
     public TalkScreen() {
         super(Component.literal("BRNTalk"));
@@ -72,18 +75,37 @@ public class TalkScreen extends Screen {
     }
 
     private void reloadThreadList() {
-        var manager = TalkManager.getInstance();
-        List<TalkThread> threads = manager.getActiveThreads().stream()
-                .sorted(Comparator.comparingLong(TalkThread::getStartedAt).reversed()) // 最新在上
+        List<TalkThread> threads = ClientTalkState.get().getThreads().stream()
+                .sorted(Comparator.comparingLong(TalkThread::getStartedAt).reversed())
                 .toList();
 
         this.threadList.setThreads(threads);
 
+        // 用 id 恢复选中状态，避免 selectedThread 指向旧对象
+        TalkThread newSelected = null;
+        if (selectedThreadId != null) {
+            for (TalkThread t : threads) {
+                if (selectedThreadId.equals(t.getId())) {
+                    newSelected = t;
+                    break;
+                }
+            }
+        }
+
         // 如果还没有选中的聊天串，默认选第一个
-        if (selectedThread == null && !threads.isEmpty()) {
-            selectedThread = threads.getFirst();
-            if (!threadList.children().isEmpty()) {
-                threadList.setSelected(threadList.children().getFirst());
+        if (newSelected == null && !threads.isEmpty()) {
+            newSelected = threads.getFirst();
+        }
+
+        this.selectedThread = newSelected;
+
+        if (this.selectedThread != null) {
+            var children = threadList.children();
+            for (var entry : children) {
+                if (entry.getThread().getId().equals(this.selectedThread.getId())) {
+                    threadList.setSelected(entry);
+                    break;
+                }
             }
         }
     }
@@ -126,39 +148,20 @@ public class TalkScreen extends Screen {
         return selectedThread.getLastMessage();
     }
 
-    // 点击列表项目，选中不同聊天串时，重新构建 UI
     public void onThreadSelected(TalkThread thread) {
-        this.selectedThread = thread;
-        rebuildUI();
+        setSelectedThread(thread);
     }
 
     // 选项按钮点击：根据 nextConversationId 跳转到新的对话脚本，同时创建/更新对应聊天串
     private void onChoiceClicked(TalkMessage.Choice choice) {
-        String nextId = choice.getNextConversationId();
-        if (nextId == null || nextId.isEmpty()) {
+        if (this.selectedThread == null) {
             return;
         }
 
-        TalkManager manager = TalkManager.getInstance();
-        var conv = manager.getConversation(nextId);
-        if (conv == null) {
-            if (Minecraft.getInstance().player != null) {
-                Minecraft.getInstance().player.displayClientMessage(
-                        Component.literal("[BRNTalk] 未找到对话脚本: " + nextId),
-                        false
-                );
-            }
-            return;
-        }
+        String threadId = this.selectedThread.getId();
+        String choiceId = choice.getId();
 
-        if (selectedThread == null) {
-            this.selectedThread = manager.startThread(nextId);
-        } else {
-            // 在同一个聊天串里继续追加新的脚本内容
-            selectedThread.appendConversation(conv);
-        }
-        // 聊天串内容更新后，刷新 UI：右侧消息 + 选项按钮
-        rebuildUI();
+        ClientPayloadSender.sendSelectChoice(threadId, choiceId);
     }
 
     @Override
@@ -191,6 +194,38 @@ public class TalkScreen extends Screen {
                     0xFFFFFF
             );
         }
+    }
+
+    public void onThreadsSynced() {
+        List<TalkThread> threads = ClientTalkState.get().getThreads().stream()
+                .sorted(Comparator.comparingLong(TalkThread::getStartedAt).reversed())
+                .toList();
+
+        this.threadList.setThreads(threads);
+
+        String oldId = selectedThread != null ? selectedThread.getId() : null;
+        this.selectedThread = null;
+
+        if (oldId != null) {
+            for (TalkThread t : threads) {
+                if (oldId.equals(t.getId())) {
+                    this.selectedThread = t;
+                    break;
+                }
+            }
+        }
+
+        if (this.selectedThread == null && !threads.isEmpty()) {
+            this.selectedThread = threads.getFirst();
+        }
+
+        this.rebuildUI();
+    }
+
+    public void setSelectedThread(TalkThread thread) {
+        this.selectedThread = thread;
+        this.selectedThreadId = thread != null ? thread.getId() : null;
+        rebuildUI();
     }
 
     @Override
