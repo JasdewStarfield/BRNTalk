@@ -21,6 +21,14 @@ public class TalkManager {
         return INSTANCE;
     }
 
+    public void restoreThread(TalkThread thread) {
+        activeThreads.put(thread.getId(), thread);
+    }
+
+    public void clearAllThreads() {
+        activeThreads.clear();
+    }
+
     public TalkConversation getConversation(String id) {
         return conversations.get(id);
     }

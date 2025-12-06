@@ -1,0 +1,10 @@
+{
+  "id": "djw_accept_decline",
+  "messages": [
+    {
+      "type": "text",
+      "speaker": "DJW",
+      "text": "诶呀不对，这个一费奶五不对"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "djw",
+  "messages": [
+    {
+      "type": "text",
+      "speaker": "DJW",
+      "text": "别急这里死是没死"
+    },
+    {
+      "type": "text",
+      "speaker": "DJW",
+      "text": "死了吗？"
+    },
+    {
+      "type": "choice",
+      "speaker": "System",
+      "text": "请选择你的回答：",
+      "choices": [
+        {
+          "id": "accept",
+          "text": "死了",
+          "nextConversation": "djw_accept"
+        },
+        {
+          "id": "decline",
+          "text": "没死",
+          "nextConversation": "djw_decline"
+        }
+      ]
+    }
+  ]
+}

@@ -17,6 +17,7 @@ import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
+import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
 
 @EventBusSubscriber(modid = Brntalk.MODID)
 public class TalkNetwork {
@@ -163,9 +164,13 @@ public class TalkNetwork {
         // 2. 把后续对话接到这个线程上
         thread.appendConversation(nextConv);
 
+        // 3. 同步写入玩家存档
+        TalkWorldData data = TalkWorldData.get(serverPlayer.serverLevel());
+        data.appendConversation(serverPlayer.getUUID(), threadId, nextId);
+
         // TODO: 如果你希望在服务端记录“这个线程已经选过哪个选项”，可以在这里给 thread 加字段/标记
 
-        // 3. 同步最新对话给玩家
+        // 4. 同步最新对话给玩家
         TalkNetwork.syncThreadsTo(serverPlayer);
     }
 }
