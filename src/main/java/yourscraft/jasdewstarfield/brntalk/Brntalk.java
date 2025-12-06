@@ -1,7 +1,6 @@
 package yourscraft.jasdewstarfield.brntalk;
 
 import com.mojang.logging.LogUtils;
-import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -16,7 +15,8 @@ import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import org.slf4j.Logger;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
-import yourscraft.jasdewstarfield.brntalk.client.TalkClientRegistry;
+import yourscraft.jasdewstarfield.brntalk.client.ClientInit;
+import yourscraft.jasdewstarfield.brntalk.data.ConversationLoader;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
 @Mod(Brntalk.MODID)
@@ -46,45 +46,27 @@ public class Brntalk {
 
     */
     public Brntalk(IEventBus modEventBus, ModContainer modContainer) {
-        // Register the commonSetup method for modloading
-        modEventBus.addListener(this::commonSetup);
-        NeoForge.EVENT_BUS.register(this);
-        NeoForge.EVENT_BUS.addListener(this::onRegisterCommands);
+        // Common (Client + Server)
+        modEventBus.addListener(this::onCommonSetup);
         NeoForge.EVENT_BUS.addListener(this::onAddReloadListeners);
+
+        // Server
+        NeoForge.EVENT_BUS.addListener(this::onServerStarting);
+        NeoForge.EVENT_BUS.addListener(this::onRegisterCommands);
+
+        // Client
         if (FMLEnvironment.dist == Dist.CLIENT) {
-            TalkClientRegistry.initClient(modEventBus);
+            ClientInit.init(modEventBus);
         }
 
-        // Register the item to a creative tab
-        //modEventBus.addListener(this::addCreative);
-
-        // Register our mod's ModConfigSpec so that FML can create and load the config file for us
-        //modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        LOGGER.info("[BRNTalk] Mod constructed");
     }
 
-    private void commonSetup(final FMLCommonSetupEvent event) {
-        // Some common setup code
+    private void onCommonSetup(final FMLCommonSetupEvent event) {
         LOGGER.info("[BRNTalk] HELLO FROM COMMON SETUP");
-
-        //if (Config.logDirtBlock) LOGGER.info("DIRT BLOCK >> {}", BuiltInRegistries.BLOCK.getKey(Blocks.DIRT));
-
-        //LOGGER.info(Config.magicNumberIntroduction + Config.magicNumber);
-
-        //Config.items.forEach((item) -> LOGGER.info("ITEM >> {}", item.toString()));
     }
 
-    // Add the example block item to the building blocks tab
-    /*
-    private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) event.accept(EXAMPLE_BLOCK_ITEM);
-    }
-
-     */
-
-    // You can use SubscribeEvent and let the Event Bus discover methods to call
-    @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
-        // Do something when the server starts
         LOGGER.info("[BRNTalk] HELLO from server starting");
     }
 
@@ -94,18 +76,14 @@ public class Brntalk {
     }
 
     private void onAddReloadListeners(AddReloadListenerEvent event) {
-        // 这里注册我们的 JSON 加载器
-        event.addListener(new yourscraft.jasdewstarfield.brntalk.data.ConversationLoader());
+        event.addListener(new ConversationLoader());
     }
 
-    // You can use EventBusSubscriber to automatically register all static methods in the class annotated with @SubscribeEvent
     @EventBusSubscriber(modid = MODID, value = Dist.CLIENT)
     public static class ClientModEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-            // Some client setup code
             LOGGER.info("[BRNTalk] HELLO FROM CLIENT SETUP");
-            LOGGER.info("[BRNTalk] MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
         }
     }
 }
