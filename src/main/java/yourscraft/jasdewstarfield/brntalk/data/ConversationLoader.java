@@ -36,51 +36,70 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
             if (!element.isJsonObject()) continue;
             JsonObject root = element.getAsJsonObject();
 
-            String convId = GsonHelper.getAsString(root, "id", rl.getPath());
-            TalkConversation conv = new TalkConversation(convId);
+            if (root.has("conversations")) {
+                // 新格式：有 "conversations" 数组
+                JsonArray convArray = GsonHelper.getAsJsonArray(root, "conversations");
+                for (JsonElement convEl : convArray) {
+                    if (!convEl.isJsonObject()) continue;
+                    JsonObject convObj = convEl.getAsJsonObject();
 
-            JsonArray messages = GsonHelper.getAsJsonArray(root, "messages");
-
-            for (JsonElement msgEl : messages) {
-                if (!msgEl.isJsonObject()) continue;
-                JsonObject msgObj = msgEl.getAsJsonObject();
-
-                String typeStr = GsonHelper.getAsString(msgObj, "type", "text");
-                TalkMessage.Type type = TalkMessage.Type.fromString(typeStr);
-                String speaker = GsonHelper.getAsString(msgObj, "speaker", "");
-                String text = GsonHelper.getAsString(msgObj, "text", "");
-
-                TalkMessage msg = new TalkMessage(
-                        type,
-                        speaker,
-                        text,
-                        System.currentTimeMillis()
-                );
-
-                // 如果是 choice 类型，就读取 choices 数组
-                if (type == TalkMessage.Type.CHOICE && msgObj.has("choices")) {
-                    JsonArray choicesArr = msgObj.getAsJsonArray("choices");
-                    for (JsonElement choiceEl : choicesArr) {
-                        if (!choiceEl.isJsonObject()) continue;
-                        JsonObject choiceObj = choiceEl.getAsJsonObject();
-
-                        String choiceId = GsonHelper.getAsString(choiceObj, "id", "");
-                        String choiceText = GsonHelper.getAsString(choiceObj, "text", "");
-                        String nextConv = GsonHelper.getAsString(choiceObj, "nextConversation", "");
-
-                        TalkMessage.Choice choice = new TalkMessage.Choice(
-                                choiceId,
-                                choiceText,
-                                nextConv
-                        );
-                        msg.addChoice(choice);
-                    }
+                    loadSingleConversation(manager, convObj, rl);
                 }
+            } else {
+                // 旧格式：整个文件就是一个对话
+                loadSingleConversation(manager, root, rl);
+            }
+        }
+    }
 
-                conv.addMessage(msg);
+    private static void loadSingleConversation(TalkManager manager,
+                                               JsonObject convObj,
+                                               ResourceLocation fileId) {
+
+        String convId = GsonHelper.getAsString(convObj, "id", fileId.getPath());
+        TalkConversation conv = new TalkConversation(convId);
+
+        JsonArray messages = GsonHelper.getAsJsonArray(convObj, "messages");
+
+        for (JsonElement msgEl : messages) {
+            if (!msgEl.isJsonObject()) continue;
+            JsonObject msgObj = msgEl.getAsJsonObject();
+
+            String typeStr = GsonHelper.getAsString(msgObj, "type", "text");
+            TalkMessage.Type type = TalkMessage.Type.fromString(typeStr);
+            String speaker = GsonHelper.getAsString(msgObj, "speaker", "");
+            String text = GsonHelper.getAsString(msgObj, "text", "");
+
+            TalkMessage msg = new TalkMessage(
+                    type,
+                    speaker,
+                    text,
+                    System.currentTimeMillis()
+            );
+
+            // 如果是 choice 类型，就读取 choices 数组
+            if (type == TalkMessage.Type.CHOICE && msgObj.has("choices")) {
+                JsonArray choicesArr = msgObj.getAsJsonArray("choices");
+                for (JsonElement choiceEl : choicesArr) {
+                    if (!choiceEl.isJsonObject()) continue;
+                    JsonObject choiceObj = choiceEl.getAsJsonObject();
+
+                    String choiceId = GsonHelper.getAsString(choiceObj, "id", "");
+                    String choiceText = GsonHelper.getAsString(choiceObj, "text", "");
+                    String nextConv = GsonHelper.getAsString(choiceObj, "nextConversation", "");
+
+                    TalkMessage.Choice choice = new TalkMessage.Choice(
+                            choiceId,
+                            choiceText,
+                            nextConv
+                    );
+                    msg.addChoice(choice);
+                }
             }
 
-            manager.registerConversation(conv);
+            conv.addMessage(msg);
         }
+
+        manager.registerConversation(conv);
     }
 }

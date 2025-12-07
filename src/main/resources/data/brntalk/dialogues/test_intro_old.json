@@ -1,5 +1,5 @@
 {
-  "id": "test_intro",
+  "id": "test_intro_old",
   "messages": [
     {
       "type": "text",
@@ -19,12 +19,12 @@
         {
           "id": "accept",
           "text": "好的，我来试试。",
-          "nextConversation": "test_accept"
+          "nextConversation": "test_accept_old"
         },
         {
           "id": "decline",
           "text": "算了吧，下次再说。",
-          "nextConversation": "test_decline"
+          "nextConversation": "test_decline_old"
         }
       ]
     }
