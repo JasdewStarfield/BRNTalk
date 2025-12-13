@@ -12,7 +12,7 @@ public class TalkManager {
     private final Map<String, TalkConversation> conversations = new HashMap<>();
 
     // 已触发的聊天串
-    private final Map<String, TalkThread> activeThreads = new HashMap<>();
+    private final Map<UUID, Map<String, TalkThread>> playerThreads = new HashMap<>();
 
     private TalkManager() {
     }
@@ -21,12 +21,17 @@ public class TalkManager {
         return INSTANCE;
     }
 
-    public void restoreThread(TalkThread thread) {
-        activeThreads.put(thread.getId(), thread);
+    public void restoreThread(UUID playerUuid,TalkThread thread) {
+        playerThreads.computeIfAbsent(playerUuid, k -> new HashMap<>())
+                .put(thread.getId(), thread);
     }
 
     public void clearAllThreads() {
-        activeThreads.clear();
+        playerThreads.clear();
+    }
+
+    public void clearThreadsForPlayer(UUID playerUuid) {
+        playerThreads.remove(playerUuid);
     }
 
     public TalkConversation getConversation(String id) {
@@ -39,10 +44,10 @@ public class TalkManager {
 
     public void clear() {
         conversations.clear();
-        activeThreads.clear();
+        playerThreads.clear();
     }
 
-    public TalkThread startThread(String conversationId) {
+    public TalkThread startThread(UUID playerUuid, String conversationId) {
         TalkConversation conv = conversations.get(conversationId);
         if (conv == null) {
             return null;
@@ -50,19 +55,24 @@ public class TalkManager {
 
         long now = System.currentTimeMillis();
 
-        // 简单处理：同一个脚本 id 只有一个线程，多次 start 会覆盖旧的
+        // 创建新线程
         TalkThread thread = new TalkThread(conversationId, now);
         thread.appendConversation(conv);
 
-        activeThreads.put(conversationId, thread);
+        // 存入对应玩家的 Map 中
+        playerThreads.computeIfAbsent(playerUuid, k -> new HashMap<>())
+                .put(conversationId, thread);
+
         return thread;
     }
 
-    public Collection<TalkThread> getActiveThreads() {
-        return activeThreads.values();
+    public Collection<TalkThread> getActiveThreads(UUID playerUuid) {
+        return playerThreads.getOrDefault(playerUuid, Collections.emptyMap()).values();
     }
 
-    public TalkThread getActiveThread(String id) {
-        return activeThreads.get(id);
+    public TalkThread getActiveThread(UUID playerUuid, String threadId) {
+        var map = playerThreads.get(playerUuid);
+        if (map == null) return null;
+        return map.get(threadId);
     }
 }

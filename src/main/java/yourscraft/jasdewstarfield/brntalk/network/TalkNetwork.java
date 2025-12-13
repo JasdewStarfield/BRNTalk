@@ -98,7 +98,7 @@ public class TalkNetwork {
     public static void syncThreadsTo(ServerPlayer player) {
         TalkManager manager = TalkManager.getInstance();
 
-        var netThreads = manager.getActiveThreads().stream()
+        var netThreads = manager.getActiveThreads(player.getUUID()).stream() //
                 .map(PayloadSync.NetThread::fromThread)
                 .toList();
 
@@ -119,7 +119,7 @@ public class TalkNetwork {
         String choiceId = payload.choiceId();
 
         TalkManager manager = TalkManager.getInstance();
-        TalkThread thread = manager.getActiveThread(threadId); // 如果你没有这个方法，可以自己写个按 id 查的
+        TalkThread thread = manager.getActiveThread(serverPlayer.getUUID(), threadId);
 
         if (thread == null) {
             // 找不到线程就直接忽略（也可以给玩家发个 debug 信息）

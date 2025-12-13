@@ -44,7 +44,7 @@ public class SyncEventListener {
                 }
             }
 
-            manager.restoreThread(thread);
+            manager.restoreThread(player.getUUID(), thread);
         }
     }
 
@@ -64,7 +64,7 @@ public class SyncEventListener {
         } else {
             // 情况 2：某个玩家加入服务器时（OnDatapackSync 也会触发）
             ServerPlayer player = event.getPlayer();
-            manager.clearAllThreads(); // 如果你未来改成按玩家分组，这里可以只清这个玩家
+            manager.clearThreadsForPlayer(player.getUUID());
             SyncEventListener.rebuildThreadsForPlayer(player);
             TalkNetwork.syncThreadsTo(player);
         }
