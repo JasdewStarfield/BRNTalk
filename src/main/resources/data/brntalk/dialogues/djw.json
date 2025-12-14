@@ -2,16 +2,19 @@
   "id": "djw",
   "messages": [
     {
-      "type": "text",
+      "id": "djw_1",
       "speaker": "DJW",
-      "text": "别急这里死是没死"
+      "text": "别急这里死是没死",
+      "nextId": "djw_2"
     },
     {
-      "type": "text",
+      "id": "djw_2",
       "speaker": "DJW",
-      "text": "死了吗？"
+      "text": "死了吗？",
+      "nextId": "djw_3"
     },
     {
+      "id": "djw_3",
       "type": "choice",
       "speaker": "System",
       "text": "请选择你的回答：",
@@ -19,14 +22,59 @@
         {
           "id": "accept",
           "text": "死了",
-          "nextConversation": "djw_accept"
+          "nextId": "djw_accept_1"
         },
         {
           "id": "decline",
           "text": "没死",
-          "nextConversation": "djw_decline"
+          "nextId": "djw_decline_1"
         }
       ]
+    },
+    {
+      "id": "djw_accept_1",
+      "speaker": "DJW",
+      "text": "嗷布莱克斯！",
+      "nextId": "djw_accept_2"
+    },
+    {
+      "id": "djw_accept_2",
+      "speaker": "DJW",
+      "text": "对吗？",
+      "nextId": "djw_accept_3"
+    },
+    {
+      "id": "djw_accept_3",
+      "type": "choice",
+      "speaker": "System",
+      "text": "请选择你的回答：",
+      "choices": [
+        {
+          "id": "accept2",
+          "text": "对的",
+          "nextId": "djw_accept_accept_1"
+        },
+        {
+          "id": "decline2",
+          "text": "不对",
+          "nextId": "djw_accept_decline_1"
+        }
+      ]
+    },
+    {
+      "id": "djw_accept_accept_1",
+      "speaker": "DJW",
+      "text": "嗷对的对的，对的"
+    },
+    {
+      "id": "djw_accept_decline_1",
+      "speaker": "DJW",
+      "text": "诶呀不对，这个一费奶五不对"
+    },
+    {
+      "id": "djw_decline_1",
+      "speaker": "DJW",
+      "text": "哦没死！哦死了我草！"
     }
   ]
 }

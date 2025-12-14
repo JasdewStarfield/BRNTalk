@@ -1,6 +1,5 @@
 package yourscraft.jasdewstarfield.brntalk.runtime;
 
-import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 
 import java.time.Instant;
@@ -13,48 +12,68 @@ import java.util.List;
 
 public class TalkThread {
     private final String id;
-    private final List<TalkMessage> history = new ArrayList<>();
-    private final long startedAt;
+    private final String scriptId;
+    private final long startTime;
+    private final List<TalkMessage> messages = new ArrayList<>();
 
-    public TalkThread(String id, long startedAt) {
+    /**
+     * 构造函数现在需要 scriptId (Conversation ID)
+     * @param id 线程 ID
+     * @param scriptId 剧本 ID
+     * @param startTime 启动时间
+     */
+    public TalkThread(String id, String scriptId, long startTime) {
         this.id = id;
-        this.startedAt = startedAt;
+        this.scriptId = scriptId;
+        this.startTime = startTime;
     }
+
+    // ---------- Getter 方法 ----------
 
     public String getId() {
         return id;
     }
 
-    public long getStartedAt() {
-        return startedAt;
+    public String getScriptId() {
+        return scriptId;
+    }
+
+    public long getStartTime() {
+        return startTime;
     }
 
     public String getFormattedTime() {
         LocalDateTime time = LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(startedAt),
+                Instant.ofEpochMilli(startTime),
                 ZoneId.systemDefault()
         );
         return time.format(DateTimeFormatter.ofPattern("HH:mm"));
     }
 
-    public void appendConversation(TalkConversation conversation) {
-        history.addAll(conversation.getMessages());
-    }
-
     public List<TalkMessage> getMessages() {
-        return Collections.unmodifiableList(history);
+        return Collections.unmodifiableList(messages);
     }
 
-    // 用脚本中的最后一句当作列表里显示的“最后一条消息”
-    public TalkMessage getLastMessage() {
-        if (history.isEmpty()) return null;
-        return history.getLast();
+    public TalkMessage getCurrentMessage() {
+        if (messages.isEmpty()) return null;
+        return messages.getLast();
     }
 
     public String getLastMessagePreview() {
-        TalkMessage last = getLastMessage();
+        TalkMessage last = getCurrentMessage();
         if (last == null) return "";
         return last.getSpeaker() + ": " + last.getText();
+    }
+
+    // ---------- Setter 方法 ----------
+
+    /**
+     * 追加一条新的消息到历史记录中。
+     * @param message 要添加的消息对象
+     */
+    public void appendMessage(TalkMessage message) {
+        if (message == null) return;
+        messages.add(message);
     }
 
 }

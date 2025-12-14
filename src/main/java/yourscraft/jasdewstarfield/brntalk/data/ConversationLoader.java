@@ -60,10 +60,19 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
         TalkConversation conv = new TalkConversation(convId);
 
         JsonArray messages = GsonHelper.getAsJsonArray(convObj, "messages");
+        int idx = 0;
 
         for (JsonElement msgEl : messages) {
             if (!msgEl.isJsonObject()) continue;
             JsonObject msgObj = msgEl.getAsJsonObject();
+
+            String msgId = GsonHelper.getAsString(msgObj, "id", "msg_" + idx);
+
+            String nextId = GsonHelper.getAsString(msgObj, "nextId", null);
+            if (nextId == null) {
+                // 兼容旧写法：如果有 nextConversation 字段，也可以读进来当 nextId
+                nextId = GsonHelper.getAsString(msgObj, "nextConversation", null);
+            }
 
             String typeStr = GsonHelper.getAsString(msgObj, "type", "text");
             TalkMessage.Type type = TalkMessage.Type.fromString(typeStr);
@@ -71,10 +80,12 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
             String text = GsonHelper.getAsString(msgObj, "text", "");
 
             TalkMessage msg = new TalkMessage(
+                    msgId,
                     type,
                     speaker,
                     text,
-                    System.currentTimeMillis()
+                    System.currentTimeMillis(),
+                    nextId
             );
 
             // 如果是 choice 类型，就读取 choices 数组
@@ -86,18 +97,24 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
 
                     String choiceId = GsonHelper.getAsString(choiceObj, "id", "");
                     String choiceText = GsonHelper.getAsString(choiceObj, "text", "");
-                    String nextConv = GsonHelper.getAsString(choiceObj, "nextConversation", "");
+
+                    // 读取 Choice 的 Next ID
+                    // 优先读 nextId，其次兼容 nextConversation
+                    String cNextId = GsonHelper.getAsString(choiceObj, "nextId",
+                            GsonHelper.getAsString(choiceObj, "nextConversation", "")
+                    );
 
                     TalkMessage.Choice choice = new TalkMessage.Choice(
                             choiceId,
                             choiceText,
-                            nextConv
+                            cNextId
                     );
                     msg.addChoice(choice);
                 }
             }
 
             conv.addMessage(msg);
+            idx++;
         }
 
         manager.registerConversation(conv);

@@ -7,12 +7,8 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.server.level.ServerPlayer;
-import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
-import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
-import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
-import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
 
 import java.util.Collection;
 import java.util.Collections;

@@ -1,10 +1,13 @@
 package yourscraft.jasdewstarfield.brntalk;
 
 import net.minecraft.server.level.ServerPlayer;
+import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
+
+import java.util.List;
 
 /**
  * 这是一个对外公开的 API 类。
@@ -16,18 +19,18 @@ public class BrntalkAPI {
      * 为指定玩家强制开启一段对话。
      *
      * @param player 目标玩家 (ServerPlayer)
-     * @param conversationId 对话脚本的 ID (JSON 文件名或内部 ID)
+     * @param scriptId 对话脚本的 ID (JSON 文件名或内部 ID)
      * @return 如果成功启动返回 true，如果 ID 不存在或玩家无效返回 false
      */
-    public static boolean startConversation(ServerPlayer player, String conversationId) {
-        if (player == null || conversationId == null) {
+    public static boolean startConversation(ServerPlayer player, String scriptId) {
+        if (player == null || scriptId == null) {
             return false;
         }
 
         TalkManager manager = TalkManager.getInstance();
 
         // 1. 尝试在内存中启动线程
-        TalkThread thread = manager.startThread(player.getUUID(), conversationId);
+        TalkThread thread = manager.startThread(player.getUUID(), scriptId, null);
         if (thread == null) {
             // 脚本 ID 不存在
             return false;
@@ -35,7 +38,21 @@ public class BrntalkAPI {
 
         // 2. 写入世界存档 (NBT)
         TalkWorldData data = TalkWorldData.get(player.serverLevel());
-        data.startThread(player.getUUID(), thread.getId(), conversationId);
+
+        List<String> allMsgIds = thread.getMessages().stream()
+                .map(TalkMessage::getId)
+                .toList();
+
+        if (!allMsgIds.isEmpty()) {
+            // 1. 存第一条 (创建线程结构)
+            data.startThread(player.getUUID(), thread.getId(), scriptId, allMsgIds.getFirst());
+
+            // 2. 如果还有后续，批量追加
+            if (allMsgIds.size() > 1) {
+                List<String> restIds = allMsgIds.subList(1, allMsgIds.size());
+                data.appendMessages(player.getUUID(), thread.getId(), restIds);
+            }
+        }
 
         // 3. 同步网络包给客户端
         TalkNetwork.syncThreadsTo(player);

@@ -13,11 +13,12 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
-import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
+
+import java.util.List;
 
 @EventBusSubscriber(modid = Brntalk.MODID)
 public class TalkNetwork {
@@ -121,56 +122,37 @@ public class TalkNetwork {
         TalkManager manager = TalkManager.getInstance();
         TalkThread thread = manager.getActiveThread(serverPlayer.getUUID(), threadId);
 
-        if (thread == null) {
-            // 找不到线程就直接忽略（也可以给玩家发个 debug 信息）
-            return;
-        }
+        if (thread == null) return;
 
-        // 1. 找到包含这个 choice 的最后一条消息
-        TalkMessage msgWithChoice = null;
-        TalkMessage.Choice selectedChoice = null;
+        // 1. 在最后一条消息里找到玩家选的那个 Choice
+        TalkMessage lastMsg = thread.getCurrentMessage();
+        if (lastMsg == null) return;
 
-        for (TalkMessage msg : thread.getMessages()) {
-            for (TalkMessage.Choice c : msg.getChoices()) {
-                if (c.getId().equals(choiceId)) {
-                    msgWithChoice = msg;
-                    selectedChoice = c;
-                    break;
-                }
+        TalkMessage.Choice selected = null;
+        for (TalkMessage.Choice c : lastMsg.getChoices()) {
+            if (c.getId().equals(choiceId)) {
+                selected = c;
+                break;
             }
-            if (selectedChoice != null) break;
         }
+        if (selected == null) return;
 
-        if (selectedChoice == null) {
-            // 客户端发来的 choiceId 无效，忽略
+        // 2. 获取跳转目标 ID (nextId)
+        String nextMsgId = selected.getNextId();
+        if (nextMsgId == null || nextMsgId.isEmpty()) {
+            // 没有后续 => 对话结束
             return;
         }
 
-        String nextId = selectedChoice.getNextConversationId();
-        if (nextId == null || nextId.isEmpty()) {
-            // 这个选项没有后续对话，说明是终点；可以在这里记一笔“已完成”，
-            // 然后直接同步现有状态
+        // 3. 推进剧情 (在内存中追加消息)
+        List<String> newMsgIds = manager.proceedThread(serverPlayer.getUUID(), threadId, nextMsgId);
+        if (!newMsgIds.isEmpty()) {
+            // 4. 保存到存档 (批量追加)
+            TalkWorldData data = TalkWorldData.get(serverPlayer.serverLevel());
+            data.appendMessages(serverPlayer.getUUID(), threadId, newMsgIds);
+
+            // 5. 同步给客户端
             TalkNetwork.syncThreadsTo(serverPlayer);
-            return;
         }
-
-        TalkConversation nextConv = manager.getConversation(nextId);
-        if (nextConv == null) {
-            // 脚本错了（找不到对应 id），也先同步一下状态方便 debug
-            TalkNetwork.syncThreadsTo(serverPlayer);
-            return;
-        }
-
-        // 2. 把后续对话接到这个线程上
-        thread.appendConversation(nextConv);
-
-        // 3. 同步写入玩家存档
-        TalkWorldData data = TalkWorldData.get(serverPlayer.serverLevel());
-        data.appendConversation(serverPlayer.getUUID(), threadId, nextId);
-
-        // TODO: 如果你希望在服务端记录“这个线程已经选过哪个选项”，可以在这里给 thread 加字段/标记
-
-        // 4. 同步最新对话给玩家
-        TalkNetwork.syncThreadsTo(serverPlayer);
     }
 }

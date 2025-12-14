@@ -76,7 +76,7 @@ public class TalkScreen extends Screen {
 
     private void reloadThreadList() {
         List<TalkThread> threads = ClientTalkState.get().getThreads().stream()
-                .sorted(Comparator.comparingLong(TalkThread::getStartedAt).reversed())
+                .sorted(Comparator.comparingLong(TalkThread::getStartTime).reversed())
                 .toList();
 
         this.threadList.setThreads(threads);
@@ -145,7 +145,7 @@ public class TalkScreen extends Screen {
     // 工具方法：取当前选中聊天串的最后一条消息
     private TalkMessage getLastMessageOfSelected() {
         if (selectedThread == null) return null;
-        return selectedThread.getLastMessage();
+        return selectedThread.getCurrentMessage();
     }
 
     public void onThreadSelected(TalkThread thread) {
@@ -198,7 +198,7 @@ public class TalkScreen extends Screen {
 
     public void onThreadsSynced() {
         List<TalkThread> threads = ClientTalkState.get().getThreads().stream()
-                .sorted(Comparator.comparingLong(TalkThread::getStartedAt).reversed())
+                .sorted(Comparator.comparingLong(TalkThread::getStartTime).reversed())
                 .toList();
 
         this.threadList.setThreads(threads);

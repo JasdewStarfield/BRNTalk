@@ -6,6 +6,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
+import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
@@ -29,18 +30,22 @@ public class SyncEventListener {
         TalkManager manager = TalkManager.getInstance();
 
         for (String threadId : state.getThreadIds()) {
-            List<String> conversationChain = state.getConversationChain(threadId);
-            if (conversationChain == null || conversationChain.isEmpty()) {
-                continue;
-            }
+            PlayerTalkState.SavedThread saved = state.getThread(threadId);
+            if (saved == null) continue;
+
+            String scriptId = saved.getScriptId();
+            TalkConversation conv = manager.getConversation(scriptId);
+            if (conv == null) continue;
 
             long startedAt = System.currentTimeMillis();
-            TalkThread thread = new TalkThread(threadId, startedAt);
+            TalkThread thread = new TalkThread(threadId, scriptId, startedAt);
 
-            for (String convId : conversationChain) {
-                TalkConversation conv = manager.getConversation(convId);
-                if (conv != null) {
-                    thread.appendConversation(conv);
+            // 逐条恢复消息
+            List<String> historyIds = saved.getHistory();
+            for (String msgId : historyIds) {
+                TalkMessage msg = conv.getMessage(msgId);
+                if (msg != null) {
+                    thread.appendMessage(msg);
                 }
             }
 

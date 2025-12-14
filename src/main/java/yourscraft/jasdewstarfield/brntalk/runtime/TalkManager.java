@@ -1,8 +1,10 @@
 package yourscraft.jasdewstarfield.brntalk.runtime;
 
 import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
+import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TalkManager {
 
@@ -47,23 +49,97 @@ public class TalkManager {
         playerThreads.clear();
     }
 
-    public TalkThread startThread(UUID playerUuid, String conversationId) {
-        TalkConversation conv = conversations.get(conversationId);
+    /**
+     * 启动线程逻辑
+     */
+    public TalkThread startThread(UUID playerUuid, String scriptId, String startMsgId) {
+        TalkConversation conv = conversations.get(scriptId);
         if (conv == null) {
             return null;
         }
 
-        long now = System.currentTimeMillis();
+        // 确定起始消息
+        TalkMessage firstMsg;
+        if (startMsgId == null) {
+            firstMsg = conv.getFirstMessage();
+        } else {
+            firstMsg = conv.getMessage(startMsgId);
+        }
+
+        if (firstMsg == null) {
+            // 剧本可能是空的，或者找不到指定ID
+            return null;
+        }
 
         // 创建新线程
-        TalkThread thread = new TalkThread(conversationId, now);
-        thread.appendConversation(conv);
+        long now = System.currentTimeMillis();
+        String threadId = UUID.randomUUID().toString();
+        TalkThread thread = new TalkThread(threadId, scriptId, now);
 
-        // 存入对应玩家的 Map 中
-        playerThreads.computeIfAbsent(playerUuid, k -> new HashMap<>())
-                .put(conversationId, thread);
+        // 存入对应玩家的初始消息
+        thread.appendMessage(firstMsg);
+
+        // 尝试自动推进
+        autoAdvance(thread, conv);
+
+        playerThreads.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>())
+                .put(threadId, thread);
 
         return thread;
+    }
+
+    public List<String> proceedThread(UUID playerUuid, String threadId, String nextMsgId) {
+        TalkThread thread = getActiveThread(playerUuid, threadId);
+        if (thread == null) return Collections.emptyList();
+
+        TalkConversation conv = conversations.get(thread.getScriptId());
+        if (conv == null) return Collections.emptyList();
+
+        TalkMessage nextMsg = conv.getMessage(nextMsgId);
+        if (nextMsg == null) return Collections.emptyList();
+
+        // 记录添加前的状态，方便计算新增了哪些
+        int oldSize = thread.getMessages().size();
+
+        // 1. 添加目标消息
+        thread.appendMessage(nextMsg);
+
+        // 2. 尝试自动推进
+        autoAdvance(thread, conv);
+
+        // 3. 收集所有新增的消息 ID
+        List<TalkMessage> allMsgs = thread.getMessages();
+        List<TalkMessage> newMsgs = allMsgs.subList(oldSize, allMsgs.size());
+
+        return newMsgs.stream().map(TalkMessage::getId).toList();
+    }
+
+    private void autoAdvance(TalkThread thread, TalkConversation conv) {
+        int safetyLimit = 100; // 防止恶意脚本死循环
+        int count = 0;
+
+        while (count < safetyLimit) {
+            TalkMessage lastMsg = thread.getCurrentMessage();
+            if (lastMsg == null) break;
+
+            // 只有 TEXT 类型且有 nextId 才自动推进
+            // CHOICE 类型必须停下来等玩家选
+            if (lastMsg.getType() == TalkMessage.Type.TEXT && lastMsg.getNextId() != null) {
+                String nextId = lastMsg.getNextId();
+                TalkMessage nextMsg = conv.getMessage(nextId);
+
+                if (nextMsg == null) {
+                    // 脚本断链了
+                    break;
+                }
+
+                thread.appendMessage(nextMsg);
+                count++;
+            } else {
+                // 遇到 Choice 或者 终点(nextId==null)，停止
+                break;
+            }
+        }
     }
 
     public Collection<TalkThread> getActiveThreads(UUID playerUuid) {

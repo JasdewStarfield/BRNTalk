@@ -6,12 +6,11 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
-import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class PayloadSync {
 
@@ -26,7 +25,7 @@ public class PayloadSync {
                 );
 
         public static NetChoice fromChoice(TalkMessage.Choice c) {
-            return new NetChoice(c.getId(), c.getText(), c.getNextConversationId());
+            return new NetChoice(c.getId(), c.getText(), c.getNextId());
         }
 
         public TalkMessage.Choice toChoice() {
@@ -36,10 +35,12 @@ public class PayloadSync {
 
     /* ------------- 单条消息的快照 ------------- */
     public record NetMessage(
+            String id,
             TalkMessage.Type type,
             String speaker,
             String text,
             long timestamp,
+            Optional<String> nextId, // 可能为空
             List<NetChoice> choices
     ) {
         // 把 enum Type 编成 int，再反解回来
@@ -49,15 +50,28 @@ public class PayloadSync {
                         TalkMessage.Type::ordinal
                 );
 
-        public static final StreamCodec<ByteBuf, NetMessage> STREAM_CODEC =
-                StreamCodec.composite(
-                        TYPE_STREAM_CODEC, NetMessage::type,
-                        ByteBufCodecs.STRING_UTF8, NetMessage::speaker,
-                        ByteBufCodecs.STRING_UTF8, NetMessage::text,
-                        ByteBufCodecs.VAR_LONG, NetMessage::timestamp,
-                        NetChoice.STREAM_CODEC.apply(ByteBufCodecs.list()), NetMessage::choices,
-                        NetMessage::new
-                );
+        public static final StreamCodec<ByteBuf, NetMessage> STREAM_CODEC = StreamCodec.of(
+                // 1. 编码器 (Encoder): 把对象写入 Buffer
+                (buf, val) -> {
+                    ByteBufCodecs.STRING_UTF8.encode(buf, val.id());
+                    TYPE_STREAM_CODEC.encode(buf, val.type());
+                    ByteBufCodecs.STRING_UTF8.encode(buf, val.speaker());
+                    ByteBufCodecs.STRING_UTF8.encode(buf, val.text());
+                    ByteBufCodecs.VAR_LONG.encode(buf, val.timestamp());
+                    ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8).encode(buf, val.nextId());
+                    NetChoice.STREAM_CODEC.apply(ByteBufCodecs.list()).encode(buf, val.choices());
+                },
+                // 2. 解码器 (Decoder): 从 Buffer 读取并生成对象
+                (buf) -> new NetMessage(
+                        ByteBufCodecs.STRING_UTF8.decode(buf),
+                        TYPE_STREAM_CODEC.decode(buf),
+                        ByteBufCodecs.STRING_UTF8.decode(buf),
+                        ByteBufCodecs.STRING_UTF8.decode(buf),
+                        ByteBufCodecs.VAR_LONG.decode(buf),
+                        ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8).decode(buf),
+                        NetChoice.STREAM_CODEC.apply(ByteBufCodecs.list()).decode(buf)
+                )
+        );
 
         public static NetMessage fromMessage(TalkMessage msg) {
             List<NetChoice> choices = msg.getChoices()
@@ -65,17 +79,26 @@ public class PayloadSync {
                     .map(NetChoice::fromChoice)
                     .toList();
             return new NetMessage(
+                    msg.getId(),
                     msg.getType(),
                     msg.getSpeaker(),
                     msg.getText(),
                     msg.getTimestamp(),
+                    Optional.ofNullable(msg.getNextId()),
                     choices
             );
         }
 
         /** 在客户端把快照还原成真正的 TalkMessage */
         public TalkMessage toMessage() {
-            TalkMessage m = new TalkMessage(type, speaker, text, timestamp);
+            TalkMessage m = new TalkMessage(
+                    id,
+                    type,
+                    speaker,
+                    text,
+                    timestamp,
+                    nextId.orElse(null)
+            );
             for (NetChoice c : choices) {
                 m.addChoice(c.toChoice());
             }
@@ -86,12 +109,14 @@ public class PayloadSync {
     /* ------------- 一个 Thread 的快照 ------------- */
     public record NetThread(
             String id,
+            String scriptId,
             long startedAt,
             List<NetMessage> messages
     ) {
         public static final StreamCodec<ByteBuf, NetThread> STREAM_CODEC =
                 StreamCodec.composite(
                         ByteBufCodecs.STRING_UTF8, NetThread::id,
+                        ByteBufCodecs.STRING_UTF8, NetThread::scriptId,
                         ByteBufCodecs.VAR_LONG, NetThread::startedAt,
                         NetMessage.STREAM_CODEC.apply(ByteBufCodecs.list()), NetThread::messages,
                         NetThread::new
@@ -102,18 +127,16 @@ public class PayloadSync {
                     .stream()
                     .map(NetMessage::fromMessage)
                     .toList();
-            return new NetThread(thread.getId(), thread.getStartedAt(), msgs);
+            return new NetThread(thread.getId(), thread.getScriptId(), thread.getStartTime(), msgs);
         }
 
         /** 在客户端把快照还原成 TalkThread（内部用一个临时 TalkConversation 来填充消息） */
         public TalkThread toThread() {
-            TalkThread thread = new TalkThread(id, startedAt);
+            TalkThread thread = new TalkThread(id, scriptId, startedAt);
 
-            TalkConversation conv = new TalkConversation(id);
             for (NetMessage nm : messages) {
-                conv.addMessage(nm.toMessage());
+                thread.appendMessage(nm.toMessage());
             }
-            thread.appendConversation(conv);
 
             return thread;
         }

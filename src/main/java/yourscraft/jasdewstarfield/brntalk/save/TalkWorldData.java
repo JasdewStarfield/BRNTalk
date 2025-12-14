@@ -14,7 +14,7 @@ public class TalkWorldData extends SavedData {
 
     public TalkWorldData() {}
 
-    // ----------- 对外操作接口（之前设计的那套） -----------
+    // ----------- 对外操作接口 -----------
 
     public PlayerTalkState getOrCreate(UUID uuid) {
         return players.computeIfAbsent(uuid.toString(), s -> new PlayerTalkState());
@@ -24,19 +24,38 @@ public class TalkWorldData extends SavedData {
         return players.get(uuid.toString());
     }
 
-    public void startThread(UUID uuid, String threadId, String firstConversationId) {
+    /**
+     * 启动一个新的对话线程
+     * @param uuid 玩家UUID
+     * @param threadId 线程ID (运行时唯一标识)
+     * @param scriptId 剧本ID (Conversation ID)
+     * @param startMsgId 起始消息 ID
+     */
+    public void startThread(UUID uuid, String threadId, String scriptId, String startMsgId) {
         PlayerTalkState state = getOrCreate(uuid);
-        state.startThread(threadId, firstConversationId);
+        state.startThread(threadId, scriptId, startMsgId);
         setDirty();
     }
 
-    public void appendConversation(UUID uuid, String threadId, String conversationId) {
+    /**
+     * 记录玩家刚刚看到的一条新消息
+     */
+    public void appendMessage(UUID uuid, String threadId, String messageId) {
         PlayerTalkState state = getOrCreate(uuid);
-        state.appendConversation(threadId, conversationId);
+        state.appendMessage(threadId, messageId);
         setDirty();
     }
 
-    // ------------- SavedData 必须实现的两个静态方法 + Factory -------------
+    /**
+     * 批量记录新消息 (用于自动推进逻辑)
+     */
+    public void appendMessages(UUID uuid, String threadId, List<String> messageIds) {
+        PlayerTalkState state = getOrCreate(uuid);
+        state.appendMessages(threadId, messageIds);
+        setDirty();
+    }
+
+    // ------------ SavedData -------------
 
     /** 新建一个空实例 */
     public static TalkWorldData create() {
@@ -46,7 +65,6 @@ public class TalkWorldData extends SavedData {
     /** 从 NBT 读取一个实例 */
     public static TalkWorldData load(CompoundTag tag, HolderLookup.Provider lookup) {
         TalkWorldData data = new TalkWorldData();
-
         if (tag.contains("players")) {
             CompoundTag playersTag = tag.getCompound("players");
             for (String key : playersTag.getAllKeys()) {
@@ -55,7 +73,6 @@ public class TalkWorldData extends SavedData {
                 data.players.put(key, state);
             }
         }
-
         return data;
     }
 
@@ -63,35 +80,28 @@ public class TalkWorldData extends SavedData {
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         CompoundTag playersTag = new CompoundTag();
-
         for (Map.Entry<String, PlayerTalkState> entry : players.entrySet()) {
-            String key = entry.getKey();
-            PlayerTalkState state = entry.getValue();
-
             CompoundTag playerTag = new CompoundTag();
-            state.saveToNbt(playerTag);
-
-            playersTag.put(key, playerTag);
+            entry.getValue().saveToNbt(playerTag);
+            playersTag.put(entry.getKey(), playerTag);
         }
-
         tag.put("players", playersTag);
         return tag;
     }
 
-    /** 1.21.1 的推荐写法：用 SavedData.Factory 而不是 SavedDataType */
+    /** SavedData.Factory */
     public static final SavedData.Factory<TalkWorldData> FACTORY =
             new SavedData.Factory<>(TalkWorldData::create, TalkWorldData::load);
 
-    /** 从某个维度的 dataStorage 获取/创建我们的数据（你可以只挂在 Overworld） */
+    /** 从某个维度的 dataStorage 获取/创建数据 */
     public static TalkWorldData get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(FACTORY, "brntalk_talk_data");
     }
 
     /** 清除玩家全部的对话数据 */
     public void clearPlayer(UUID uuid) {
-        String key = uuid.toString();
-        if (players.remove(key) != null) {
-            setDirty(); // 标记为已修改，让世界存盘时写回文件
+        if (players.remove(uuid.toString()) != null) {
+            setDirty();
         }
     }
 }

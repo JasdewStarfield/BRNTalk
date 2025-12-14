@@ -22,12 +22,12 @@ public class TalkMessage {
     public static class Choice {
         private final String id;                // 选项 id（可选）
         private final String text;              // 显示在按钮上的文本
-        private final String nextConversationId; // 点击后跳去哪个对话（可为空）
+        private final String nextId;   // 点击后跳转到的 Message ID
 
-        public Choice(String id, String text, String nextConversationId) {
+        public Choice(String id, String text, String nextId) {
             this.id = id;
             this.text = text;
-            this.nextConversationId = nextConversationId;
+            this.nextId = nextId;
         }
 
         public String getId() {
@@ -38,22 +38,34 @@ public class TalkMessage {
             return text;
         }
 
-        public String getNextConversationId() {
-            return nextConversationId;
+        public String getNextId() {
+            return nextId;
         }
     }
 
+    private final String id;
+    private final String nextId;
     private final Type type;
     private final String speaker;
     private final String text;
     private final long timestamp;
     private final List<Choice> choices = new ArrayList<>();
 
-    public TalkMessage(Type type, String speaker, String text, long timestamp) {
+    public TalkMessage(String id, Type type, String speaker, String text, long timestamp, String nextId) {
+        this.id = id;
         this.type = type;
         this.speaker = speaker;
         this.text = text;
         this.timestamp = timestamp;
+        this.nextId = nextId;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public String getNextId() {
+        return nextId;
     }
 
     public Type getType() {
