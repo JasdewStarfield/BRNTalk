@@ -54,23 +54,15 @@ public class BrntalkCommands {
     }
 
     private static int startConversation(CommandSourceStack source, Collection<ServerPlayer> targets, String id){
-        TalkManager manager = TalkManager.getInstance();
         int successCount = 0;
 
         for (ServerPlayer player : targets) {
-            TalkThread thread = manager.startThread(player.getUUID(), id);
-
-            if (thread == null) {
-                // 如果脚本不存在，只给命令发送者报错，不打断循环
-                source.sendFailure(Component.literal("[BRNTalk] 找不到对话脚本: " + id));
-                continue; // 继续处理下一个玩家
+            if (BrntalkAPI.startConversation(player, id)) {
+                successCount++;
+            } else {
+                // 如果 API 返回 false，说明 ID 不对，单独给发令者提示
+                source.sendFailure(Component.literal("[BRNTalk] 找不到对话脚本: " + id + " (玩家: " + player.getName().getString() + ")"));
             }
-
-            TalkWorldData data = TalkWorldData.get(player.serverLevel());
-            data.startThread(player.getUUID(), thread.getId(), id);
-
-            TalkNetwork.syncThreadsTo(player);
-            successCount++;
         }
 
         if (successCount > 0) {
@@ -91,21 +83,10 @@ public class BrntalkCommands {
     }
 
     private static int clearPlayers(CommandSourceStack source, Collection<ServerPlayer> targets){
-        TalkManager manager = TalkManager.getInstance();
-
         for (ServerPlayer player : targets) {
-            // 1. 清除存档
-            TalkWorldData data = TalkWorldData.get(player.serverLevel());
-            data.clearPlayer(player.getUUID());
-
-            // 2. 清除运行时
-            manager.clearThreadsForPlayer(player.getUUID());
-
-            // 3. 同步
-            TalkNetwork.syncThreadsTo(player);
+            BrntalkAPI.clearConversation(player);
         }
 
-        // 4. 给玩家一个提示
         source.sendSuccess(() -> Component.literal("[BRNTalk] 已清除 " + targets.size() + " 名玩家的对话进度。"), true);
 
         return targets.size();
