@@ -76,8 +76,8 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
 
             String typeStr = GsonHelper.getAsString(msgObj, "type", "text");
             TalkMessage.Type type = TalkMessage.Type.fromString(typeStr);
-            String speaker = GsonHelper.getAsString(msgObj, "speaker", "");
-            String text = GsonHelper.getAsString(msgObj, "text", "");
+            String speaker = getLocalizedOrLiteral(msgObj, "speakerKey", "speaker");
+            String text = getLocalizedOrLiteral(msgObj, "textKey", "text");
 
             TalkMessage msg = new TalkMessage(
                     msgId,
@@ -96,7 +96,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
                     JsonObject choiceObj = choiceEl.getAsJsonObject();
 
                     String choiceId = GsonHelper.getAsString(choiceObj, "id", "");
-                    String choiceText = GsonHelper.getAsString(choiceObj, "text", "");
+                    String choiceText = getLocalizedOrLiteral(choiceObj, "textKey", "text");
 
                     // 读取 Choice 的 Next ID
                     // 优先读 nextId，其次兼容 nextConversation
@@ -118,5 +118,12 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
         }
 
         manager.registerConversation(conv);
+    }
+
+    private static String getLocalizedOrLiteral(JsonObject obj, String keyName, String literalName) {
+        if (obj.has(keyName)) {
+            return obj.get(keyName).getAsString();
+        }
+        return GsonHelper.getAsString(obj, literalName, "");
     }
 }

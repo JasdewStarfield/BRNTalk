@@ -1,4 +1,5 @@
 {
   "gui.brntalk.close_screen": "Close",
-  "key.brntalk.open_screen": "Example Screen"
+  "gui.brntalk.no_conversation": "Currently no message...",
+  "key.brntalk.open_screen": "Open BRNTalk GUI"
 }

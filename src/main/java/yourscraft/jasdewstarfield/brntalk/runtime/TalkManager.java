@@ -88,6 +88,17 @@ public class TalkManager {
         return thread;
     }
 
+    public void removeThread(UUID playerUuid, String threadId) {
+        Map<String, TalkThread> threads = playerThreads.get(playerUuid);
+        if (threads != null) {
+            threads.remove(threadId);
+            // 如果玩家没有任何对话了，把玩家的空 Map 也移除
+            if (threads.isEmpty()) {
+                playerThreads.remove(playerUuid);
+            }
+        }
+    }
+
     public List<String> proceedThread(UUID playerUuid, String threadId, String nextMsgId) {
         TalkThread thread = getActiveThread(playerUuid, threadId);
         if (thread == null) return Collections.emptyList();

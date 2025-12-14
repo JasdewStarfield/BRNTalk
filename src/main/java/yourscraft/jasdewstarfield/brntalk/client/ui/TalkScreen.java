@@ -131,7 +131,7 @@ public class TalkScreen extends Screen {
             int cy = startY - (choiceHeight + spacing) * i;
 
             Button btn = Button.builder(
-                            Component.literal(c.getText()),
+                            Component.translatable(c.getText()),
                             b -> onChoiceClicked(c)
                     )
                     .bounds(centerX - choiceWidth / 2, cy, choiceWidth, choiceHeight)
@@ -180,7 +180,10 @@ public class TalkScreen extends Screen {
             int y = top;
 
             for (TalkMessage msg : msgs) {
-                String line = msg.getSpeaker() + ": " + msg.getText();
+                String speaker = Component.translatable(msg.getSpeaker()).getString();
+                String text = Component.translatable(msg.getText()).getString();
+
+                String line = speaker + ": " + text;
                 gfx.drawString(this.font, line, left, y, 0xFFFFFF);
                 y += lineHeight;
             }
@@ -188,7 +191,7 @@ public class TalkScreen extends Screen {
             // 没有任何聊天串时的提示
             gfx.drawString(
                     this.font,
-                    "暂无聊天串。可以通过 /brntalk start <id> 来触发。",
+                    Component.translatable("gui.brntalk.no_conversation").getString(),
                     this.threadList.getX() + this.threadList.getWidth() + 10,
                     this.height / 2,
                     0xFFFFFF

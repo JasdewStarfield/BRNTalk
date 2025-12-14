@@ -61,25 +61,51 @@ public class BrntalkAPI {
     }
 
     /**
-     * 清除指定玩家的所有对话进度。
+     * 清除指定玩家的【所有】对话进度。
      *
      * @param player 目标玩家
-     * @return 除非找不到玩家，总是返回 true (表示操作完成)
+     * @return 成功执行返回 true
      */
-    public static boolean clearConversation(ServerPlayer player) {
+    public static boolean clearAllConversation(ServerPlayer player) {
         if (player == null) {
             return false;
         }
 
         // 1. 清除存档
         TalkWorldData data = TalkWorldData.get(player.serverLevel());
-        data.clearPlayer(player.getUUID());
+        data.removeAllThread(player.getUUID());
 
         // 2. 清除运行时内存
         TalkManager manager = TalkManager.getInstance();
         manager.clearThreadsForPlayer(player.getUUID());
 
         // 3. 同步空状态给客户端
+        TalkNetwork.syncThreadsTo(player);
+
+        return true;
+    }
+
+    /**
+     * 清除指定玩家的【特定】对话进度。
+     *
+     * @param player 目标玩家
+     * @param threadId 要清除的线程 ID (通常等于 scriptId)
+     * @return 成功执行返回 true
+     */
+    public static boolean clearConversation(ServerPlayer player, String threadId) {
+        if (player == null || threadId == null) {
+            return false;
+        }
+
+        // 1. 清除存档
+        TalkWorldData data = TalkWorldData.get(player.serverLevel());
+        data.removeThread(player.getUUID(), threadId);
+
+        // 2. 清除运行时内存
+        TalkManager manager = TalkManager.getInstance();
+        manager.removeThread(player.getUUID(), threadId);
+
+        // 3. 同步最新状态（客户端会自动移除不在列表中的对话）
         TalkNetwork.syncThreadsTo(player);
 
         return true;

@@ -102,6 +102,13 @@ public class PlayerTalkState {
         }
     }
 
+    /**
+     * 移除指定的对话线程
+     */
+    public void removeThread(String threadId) {
+        threads.remove(threadId);
+    }
+
     public SavedThread getThread(String threadId) {
         return threads.get(threadId);
     }

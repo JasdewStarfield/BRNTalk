@@ -19,8 +19,10 @@ public class BrntalkCommands {
                 Commands.literal("brntalk")
                         // --- start 命令分支 ---
                         .then(Commands.literal("start")
+                                // 用法 1: /brntalk start <id> (为自己开启某条指定对话)
                                 .then(Commands.argument("id", StringArgumentType.string())
                                         .executes(BrntalkCommands::startForSelf)
+                                        // 用法 2: /brntalk start <id> <targets> (为目标开启某条指定对话)
                                         .then(Commands.argument("targets", EntityArgument.players())
                                                 .executes(BrntalkCommands::startForTargets)
                                         )
@@ -28,9 +30,15 @@ public class BrntalkCommands {
                         )
                         // --- clear 命令分支 ---
                         .then(Commands.literal("clear")
+                                // 用法 1: /brntalk clear (清除自己所有)
                                 .executes(BrntalkCommands::clearSelf)
+                                // 用法 2: /brntalk clear <targets> (清除目标所有)
                                 .then(Commands.argument("targets", EntityArgument.players())
                                         .executes(BrntalkCommands::clearTargets)
+                                        // 用法 3: /brntalk clear <targets> <id> (清除目标指定ID)
+                                        .then(Commands.argument("id", StringArgumentType.string())
+                                                .executes(BrntalkCommands::clearSpecificTarget)
+                                        )
                                 )
                         )
         );
@@ -78,9 +86,27 @@ public class BrntalkCommands {
         return clearPlayers(ctx.getSource(), targets);
     }
 
+    private static int clearSpecificTarget(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        Collection<ServerPlayer> targets = EntityArgument.getPlayers(ctx, "targets");
+        String id = StringArgumentType.getString(ctx, "id");
+
+        int count = 0;
+        for (ServerPlayer player : targets) {
+            if (BrntalkAPI.clearConversation(player, id)) {
+                count++;
+            }
+        }
+
+        ctx.getSource().sendSuccess(
+                () -> Component.literal("[BRNTalk] 已为 " + targets.size() + " 名玩家清除了对话: " + id),
+                true
+        );
+        return count;
+    }
+
     private static int clearPlayers(CommandSourceStack source, Collection<ServerPlayer> targets){
         for (ServerPlayer player : targets) {
-            BrntalkAPI.clearConversation(player);
+            BrntalkAPI.clearAllConversation(player);
         }
 
         source.sendSuccess(() -> Component.literal("[BRNTalk] 已清除 " + targets.size() + " 名玩家的对话进度。"), true);

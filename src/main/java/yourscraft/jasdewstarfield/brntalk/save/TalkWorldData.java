@@ -98,8 +98,19 @@ public class TalkWorldData extends SavedData {
         return level.getDataStorage().computeIfAbsent(FACTORY, "brntalk_talk_data");
     }
 
+    /**
+     * 清除玩家特定的对话线程
+     */
+    public void removeThread(UUID uuid, String threadId) {
+        PlayerTalkState state = get(uuid);
+        if (state != null) {
+            state.removeThread(threadId);
+            setDirty();
+        }
+    }
+
     /** 清除玩家全部的对话数据 */
-    public void clearPlayer(UUID uuid) {
+    public void removeAllThread(UUID uuid) {
         if (players.remove(uuid.toString()) != null) {
             setDirty();
         }
