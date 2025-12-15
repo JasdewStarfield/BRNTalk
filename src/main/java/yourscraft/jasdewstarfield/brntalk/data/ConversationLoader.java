@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -25,8 +26,8 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
 
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> jsons,
-                         ResourceManager resourceManager,
-                         ProfilerFiller profiler) {
+                         @NotNull ResourceManager resourceManager,
+                         @NotNull ProfilerFiller profiler) {
 
         TalkManager manager = TalkManager.getInstance();
         manager.clear();
@@ -82,8 +83,8 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
             String msgId = idList.get(idx);
             String typeStr = GsonHelper.getAsString(msgObj, "type", "text");
             TalkMessage.Type type = TalkMessage.Type.fromString(typeStr);
-            String speaker = getLocalizedOrLiteral(msgObj, "speakerKey", "speaker");
-            String text = getLocalizedOrLiteral(msgObj, "textKey", "text");
+            String speaker = GsonHelper.getAsString(msgObj, "speaker", "&c**EMPTY SPEAKER**");
+            String text = GsonHelper.getAsString(msgObj, "text", "&c**EMPTY TEXT**");
             String nextId = GsonHelper.getAsString(msgObj, "nextId", null);
             boolean autoContinue = GsonHelper.getAsBoolean(msgObj, "continue", false);
             if (autoContinue && nextId == null) {
@@ -110,7 +111,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
                     JsonObject choiceObj = choiceEl.getAsJsonObject();
 
                     String choiceId = GsonHelper.getAsString(choiceObj, "id", msgId + "_choice_" + choiceIdx);
-                    String choiceText = getLocalizedOrLiteral(choiceObj, "textKey", "text");
+                    String choiceText = GsonHelper.getAsString(choiceObj, "text", "&c**EMPTY CHOICE TEXT**");
                     String cNextId = GsonHelper.getAsString(choiceObj, "nextId", "");
 
                     TalkMessage.Choice choice = new TalkMessage.Choice(
@@ -128,12 +129,5 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
         }
 
         manager.registerConversation(conv);
-    }
-
-    private static String getLocalizedOrLiteral(JsonObject obj, String keyName, String literalName) {
-        if (obj.has(keyName)) {
-            return obj.get(keyName).getAsString();
-        }
-        return GsonHelper.getAsString(obj, literalName, "");
     }
 }

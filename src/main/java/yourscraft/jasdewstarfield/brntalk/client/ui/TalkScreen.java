@@ -1,5 +1,7 @@
 package yourscraft.jasdewstarfield.brntalk.client.ui;
 
+import net.minecraft.client.resources.language.I18n;
+import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadSender;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
@@ -27,8 +29,14 @@ public class TalkScreen extends Screen {
     private float scrollAmount = 0.0f;
     private int totalContentHeight = 0;
 
+    private boolean needScrollToBottom = true;
+
+    private final long screenOpenTime;
+
     public TalkScreen() {
         super(Component.literal("BRNTalk"));
+        // 记录当前时间
+        this.screenOpenTime = System.currentTimeMillis();
     }
 
     @Override
@@ -105,7 +113,7 @@ public class TalkScreen extends Screen {
         if (this.selectedThread != newSelected) {
             this.selectedThread = newSelected;
             this.selectedThreadId = newSelected != null ? newSelected.getId() : null;
-            this.scrollAmount = 0;
+            this.needScrollToBottom = true;
         }
 
         // 同步左侧列表的选中视觉状态
@@ -129,8 +137,6 @@ public class TalkScreen extends Screen {
         List<TalkMessage.Choice> choices = last.getChoices();
         if (choices.isEmpty()) return;
 
-        System.out.println("DEBUG: Choices count: " + choices.size());
-
         int choiceWidth = 140;
         int choiceHeight = 20;
         int spacing = 5;
@@ -143,8 +149,6 @@ public class TalkScreen extends Screen {
         for (int i = 0; i < choices.size(); i++) {
             TalkMessage.Choice c = choices.get(choices.size() - 1 - i);
             int cy = startY - (choiceHeight + spacing) * (i + 1);
-
-            System.out.println("DEBUG: Button '" + c.getText() + "' at Y=" + cy + " (Screen Height=" + this.height + ")");
 
             Button btn = Button.builder(
                             Component.translatable(c.getText()),
@@ -195,6 +199,26 @@ public class TalkScreen extends Screen {
         ClientPayloadSender.sendSelectChoice(threadId, choiceId);
     }
 
+    private String processText(String text) {
+        if (text == null) return "";
+
+        // 支持翻译键
+        String translated = I18n.get(text);
+
+        // 1. 支持颜色代码：用 '&' 代替 '§' (例如 "&c" -> 红色)
+        String processing = translated.replace("&", "§");
+
+        // 2. 支持玩家名占位符："{player}" -> 当前玩家名
+        if (processing.contains("{player}")) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player != null) {
+                processing = processing.replace("{player}", mc.player.getName().getString());
+            }
+        }
+
+        return processing;
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         // 如果鼠标在右侧区域，则允许滚动
@@ -217,7 +241,7 @@ public class TalkScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
+    public void render(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(gfx, mouseX, mouseY, partialTick);
         super.render(gfx, mouseX, mouseY, partialTick);
 
@@ -245,11 +269,16 @@ public class TalkScreen extends Screen {
         int endY = getChatBottomY();
         int viewHeight = endY - startY;
 
+        // 1. 在渲染内容之前，检查当前是否处于"底部状态"
+        // 使用上一帧计算出的 totalContentHeight
+        float maxScrollPre = Math.max(0, this.totalContentHeight - viewHeight);
+        // 如果当前滚动位置接近最大值(允许 5 像素误差)，或者有强制置底信号，则认为需要"粘"在底部
+        boolean isAtBottom = (this.scrollAmount >= maxScrollPre - 5) || this.needScrollToBottom;
+
         if (endX - startX < 10 || endY - startY < 10) return;
 
-        // 1. 开启裁剪 (Scissor Test)，只在指定矩形内绘制，防止溢出
+        // 2. 开启裁剪 (Scissor Test)，只在指定矩形内绘制，防止溢出
         gfx.enableScissor(startX, startY, endX, endY);
-        // 保存当前矩阵栈
         gfx.pose().pushPose();
 
         try {
@@ -260,16 +289,64 @@ public class TalkScreen extends Screen {
             int currentY = startY;
             int lineHeight = this.font.lineHeight;
             int entrySpacing = 8; // 消息之间的间距
+            long now = System.currentTimeMillis();
+            long previousEndTime = 0;
+
+            // 配置参数
+            int charDelay = 50;   // ms
+            int msgPause = 500;   // ms
 
             for (TalkMessage msg : msgs) {
-                // 说话人名字
-                Component speakerComp = Component.translatable(msg.getSpeaker());
-                gfx.drawString(this.font, speakerComp, startX, currentY, 0xFFFFAA00); // 金色名字
+                // 1. 预处理文本（替换占位符、颜色等），因为长度会变，所以要先处理
+                String rawText = processText(msg.getText());
+                int textLen = rawText.length();
+                // 是否为历史消息（已经播完）
+                boolean isHistory = msg.getTimestamp() < this.screenOpenTime;
+
+                // 2. 计算这条消息的“视觉开始时间”
+                // 逻辑：它必须晚于“它真实产生的时间”，同时也必须等“上一条消息播完 + 停顿”之后
+                long visualStartTime;
+                // 计算这条消息播完需要多久
+                long typingDuration = (long) textLen * charDelay;
+                if (isHistory) {
+                    // 历史消息：视觉开始时间 = 0 (立即显示)
+                    visualStartTime = 0;
+                    // 历史消息不应该阻碍后续新消息的播放，所以重置排队计时
+                    previousEndTime = 0;
+                } else {
+                    // 新消息：正常计算排队
+                    // 如果上一条消息结束得太早(previousEndTime很小)，就用消息自己的时间戳
+                    // 这样即使玩家手动跳过了上一条，下一条也能立即开始，而不会被强行推迟
+                    visualStartTime = Math.max(msg.getTimestamp(), previousEndTime + msgPause);
+                    previousEndTime = visualStartTime + typingDuration;
+                }
+
+                // 3. 计算当前时刻 (now) 处于什么阶段
+                long timePassed = now - visualStartTime;
+                // 如果时间还没到 (timePassed < 0)，说明上一条还没播完，这条直接跳过不渲染
+                if (timePassed < 0) {
+                    continue;
+                }
+
+                // --- 渲染说话人 ---
+                String speakerName = processText(msg.getSpeaker());
+                Component speakerComp = Component.literal(speakerName);
+                gfx.drawString(this.font, speakerComp, startX, currentY, 0xFFFFAA00);
                 currentY += lineHeight + 2;
 
-                // 消息内容（自动换行处理）
-                Component textComp = Component.translatable(msg.getText());
-                // split 方法会根据宽度把文本切成多行
+                // --- 渲染正文 ---
+                String textToShow;
+                if (timePassed < typingDuration) {
+                    // 阶段 A: 正在打字
+                    int charCount = (int) (timePassed / charDelay);
+                    charCount = Math.min(charCount, textLen); // 防止越界
+                    textToShow = rawText.substring(0, charCount);
+                } else {
+                    // 阶段 B: 播放完毕，显示全部
+                    textToShow = rawText;
+                }
+
+                Component textComp = Component.literal(textToShow);
                 List<FormattedCharSequence> lines = this.font.split(textComp, textWidth);
 
                 for (FormattedCharSequence line : lines) {
@@ -292,7 +369,17 @@ public class TalkScreen extends Screen {
             gfx.disableScissor();
         }
 
-        // 2. 绘制滚动条
+        // 3. 渲染结束后，应用粘性滚动
+        float maxScrollPost = Math.max(0, this.totalContentHeight - viewHeight);
+
+        if (isAtBottom) {
+            // 如果渲染前就在底部（或强制要求），那么渲染后我们将滚动条更新到新的底部
+            this.scrollAmount = maxScrollPost;
+            // 消耗掉强制信号
+            this.needScrollToBottom = false;
+        }
+
+        // 4. 绘制滚动条
         if (this.totalContentHeight > viewHeight) {
             int scrollbarX = endX - 2;
             int scrollbarWidth = 2;
@@ -300,10 +387,10 @@ public class TalkScreen extends Screen {
             // 计算滑块高度和位置
             float ratio = (float) viewHeight / this.totalContentHeight;
             int barHeight = Math.max(10, (int) (viewHeight * ratio));
-            int maxScrollRange = this.totalContentHeight - viewHeight;
+
             int barTop = startY;
-            if (maxScrollRange > 0) {
-                barTop += (int) ((this.scrollAmount / maxScrollRange) * (viewHeight - barHeight));
+            if (maxScrollPost > 0) {
+                barTop += (int) ((this.scrollAmount / maxScrollPost) * (viewHeight - barHeight));
             }
 
             gfx.fill(scrollbarX, startY, scrollbarX + scrollbarWidth, endY, 0x20FFFFFF); // 轨道
@@ -320,7 +407,7 @@ public class TalkScreen extends Screen {
         if (this.selectedThread != thread) {
             this.selectedThread = thread;
             this.selectedThreadId = thread != null ? thread.getId() : null;
-            this.scrollAmount = 0; // 重置滚动
+            this.needScrollToBottom = true;
         }
         rebuildUI();
     }

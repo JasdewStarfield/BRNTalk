@@ -73,7 +73,9 @@ public class TalkThread {
      */
     public void appendMessage(TalkMessage message) {
         if (message == null) return;
-        messages.add(message);
+
+        // 存入时更新时间戳为当前时间
+        messages.add(message.withTimestamp(System.currentTimeMillis()));
     }
 
 }

@@ -3,7 +3,7 @@
   "messages": [
     {
       "speaker": "DJW",
-      "text": "噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷",
+      "text": "&c噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷",
       "continue": true
     },
     {
@@ -18,8 +18,8 @@
     },
     {
       "type": "choice",
-      "speaker": "System",
-      "text": "请选择你的回答：",
+      "speaker": "&cSystem",
+      "text": "请选择你的回答，{player}：",
       "choices": [
         {
           "text": "死了",
@@ -44,8 +44,8 @@
     },
     {
       "type": "choice",
-      "speaker": "System",
-      "text": "请选择你的回答：",
+      "speaker": "&cSystem",
+      "text": "请选择你的回答，{player}：",
       "choices": [
         {
           "text": "对的",

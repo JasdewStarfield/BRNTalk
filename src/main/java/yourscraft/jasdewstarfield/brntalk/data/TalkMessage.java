@@ -91,4 +91,20 @@ public class TalkMessage {
     public List<Choice> getChoices() {
         return Collections.unmodifiableList(choices);
     }
+
+    // 一个带有新时间戳的副本（用于运行时记录）
+    public TalkMessage withTimestamp(long newTimestamp) {
+        TalkMessage newMsg = new TalkMessage(
+                this.id,
+                this.type,
+                this.speaker,
+                this.text,
+                newTimestamp,
+                this.nextId
+        );
+        for (Choice c : this.choices) {
+            newMsg.addChoice(c);
+        }
+        return newMsg;
+    }
 }
