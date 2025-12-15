@@ -9,6 +9,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
 
 import javax.annotation.Nullable;
 import java.util.Comparator;
@@ -21,6 +23,9 @@ public class TalkScreen extends Screen {
 
     @Nullable
     private String selectedThreadId;
+
+    private float scrollAmount = 0.0f;
+    private int totalContentHeight = 0;
 
     public TalkScreen() {
         super(Component.literal("BRNTalk"));
@@ -97,8 +102,13 @@ public class TalkScreen extends Screen {
             newSelected = threads.getFirst();
         }
 
-        this.selectedThread = newSelected;
+        if (this.selectedThread != newSelected) {
+            this.selectedThread = newSelected;
+            this.selectedThreadId = newSelected != null ? newSelected.getId() : null;
+            this.scrollAmount = 0;
+        }
 
+        // 同步左侧列表的选中视觉状态
         if (this.selectedThread != null) {
             var children = threadList.children();
             for (var entry : children) {
@@ -119,16 +129,22 @@ public class TalkScreen extends Screen {
         List<TalkMessage.Choice> choices = last.getChoices();
         if (choices.isEmpty()) return;
 
+        System.out.println("DEBUG: Choices count: " + choices.size());
+
         int choiceWidth = 140;
         int choiceHeight = 20;
         int spacing = 5;
-        int startY = this.height - 60; // 靠近底部
-        int centerX = (this.width + 130) / 2 + 20; // 大致在右半边中间，130 是左侧列表宽度
+        int startY = this.height - 55;
+        int listRight = this.threadList.getX() + this.threadList.getWidth();
+        int availableWidth = this.width - listRight;
+        int centerX = listRight + availableWidth / 2;
 
-        int i = 0;
-        for (TalkMessage.Choice choice : choices) {
-            final TalkMessage.Choice c = choice;
-            int cy = startY - (choiceHeight + spacing) * i;
+
+        for (int i = 0; i < choices.size(); i++) {
+            TalkMessage.Choice c = choices.get(choices.size() - 1 - i);
+            int cy = startY - (choiceHeight + spacing) * (i + 1);
+
+            System.out.println("DEBUG: Button '" + c.getText() + "' at Y=" + cy + " (Screen Height=" + this.height + ")");
 
             Button btn = Button.builder(
                             Component.translatable(c.getText()),
@@ -138,8 +154,23 @@ public class TalkScreen extends Screen {
                     .build();
 
             this.addRenderableWidget(btn);
-            i++;
         }
+    }
+
+    private int getChatBottomY() {
+        int defaultBottom = this.height - 60; // 默认底部（只有关闭按钮时）
+
+        TalkMessage last = getLastMessageOfSelected();
+        if (last != null && last.getType() == TalkMessage.Type.CHOICE) {
+            int choiceCount = last.getChoices().size();
+            if (choiceCount > 0) {
+                int buttonAreaHeight = choiceCount * 25;
+
+                int buttonsTop = (this.height - 55) - buttonAreaHeight;
+                return Math.min(defaultBottom, buttonsTop - 5);
+            }
+        }
+        return defaultBottom;
     }
 
     // 工具方法：取当前选中聊天串的最后一条消息
@@ -165,28 +196,33 @@ public class TalkScreen extends Screen {
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        // 如果鼠标在右侧区域，则允许滚动
+        if (mouseX > this.threadList.getX() + this.threadList.getWidth()) {
+            this.scrollAmount = (float) (this.scrollAmount - scrollY * 20); // 每次滚动 20 像素
+            this.clampScroll();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    private void clampScroll() {
+        int listTop = 20;
+        int listBottom = getChatBottomY();
+        int viewHeight = listBottom - listTop;
+
+        // 只有内容高度超过视口高度才允许滚动
+        int maxScroll = Math.max(0, this.totalContentHeight - viewHeight);
+        this.scrollAmount = Mth.clamp(this.scrollAmount, 0, maxScroll);
+    }
+
+    @Override
     public void render(GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(gfx, mouseX, mouseY, partialTick);
-
-        // 先交给父类渲染列表、按钮等组件
         super.render(gfx, mouseX, mouseY, partialTick);
 
-        // 右侧聊天内容区域
         if (selectedThread != null) {
-            var msgs = selectedThread.getMessages();
-            int left = this.threadList.getX() + this.threadList.getWidth() + 10;
-            int top = 20;
-            int lineHeight = 12;
-            int y = top;
-
-            for (TalkMessage msg : msgs) {
-                String speaker = Component.translatable(msg.getSpeaker()).getString();
-                String text = Component.translatable(msg.getText()).getString();
-
-                String line = speaker + ": " + text;
-                gfx.drawString(this.font, line, left, y, 0xFFFFFF);
-                y += lineHeight;
-            }
+            renderChatArea(gfx, mouseX, mouseY);
         } else {
             // 没有任何聊天串时的提示
             gfx.drawString(
@@ -199,35 +235,93 @@ public class TalkScreen extends Screen {
         }
     }
 
-    public void onThreadsSynced() {
-        List<TalkThread> threads = ClientTalkState.get().getThreads().stream()
-                .sorted(Comparator.comparingLong(TalkThread::getStartTime).reversed())
-                .toList();
+    private void renderChatArea(GuiGraphics gfx, int mouseX, int mouseY) {
+        int listRight = this.threadList.getX() + this.threadList.getWidth();
+        int startX = listRight + 10; // 文字左边距
+        int endX = this.width - 10;  // 文字右边距
+        int textWidth = endX - startX;
 
-        this.threadList.setThreads(threads);
+        int startY = 20;
+        int endY = getChatBottomY();
+        int viewHeight = endY - startY;
 
-        String oldId = selectedThread != null ? selectedThread.getId() : null;
-        this.selectedThread = null;
+        if (endX - startX < 10 || endY - startY < 10) return;
 
-        if (oldId != null) {
-            for (TalkThread t : threads) {
-                if (oldId.equals(t.getId())) {
-                    this.selectedThread = t;
-                    break;
+        // 1. 开启裁剪 (Scissor Test)，只在指定矩形内绘制，防止溢出
+        gfx.enableScissor(startX, startY, endX, endY);
+        // 保存当前矩阵栈
+        gfx.pose().pushPose();
+
+        try {
+            // 应用滚动偏移
+            gfx.pose().translate(0, -this.scrollAmount, 0);
+
+            List<TalkMessage> msgs = selectedThread.getMessages();
+            int currentY = startY;
+            int lineHeight = this.font.lineHeight;
+            int entrySpacing = 8; // 消息之间的间距
+
+            for (TalkMessage msg : msgs) {
+                // 说话人名字
+                Component speakerComp = Component.translatable(msg.getSpeaker());
+                gfx.drawString(this.font, speakerComp, startX, currentY, 0xFFFFAA00); // 金色名字
+                currentY += lineHeight + 2;
+
+                // 消息内容（自动换行处理）
+                Component textComp = Component.translatable(msg.getText());
+                // split 方法会根据宽度把文本切成多行
+                List<FormattedCharSequence> lines = this.font.split(textComp, textWidth);
+
+                for (FormattedCharSequence line : lines) {
+                    gfx.drawString(this.font, line, startX, currentY, 0xFFFFFF);
+                    currentY += lineHeight;
                 }
+
+                currentY += entrySpacing;
             }
+
+            // 计算总高度，用于滚动条逻辑
+            this.totalContentHeight = currentY - startY;
+
+        } catch (Exception e) {
+            // 捕获异常，防止渲染崩溃导致 Scissor 状态锁死
+            e.printStackTrace();
+        } finally {
+            // 恢复矩阵和关闭裁剪
+            gfx.pose().popPose();
+            gfx.disableScissor();
         }
 
-        if (this.selectedThread == null && !threads.isEmpty()) {
-            this.selectedThread = threads.getFirst();
-        }
+        // 2. 绘制滚动条
+        if (this.totalContentHeight > viewHeight) {
+            int scrollbarX = endX - 2;
+            int scrollbarWidth = 2;
 
+            // 计算滑块高度和位置
+            float ratio = (float) viewHeight / this.totalContentHeight;
+            int barHeight = Math.max(10, (int) (viewHeight * ratio));
+            int maxScrollRange = this.totalContentHeight - viewHeight;
+            int barTop = startY;
+            if (maxScrollRange > 0) {
+                barTop += (int) ((this.scrollAmount / maxScrollRange) * (viewHeight - barHeight));
+            }
+
+            gfx.fill(scrollbarX, startY, scrollbarX + scrollbarWidth, endY, 0x20FFFFFF); // 轨道
+            gfx.fill(scrollbarX, barTop, scrollbarX + scrollbarWidth, barTop + barHeight, 0xFFCCCCCC); // 滑块
+        }
+    }
+
+    public void onThreadsSynced() {
+        this.reloadThreadList();
         this.rebuildUI();
     }
 
     public void setSelectedThread(TalkThread thread) {
-        this.selectedThread = thread;
-        this.selectedThreadId = thread != null ? thread.getId() : null;
+        if (this.selectedThread != thread) {
+            this.selectedThread = thread;
+            this.selectedThreadId = thread != null ? thread.getId() : null;
+            this.scrollAmount = 0; // 重置滚动
+        }
         rebuildUI();
     }
 
