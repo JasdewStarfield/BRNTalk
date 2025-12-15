@@ -32,12 +32,8 @@ public class TalkScreen extends Screen {
 
     private boolean needScrollToBottom = true;
 
-    private final long screenOpenTime;
-
     public TalkScreen() {
         super(Component.literal("BRNTalk"));
-        // 记录当前时间
-        this.screenOpenTime = System.currentTimeMillis();
     }
 
     @Override
@@ -306,10 +302,10 @@ public class TalkScreen extends Screen {
             int lineHeight = this.font.lineHeight;
             int entrySpacing = 8; // 消息之间的间距
             long now = System.currentTimeMillis();
-            long previousEndTime = 0;
+            long previousVisualEndTime = 0;
 
             // 配置参数
-            int charDelay = 50;   // ms
+            int charDelay = 20;   // ms
             int msgPause = 500;   // ms
 
             for (TalkMessage msg : msgs) {
@@ -317,23 +313,11 @@ public class TalkScreen extends Screen {
                 String rawText = processText(msg.getText());
                 int textLen = rawText.length();
                 // 是否为历史消息（已经播完）
-                boolean isHistory = msg.getTimestamp() < this.screenOpenTime;
+                long typingDuration = (long) textLen * charDelay;
 
                 // 2. 计算这条消息的“视觉开始时间”
-                // 逻辑：它必须晚于“它真实产生的时间”，同时也必须等“上一条消息播完 + 停顿”之后
-                long visualStartTime;
-                // 计算这条消息播完需要多久
-                long typingDuration = (long) textLen * charDelay;
-                if (isHistory) {
-                    // 历史消息：视觉开始时间 = 0 (立即显示)
-                    visualStartTime = 0;
-                    // 历史消息不应该阻碍后续新消息的播放，所以重置排队计时
-                    previousEndTime = 0;
-                } else {
-                    // 新消息：必须等上一条播完，且不能早于自己的出生时间
-                    visualStartTime = Math.max(msg.getTimestamp(), previousEndTime + msgPause);
-                    previousEndTime = visualStartTime + typingDuration;
-                }
+                long visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + msgPause);
+                previousVisualEndTime = visualStartTime + typingDuration;
 
                 // 3. 计算当前时刻 (now) 处于什么阶段
                 long timePassed = now - visualStartTime;

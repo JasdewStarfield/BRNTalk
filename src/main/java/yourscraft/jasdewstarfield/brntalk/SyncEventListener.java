@@ -37,7 +37,7 @@ public class SyncEventListener {
             TalkConversation conv = manager.getConversation(scriptId);
             if (conv == null) continue;
 
-            long startedAt = System.currentTimeMillis();
+            long startedAt = saved.getStartTime();
             TalkThread thread = new TalkThread(threadId, scriptId, startedAt);
 
             // 逐条恢复消息
@@ -45,7 +45,7 @@ public class SyncEventListener {
             for (String msgId : historyIds) {
                 TalkMessage msg = conv.getMessage(msgId);
                 if (msg != null) {
-                    thread.appendMessage(msg);
+                    thread.appendMessage(msg.withTimestamp(0L));
                 }
             }
 

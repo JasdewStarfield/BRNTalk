@@ -18,9 +18,15 @@ public class PlayerTalkState {
     public static class SavedThread {
         private final String scriptId;
         private final List<String> history = new ArrayList<>();
+        private long startTime;
 
-        public SavedThread(String scriptId) {
+        public SavedThread(String scriptId, long startTime) {
             this.scriptId = scriptId;
+            this.startTime = startTime;
+        }
+
+        public long getStartTime() {
+            return startTime;
         }
 
         public String getScriptId() {
@@ -44,6 +50,7 @@ public class PlayerTalkState {
         public CompoundTag toNbt() {
             CompoundTag tag = new CompoundTag();
             tag.putString("scriptId", scriptId);
+            tag.putLong("startTime", startTime);
 
             ListTag list = new ListTag();
             for (String msgId : history) {
@@ -55,7 +62,8 @@ public class PlayerTalkState {
 
         public static SavedThread fromNbt(CompoundTag tag) {
             String scriptId = tag.getString("scriptId");
-            SavedThread st = new SavedThread(scriptId);
+            long startTime = tag.contains("startTime") ? tag.getLong("startTime") : System.currentTimeMillis();
+            SavedThread st = new SavedThread(scriptId, startTime);
 
             if (tag.contains("history", Tag.TAG_LIST)) {
                 ListTag list = tag.getList("history", Tag.TAG_STRING);
@@ -77,7 +85,7 @@ public class PlayerTalkState {
 
     /** 线程开始：记录剧本ID，并记录第一条消息ID */
     public void startThread(String threadId, String scriptId, String startMsgId) {
-        SavedThread st = new SavedThread(scriptId);
+        SavedThread st = new SavedThread(scriptId, System.currentTimeMillis());
         if (startMsgId != null) {
             st.addMessage(startMsgId);
         }
