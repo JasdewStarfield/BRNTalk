@@ -77,7 +77,7 @@ public class TalkManager {
         TalkThread thread = new TalkThread(threadId, scriptId, now);
 
         // 存入对应玩家的初始消息
-        thread.appendMessage(firstMsg);
+        thread.appendMessage(firstMsg.withTimestamp(now));
 
         // 尝试自动推进
         autoAdvance(thread, conv);
@@ -113,7 +113,7 @@ public class TalkManager {
         int oldSize = thread.getMessages().size();
 
         // 1. 添加目标消息
-        thread.appendMessage(nextMsg);
+        thread.appendMessage(nextMsg.withTimestamp(System.currentTimeMillis()));
 
         // 2. 尝试自动推进
         autoAdvance(thread, conv);
@@ -144,7 +144,7 @@ public class TalkManager {
                     break;
                 }
 
-                thread.appendMessage(nextMsg);
+                thread.appendMessage(nextMsg.withTimestamp(System.currentTimeMillis()));
                 count++;
             } else {
                 // 遇到 Choice 或者 终点(nextId==null)，停止

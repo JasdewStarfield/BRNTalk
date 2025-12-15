@@ -26,6 +26,7 @@ public class TalkScreen extends Screen {
     @Nullable
     private String selectedThreadId;
 
+    // --- 滚动与动画控制变量 ---
     private float scrollAmount = 0.0f;
     private int totalContentHeight = 0;
 
@@ -219,6 +220,21 @@ public class TalkScreen extends Screen {
         return processing;
     }
 
+    public void onThreadsSynced() {
+        this.needScrollToBottom = true;
+        this.reloadThreadList();
+        this.rebuildUI();
+    }
+
+    public void setSelectedThread(TalkThread thread) {
+        if (this.selectedThread != thread) {
+            this.selectedThread = thread;
+            this.selectedThreadId = thread != null ? thread.getId() : null;
+            this.needScrollToBottom = true;
+        }
+        rebuildUI();
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         // 如果鼠标在右侧区域，则允许滚动
@@ -314,9 +330,7 @@ public class TalkScreen extends Screen {
                     // 历史消息不应该阻碍后续新消息的播放，所以重置排队计时
                     previousEndTime = 0;
                 } else {
-                    // 新消息：正常计算排队
-                    // 如果上一条消息结束得太早(previousEndTime很小)，就用消息自己的时间戳
-                    // 这样即使玩家手动跳过了上一条，下一条也能立即开始，而不会被强行推迟
+                    // 新消息：必须等上一条播完，且不能早于自己的出生时间
                     visualStartTime = Math.max(msg.getTimestamp(), previousEndTime + msgPause);
                     previousEndTime = visualStartTime + typingDuration;
                 }
@@ -324,9 +338,7 @@ public class TalkScreen extends Screen {
                 // 3. 计算当前时刻 (now) 处于什么阶段
                 long timePassed = now - visualStartTime;
                 // 如果时间还没到 (timePassed < 0)，说明上一条还没播完，这条直接跳过不渲染
-                if (timePassed < 0) {
-                    continue;
-                }
+                if (timePassed < 0) continue;
 
                 // --- 渲染说话人 ---
                 String speakerName = processText(msg.getSpeaker());
@@ -396,20 +408,6 @@ public class TalkScreen extends Screen {
             gfx.fill(scrollbarX, startY, scrollbarX + scrollbarWidth, endY, 0x20FFFFFF); // 轨道
             gfx.fill(scrollbarX, barTop, scrollbarX + scrollbarWidth, barTop + barHeight, 0xFFCCCCCC); // 滑块
         }
-    }
-
-    public void onThreadsSynced() {
-        this.reloadThreadList();
-        this.rebuildUI();
-    }
-
-    public void setSelectedThread(TalkThread thread) {
-        if (this.selectedThread != thread) {
-            this.selectedThread = thread;
-            this.selectedThreadId = thread != null ? thread.getId() : null;
-            this.needScrollToBottom = true;
-        }
-        rebuildUI();
     }
 
     @Override
