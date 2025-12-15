@@ -12,6 +12,8 @@ import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.util.GsonHelper;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class ConversationLoader extends SimpleJsonResourceReloadListener {
@@ -60,24 +62,35 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
         TalkConversation conv = new TalkConversation(convId);
 
         JsonArray messages = GsonHelper.getAsJsonArray(convObj, "messages");
-        int idx = 0;
 
+        List<String> idList = new ArrayList<>();
+        for (int i = 0; i < messages.size(); i++) {
+            if (messages.get(i).isJsonObject()) {
+                JsonObject msgObj = messages.get(i).getAsJsonObject();
+                String id = GsonHelper.getAsString(msgObj, "id", "msg_" + i);
+                idList.add(id);
+            } else {
+                idList.add(null);
+            }
+        }
+
+        int idx = 0;
         for (JsonElement msgEl : messages) {
             if (!msgEl.isJsonObject()) continue;
             JsonObject msgObj = msgEl.getAsJsonObject();
 
-            String msgId = GsonHelper.getAsString(msgObj, "id", "msg_" + idx);
-
-            String nextId = GsonHelper.getAsString(msgObj, "nextId", null);
-            if (nextId == null) {
-                // 兼容旧写法：如果有 nextConversation 字段，也可以读进来当 nextId
-                nextId = GsonHelper.getAsString(msgObj, "nextConversation", null);
-            }
-
+            String msgId = idList.get(idx);
             String typeStr = GsonHelper.getAsString(msgObj, "type", "text");
             TalkMessage.Type type = TalkMessage.Type.fromString(typeStr);
             String speaker = getLocalizedOrLiteral(msgObj, "speakerKey", "speaker");
             String text = getLocalizedOrLiteral(msgObj, "textKey", "text");
+            String nextId = GsonHelper.getAsString(msgObj, "nextId", null);
+            boolean autoContinue = GsonHelper.getAsBoolean(msgObj, "continue", false);
+            if (autoContinue && nextId == null) {
+                if (idx + 1 < idList.size()) {
+                    nextId = idList.get(idx + 1);
+                }
+            }
 
             TalkMessage msg = new TalkMessage(
                     msgId,
@@ -91,18 +104,14 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
             // 如果是 choice 类型，就读取 choices 数组
             if (type == TalkMessage.Type.CHOICE && msgObj.has("choices")) {
                 JsonArray choicesArr = msgObj.getAsJsonArray("choices");
+                int choiceIdx = 0;
                 for (JsonElement choiceEl : choicesArr) {
                     if (!choiceEl.isJsonObject()) continue;
                     JsonObject choiceObj = choiceEl.getAsJsonObject();
 
-                    String choiceId = GsonHelper.getAsString(choiceObj, "id", "");
+                    String choiceId = GsonHelper.getAsString(choiceObj, "id", msgId + "_choice_" + choiceIdx);
                     String choiceText = getLocalizedOrLiteral(choiceObj, "textKey", "text");
-
-                    // 读取 Choice 的 Next ID
-                    // 优先读 nextId，其次兼容 nextConversation
-                    String cNextId = GsonHelper.getAsString(choiceObj, "nextId",
-                            GsonHelper.getAsString(choiceObj, "nextConversation", "")
-                    );
+                    String cNextId = GsonHelper.getAsString(choiceObj, "nextId", "");
 
                     TalkMessage.Choice choice = new TalkMessage.Choice(
                             choiceId,
@@ -110,6 +119,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
                             cNextId
                     );
                     msg.addChoice(choice);
+                    choiceIdx++;
                 }
             }
 
