@@ -72,6 +72,77 @@ public class ClientTalkUtils {
         return trimmed + ellipsis;
     }
 
+
+
+    // --- [新增] 核心时间轴状态类 ---
+    public static class TimelineState {
+        public boolean isFinished;          // 整个对话是否已播完
+        public TalkMessage activeMessage;   // 当前正在播放（或刚播完）的那条消息
+        public long activeStartTime;        // 这条消息的“视觉开始时间”
+    }
+
+    /**
+     * 返回一个对话线程的State
+     *
+     * @param thread 消息串对象
+     */
+    public static TimelineState calculateTimeline(TalkThread thread) {
+        TimelineState state = new TimelineState();
+        state.isFinished = true; // 默认假设结束，除非找到正在进行的消息
+
+        if (thread == null || thread.getMessages().isEmpty()) return state;
+
+        long now = System.currentTimeMillis();
+        long previousVisualEndTime = 0;
+
+        for (TalkMessage msg : thread.getMessages()) {
+            // 计算时长 (使用去色后的文本长度)
+            String cleanText = stripColor(processText(msg.getText())).replace("\n", "");
+            long duration = (long) cleanText.length() * CHAR_DELAY_MS;
+
+            long visualStartTime;
+            if (msg.getTimestamp() == 0) {
+                visualStartTime = 0;
+                previousVisualEndTime = 0;
+            } else {
+                visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + MSG_PAUSE_MS);
+                previousVisualEndTime = visualStartTime + duration;
+            }
+
+            // 判断状态
+            if (now < visualStartTime) {
+                // 情况A：还没到这条消息（处于上一条消息结束后的暂停期）
+                // 此时 activeMessage 保持为上一条消息，状态为未完成
+                state.isFinished = false;
+                return state;
+            } else if (now < previousVisualEndTime) {
+                // 情况B：正在播放这条消息
+                state.activeMessage = msg;
+                state.activeStartTime = visualStartTime;
+                state.isFinished = false;
+                return state;
+            } else {
+                // 情况C：这条消息已经播完
+                // 更新 activeMessage 为当前这条（它是目前为止最新的）
+                state.activeMessage = msg;
+                state.activeStartTime = visualStartTime;
+                // 继续循环，看看下一条消息是否开始了
+            }
+        }
+
+        // 如果循环走完，说明时间超过了最后一条的结束时间
+        return state;
+    }
+
+    /**
+     * 判断一个对话线程的打字机动画是否已经全部播放完毕
+     *
+     * @param thread 消息串对象
+     */
+    public static boolean isThreadFinished(TalkThread thread) {
+        return calculateTimeline(thread).isFinished;
+    }
+
     /**
      * 获取带有Timeline的打字机消息预览
      *
@@ -79,50 +150,19 @@ public class ClientTalkUtils {
      * @param widthLimit 像素宽度限制（超过则加 "..."）
      */
     public static String getThreadTimelinePreview(TalkThread thread, int widthLimit) {
-        if (thread == null || thread.getMessages().isEmpty()) return "";
+        TimelineState state = calculateTimeline(thread);
 
-        long now = System.currentTimeMillis();
-        long previousVisualEndTime = 0;
+        if (state.activeMessage == null) return "";
 
-        TalkMessage activeMsg = null;
-        long activeMsgStartTime = 0;
-
-        // --- 1. 模拟时间轴，找到当前正在播放（或刚播放完）的那条消息 ---
-        for (TalkMessage msg : thread.getMessages()) {
-            // 预计算该消息的“理论播放时长”
-            String rawText = processText(msg.getText());
-            String cleanText = stripColor(rawText).replace("\n", "");
-            // 去除换行符计算长度，防止长度误判
-            int textLen = cleanText.length();
-            long duration = (long) textLen * CHAR_DELAY_MS;
-
-            // 计算该消息的“视觉开始时间”
-            // 逻辑与 TalkScreen 保持严格一致
-            long visualStartTime;
-            if (msg.getTimestamp() == 0) { // 历史消息
-                visualStartTime = 0;
-                previousVisualEndTime = 0; // 历史消息不造成后续延迟
-            } else {
-                visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + MSG_PAUSE_MS);
-                previousVisualEndTime = visualStartTime + duration;
-            }
-
-            // 判断：当前时间是否已经达到了这条消息的开始时间？
-            if (now >= visualStartTime) {
-                // 是的，我们可以显示这条消息（或它的后续消息）
-                activeMsg = msg;
-                activeMsgStartTime = visualStartTime;
-            } else {
-                // 还没到这条消息的时间，说明用户还在看上一条
-                // 停止循环，保持 activeMsg 为上一条
-                break;
-            }
+        // 如果已经结束了，直接显示最终文本，不用去算 substring (性能优化)
+        if (state.isFinished) {
+            String speaker = stripColor(processText(state.activeMessage.getSpeaker()));
+            String text = stripColor(processText(state.activeMessage.getText()).replace("\n", " "));
+            return trimToWidth(speaker + ": " + text, widthLimit);
         }
 
-        if (activeMsg == null) return ""; // 还没开始播放任何消息
-
-        // --- 2. 对找到的 activeMsg 生成打字机预览 ---
-        return generateTypewriterPreview(activeMsg, activeMsgStartTime, widthLimit);
+        // 如果没结束，跑打字机生成器
+        return generateTypewriterPreview(state.activeMessage, state.activeStartTime, widthLimit);
     }
 
     /**

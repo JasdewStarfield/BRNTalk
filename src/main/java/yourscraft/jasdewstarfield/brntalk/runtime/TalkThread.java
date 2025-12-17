@@ -44,7 +44,7 @@ public class TalkThread {
 
     public String getFormattedTime() {
         LocalDateTime time = LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(startTime),
+                Instant.ofEpochMilli(getLastActivityTime()),
                 ZoneId.systemDefault()
         );
         return time.format(DateTimeFormatter.ofPattern("HH:mm"));
@@ -63,6 +63,19 @@ public class TalkThread {
         TalkMessage last = getCurrentMessage();
         if (last == null) return "";
         return last.getSpeaker() + ": " + last.getText();
+    }
+
+    public long getLastActivityTime() {
+        if (messages.isEmpty()) {
+            return this.startTime;
+        }
+
+        TalkMessage last = messages.getLast();
+
+        // 核心逻辑：
+        // 1. 如果是实时新消息，last.getTimestamp() 是当前时间，肯定比 startTime 大 -> 返回新时间（顶到最前）
+        // 2. 如果是加载的历史消息，last.getTimestamp() 是 0，比 startTime 小 -> 返回 startTime（保持原位）
+        return Math.max(this.startTime, last.getTimestamp());
     }
 
     // ---------- Setter 方法 ----------

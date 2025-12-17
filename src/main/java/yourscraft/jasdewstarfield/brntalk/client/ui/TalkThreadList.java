@@ -1,7 +1,7 @@
 package yourscraft.jasdewstarfield.brntalk.client.ui;
 
+import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
-import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -65,7 +65,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
         }
 
         @Override
-        public void render(GuiGraphics gfx,
+        public void render(@NotNull GuiGraphics gfx,
                            int index,
                            int top,
                            int left,
@@ -81,9 +81,26 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
                 gfx.fill(left, top, left + width - 4, top + height, bgColor);
             }
 
+            var timelineState = ClientTalkUtils.calculateTimeline(thread);
+
             // 时间 + 最后一条消息
             String timeStr = thread.getFormattedTime();
-            String preview = ClientTalkUtils.getThreadTimelinePreview(thread, 115);
+            String preview = timelineState.isFinished
+                    ? ClientTalkUtils.getSingleLinePreview(timelineState.activeMessage, 115) // 静态
+                    : ClientTalkUtils.getThreadTimelinePreview(thread, 115); // 动态
+
+            if (!timelineState.isFinished) {
+                long frame = (System.currentTimeMillis() / 200) % 2;
+                if (frame == 0) {
+                    gfx.drawString(
+                            Minecraft.getInstance().font,
+                            "*",
+                            left + width - 15,
+                            top + 2,
+                            0xFF00FF00
+                    );
+                }
+            }
 
             // 上面一行时间
             gfx.drawString(
@@ -114,7 +131,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
         }
 
         @Override
-        public Component getNarration() {
+        public @NotNull Component getNarration() {
             return Component.literal(thread.getLastMessagePreview());
         }
     }

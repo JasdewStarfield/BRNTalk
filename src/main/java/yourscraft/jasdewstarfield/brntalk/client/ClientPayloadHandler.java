@@ -15,6 +15,8 @@ import java.util.List;
 
 public class ClientPayloadHandler {
 
+    private static String lastToastUniqueKey = null;
+
     public static void handleOpenTalkScreen(final TalkNetwork.OpenTalkScreenPayload payload,
                                             final IPayloadContext context) {
         context.enqueueWork(() -> {
@@ -74,6 +76,14 @@ public class ClientPayloadHandler {
         }
 
         if (messageToast == null) return;
+        
+        String currentUniqueKey = activeThread.getId() + ":" + messageToast.getId();
+
+        if (currentUniqueKey.equals(lastToastUniqueKey)) {
+            return;
+        }
+
+        lastToastUniqueKey = currentUniqueKey;
 
         mc.getToasts().addToast(new TalkToast(messageToast));
         mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_TOAST_IN, 1.0F));

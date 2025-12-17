@@ -1,5 +1,6 @@
 package yourscraft.jasdewstarfield.brntalk.client.ui;
 
+import net.minecraft.client.gui.components.AbstractWidget;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadSender;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
@@ -15,6 +16,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -32,6 +34,8 @@ public class TalkScreen extends Screen {
 
     private boolean needScrollToBottom = true;
 
+    private final List<AbstractWidget> choiceButtons = new ArrayList<>();
+
     public TalkScreen() {
         super(Component.literal("BRNTalk"));
     }
@@ -45,6 +49,7 @@ public class TalkScreen extends Screen {
     private void rebuildUI() {
 
         this.clearWidgets();
+        this.choiceButtons.clear();
 
         Minecraft mc = Minecraft.getInstance();
 
@@ -86,7 +91,7 @@ public class TalkScreen extends Screen {
 
     private void reloadThreadList() {
         List<TalkThread> threads = ClientTalkState.get().getThreads().stream()
-                .sorted(Comparator.comparingLong(TalkThread::getStartTime).reversed())
+                .sorted(Comparator.comparingLong(TalkThread::getLastActivityTime).reversed())
                 .toList();
 
         this.threadList.setThreads(threads);
@@ -148,13 +153,14 @@ public class TalkScreen extends Screen {
             int cy = startY - (choiceHeight + spacing) * (i + 1);
 
             Button btn = Button.builder(
-                            Component.translatable(c.getText()),
+                            Component.literal(ClientTalkUtils.processText(c.getText())),
                             b -> onChoiceClicked(c)
                     )
                     .bounds(centerX - choiceWidth / 2, cy, choiceWidth, choiceHeight)
                     .build();
 
             this.addRenderableWidget(btn);
+            this.choiceButtons.add(btn);
         }
     }
 
@@ -234,6 +240,15 @@ public class TalkScreen extends Screen {
 
     @Override
     public void render(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
+        if (this.selectedThread != null) {
+            boolean isFinished = ClientTalkUtils.isThreadFinished(this.selectedThread);
+
+            // 遍历所有选项按钮，设置它们的可见性
+            for (AbstractWidget btn : this.choiceButtons) {
+                btn.visible = isFinished;
+            }
+        }
+
         this.renderBackground(gfx, mouseX, mouseY, partialTick);
         super.render(gfx, mouseX, mouseY, partialTick);
 
@@ -281,50 +296,62 @@ public class TalkScreen extends Screen {
             int currentY = startY;
             int lineHeight = this.font.lineHeight;
             int entrySpacing = 8; // 消息之间的间距
+
+            boolean isThreadFinished = ClientTalkUtils.isThreadFinished(selectedThread);
+
             long now = System.currentTimeMillis();
             long previousVisualEndTime = 0;
-
-            // 配置参数
-            int charDelay = 20;   // ms
-            int msgPause = 500;   // ms
 
             for (TalkMessage msg : msgs) {
                 // 1. 预处理文本（替换占位符、颜色等），因为长度会变，所以要先处理
                 String rawText = ClientTalkUtils.processText(msg.getText());
-                int textLen = rawText.length();
-                // 是否为历史消息（已经播完）
-                long typingDuration = (long) textLen * charDelay;
-
-                // 2. 计算这条消息的“视觉开始时间”
-                long visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + msgPause);
-                previousVisualEndTime = visualStartTime + typingDuration;
-
-                // 3. 计算当前时刻 (now) 处于什么阶段
-                long timePassed = now - visualStartTime;
-                // 如果时间还没到 (timePassed < 0)，说明上一条还没播完，这条直接跳过不渲染
-                if (timePassed < 0) continue;
-
-                // --- 渲染说话人 ---
                 String speakerName = ClientTalkUtils.processText(msg.getSpeaker());
-                Component speakerComp = Component.literal(speakerName);
-                gfx.drawString(this.font, speakerComp, startX, currentY, 0xFFFFAA00);
-                currentY += lineHeight + 2;
 
-                // --- 渲染正文 ---
                 String textToShow;
-                if (timePassed < typingDuration) {
-                    // 阶段 A: 正在打字
-                    int charCount = (int) (timePassed / charDelay);
-                    charCount = Math.min(charCount, textLen); // 防止越界
-                    textToShow = rawText.substring(0, charCount);
-                } else {
-                    // 阶段 B: 播放完毕，显示全部
+                if (isThreadFinished) {
+                    // 快速路径：如果对话已结束，直接显示全文
                     textToShow = rawText;
+                } else {
+                    // 慢速路径：动态计算打字机效果
+                    String cleanText = ClientTalkUtils.stripColor(rawText).replace("\n", "");
+                    long typingDuration = (long) cleanText.length() * ClientTalkUtils.CHAR_DELAY_MS;
+
+                    long visualStartTime;
+                    if (msg.getTimestamp() == 0) {
+                        visualStartTime = 0;
+                        previousVisualEndTime = 0;
+                    } else {
+                        visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + ClientTalkUtils.MSG_PAUSE_MS);
+                        previousVisualEndTime = visualStartTime + typingDuration;
+                    }
+
+                    long timePassed = now - visualStartTime;
+
+                    if (timePassed < 0) {
+                        // 还没轮到这条消息，跳过渲染
+                        continue;
+                    } else if (timePassed >= typingDuration) {
+                        // 播完了
+                        textToShow = rawText;
+                    } else {
+                        // 正在打字
+                        int charCount = (int) (timePassed / ClientTalkUtils.CHAR_DELAY_MS);
+                        // 防溢出保护
+                        int safeLen = rawText.length();
+                        charCount = Math.max(0, Math.min(charCount, safeLen));
+                        textToShow = rawText.substring(0, charCount);
+                    }
                 }
 
                 Component textComp = Component.literal(textToShow);
                 List<FormattedCharSequence> lines = this.font.split(textComp, textWidth);
 
+                // --- 渲染说话人 ---
+                Component speakerComp = Component.literal(speakerName);
+                gfx.drawString(this.font, speakerComp, startX, currentY, 0xFFFFAA00);
+                currentY += lineHeight + 2;
+
+                // --- 渲染正文 ---
                 for (FormattedCharSequence line : lines) {
                     gfx.drawString(this.font, line, startX, currentY, 0xFFFFFF);
                     currentY += lineHeight;
