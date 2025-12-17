@@ -1,9 +1,9 @@
 package yourscraft.jasdewstarfield.brntalk.client.ui;
 
-import net.minecraft.client.resources.language.I18n;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadSender;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
+import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import net.minecraft.client.Minecraft;
@@ -196,26 +196,6 @@ public class TalkScreen extends Screen {
         ClientPayloadSender.sendSelectChoice(threadId, choiceId);
     }
 
-    private String processText(String text) {
-        if (text == null) return "";
-
-        // 支持翻译键
-        String translated = I18n.get(text);
-
-        // 1. 支持颜色代码：用 '&' 代替 '§' (例如 "&c" -> 红色)
-        String processing = translated.replace("&", "§");
-
-        // 2. 支持玩家名占位符："{player}" -> 当前玩家名
-        if (processing.contains("{player}")) {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.player != null) {
-                processing = processing.replace("{player}", mc.player.getName().getString());
-            }
-        }
-
-        return processing;
-    }
-
     public void onThreadsSynced() {
         this.needScrollToBottom = true;
         this.reloadThreadList();
@@ -310,7 +290,7 @@ public class TalkScreen extends Screen {
 
             for (TalkMessage msg : msgs) {
                 // 1. 预处理文本（替换占位符、颜色等），因为长度会变，所以要先处理
-                String rawText = processText(msg.getText());
+                String rawText = ClientTalkUtils.processText(msg.getText());
                 int textLen = rawText.length();
                 // 是否为历史消息（已经播完）
                 long typingDuration = (long) textLen * charDelay;
@@ -325,7 +305,7 @@ public class TalkScreen extends Screen {
                 if (timePassed < 0) continue;
 
                 // --- 渲染说话人 ---
-                String speakerName = processText(msg.getSpeaker());
+                String speakerName = ClientTalkUtils.processText(msg.getSpeaker());
                 Component speakerComp = Component.literal(speakerName);
                 gfx.drawString(this.font, speakerComp, startX, currentY, 0xFFFFAA00);
                 currentY += lineHeight + 2;

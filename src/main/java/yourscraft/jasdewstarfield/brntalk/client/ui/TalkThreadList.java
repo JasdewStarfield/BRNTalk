@@ -1,5 +1,7 @@
 package yourscraft.jasdewstarfield.brntalk.client.ui;
 
+import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
+import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -81,11 +83,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
 
             // 时间 + 最后一条消息
             String timeStr = thread.getFormattedTime();
-            String preview = thread.getLastMessagePreview();
-            if (preview == null) preview = "";
-            if (preview.length() > 16) {
-                preview = preview.substring(0, 16) + "...";
-            }
+            String preview = ClientTalkUtils.getThreadTimelinePreview(thread, 115);
 
             // 上面一行时间
             gfx.drawString(
