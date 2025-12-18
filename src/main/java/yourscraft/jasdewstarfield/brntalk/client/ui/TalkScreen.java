@@ -61,9 +61,9 @@ public class TalkScreen extends Screen {
 
         // 左侧列表区域
         int listX = 20;
-        int listTop = 20;
+        int listTop = 25;
         int listWidth = 140;
-        int listBottom = this.height - 40;
+        int listBottom = this.height - 20;
         int listHeight = listBottom - listTop;
 
         this.threadList = new TalkThreadList(
@@ -78,6 +78,16 @@ public class TalkScreen extends Screen {
 
         // 更新左侧列表内容
         reloadThreadList();
+
+        int closeBtnSize = 16;
+        int closeX = this.width - closeBtnSize - 5;
+        int closeY = 5;
+
+        this.addRenderableWidget(
+                Button.builder(Component.literal("×"), btn -> this.onClose())
+                        .bounds(closeX, closeY, closeBtnSize, closeBtnSize)
+                        .build()
+        );
 
         // 根据当前对话的最后一条消息，生成选项按钮（如果是 CHOICE 类型）
         addChoiceButtonsForCurrentConversation();
@@ -136,7 +146,7 @@ public class TalkScreen extends Screen {
         int choiceWidth = 140;
         int choiceHeight = 20;
         int spacing = 5;
-        int startY = this.height - 55;
+        int startY = this.height - 20;
         int listRight = this.threadList.getX() + this.threadList.getWidth();
         int availableWidth = this.width - listRight;
         int centerX = listRight + availableWidth / 2;
@@ -159,7 +169,7 @@ public class TalkScreen extends Screen {
     }
 
     private int getChatBottomY() {
-        int defaultBottom = this.height - 60; // 默认底部（只有关闭按钮时）
+        int defaultBottom = this.height - 20; // 默认底部
 
         TalkMessage last = getLastMessageOfSelected();
         if (last != null && last.getType() == TalkMessage.Type.CHOICE) {
@@ -167,7 +177,7 @@ public class TalkScreen extends Screen {
             if (choiceCount > 0) {
                 int buttonAreaHeight = choiceCount * 25;
 
-                int buttonsTop = (this.height - 55) - buttonAreaHeight;
+                int buttonsTop = (this.height - 25) - buttonAreaHeight;
                 return Math.min(defaultBottom, buttonsTop - 5);
             }
         }
@@ -223,7 +233,7 @@ public class TalkScreen extends Screen {
     }
 
     private void clampScroll() {
-        int listTop = 20;
+        int listTop = 25;
         int listBottom = getChatBottomY();
         int viewHeight = listBottom - listTop;
 
@@ -266,7 +276,7 @@ public class TalkScreen extends Screen {
         int areaRight = this.width - 25;  // 文字右边距
         int areaWidth = areaRight - areaLeft;
 
-        int areaTop = 20;
+        int areaTop = 25;
         int areaBottom = getChatBottomY();
         int viewHeight = areaBottom - areaTop;
 
@@ -449,6 +459,20 @@ public class TalkScreen extends Screen {
             gfx.fill(scrollbarX, areaTop, scrollbarX + scrollbarWidth, areaBottom, 0x20FFFFFF); // 轨道
             gfx.fill(scrollbarX, barTop, scrollbarX + scrollbarWidth, barTop + barHeight, 0xFFCCCCCC); // 滑块
         }
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // 先让父类处理 (比如 ESC 关闭)
+        if (super.keyPressed(keyCode, scanCode, modifiers)) {
+            return true;
+        }
+        // 检查是否按下了物品栏键 (默认为 E)
+        if (this.minecraft != null && this.minecraft.options.keyInventory.matches(keyCode, scanCode)) {
+            this.onClose();
+            return true;
+        }
+        return false;
     }
 
     @Override

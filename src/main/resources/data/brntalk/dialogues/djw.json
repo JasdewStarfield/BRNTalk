@@ -78,7 +78,7 @@
       "id": "djw_accept_decline_1",
       "speakerType": "player",
       "speaker": "{player}",
-      "text": "对的",
+      "text": "不对",
       "continue": true
     },
     {
