@@ -81,8 +81,13 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
             JsonObject msgObj = msgEl.getAsJsonObject();
 
             String msgId = idList.get(idx);
+
             String typeStr = GsonHelper.getAsString(msgObj, "type", "text");
             TalkMessage.Type type = TalkMessage.Type.fromString(typeStr);
+
+            String speakerTypeStr = GsonHelper.getAsString(msgObj, "speakerType", "npc");
+            TalkMessage.SpeakerType speakerType = TalkMessage.SpeakerType.fromString(speakerTypeStr);
+
             String speaker = GsonHelper.getAsString(msgObj, "speaker", "&c**EMPTY SPEAKER**");
             String text = GsonHelper.getAsString(msgObj, "text", "&c**EMPTY TEXT**");
             String nextId = GsonHelper.getAsString(msgObj, "nextId", null);
@@ -96,6 +101,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
             TalkMessage msg = new TalkMessage(
                     msgId,
                     type,
+                    speakerType,
                     speaker,
                     text,
                     System.currentTimeMillis(),

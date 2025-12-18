@@ -32,6 +32,12 @@ public class TalkScreen extends Screen {
     private float scrollAmount = 0.0f;
     private int totalContentHeight = 0;
 
+    // --- 样式常量 ---
+    private static final int BUBBLE_PADDING_X = 8;
+    private static final int BUBBLE_PADDING_Y = 6;
+    private static final int ENTRY_SPACING = 10;
+    private static final float MAX_BUBBLE_WIDTH_RATIO = 0.75f;
+
     private boolean needScrollToBottom = true;
 
     private final List<AbstractWidget> choiceButtons = new ArrayList<>();
@@ -72,18 +78,6 @@ public class TalkScreen extends Screen {
 
         // 更新左侧列表内容
         reloadThreadList();
-
-        // 底部中间“关闭”按钮
-        int buttonWidth = 80;
-        int buttonHeight = 20;
-        int closeX = (this.width - buttonWidth) / 2;
-        int closeY = this.height - 30;
-
-        this.addRenderableWidget(
-                Button.builder(Component.translatable("gui.brntalk.close_screen"), btn -> this.onClose())
-                        .bounds(closeX, closeY, buttonWidth, buttonHeight)
-                        .build()
-        );
 
         // 根据当前对话的最后一条消息，生成选项按钮（如果是 CHOICE 类型）
         addChoiceButtonsForCurrentConversation();
@@ -268,13 +262,13 @@ public class TalkScreen extends Screen {
 
     private void renderChatArea(GuiGraphics gfx, int mouseX, int mouseY) {
         int listRight = this.threadList.getX() + this.threadList.getWidth();
-        int startX = listRight + 10; // 文字左边距
-        int endX = this.width - 10;  // 文字右边距
-        int textWidth = endX - startX;
+        int areaLeft = listRight + 10; // 文字左边距
+        int areaRight = this.width - 25;  // 文字右边距
+        int areaWidth = areaRight - areaLeft;
 
-        int startY = 20;
-        int endY = getChatBottomY();
-        int viewHeight = endY - startY;
+        int areaTop = 20;
+        int areaBottom = getChatBottomY();
+        int viewHeight = areaBottom - areaTop;
 
         // 1. 在渲染内容之前，检查当前是否处于"底部状态"
         // 使用上一帧计算出的 totalContentHeight
@@ -282,10 +276,10 @@ public class TalkScreen extends Screen {
         // 如果当前滚动位置接近最大值(允许 5 像素误差)，或者有强制置底信号，则认为需要"粘"在底部
         boolean isAtBottom = (this.scrollAmount >= maxScrollPre - 5) || this.needScrollToBottom;
 
-        if (endX - startX < 10 || endY - startY < 10) return;
+        if (areaRight - areaLeft < 10 || areaBottom - areaTop < 10) return;
 
         // 2. 开启裁剪 (Scissor Test)，只在指定矩形内绘制，防止溢出
-        gfx.enableScissor(startX, startY, endX, endY);
+        gfx.enableScissor(areaLeft, areaTop, areaRight, areaBottom);
         gfx.pose().pushPose();
 
         try {
@@ -293,14 +287,18 @@ public class TalkScreen extends Screen {
             gfx.pose().translate(0, -this.scrollAmount, 0);
 
             List<TalkMessage> msgs = selectedThread.getMessages();
-            int currentY = startY;
+            int currentY = areaTop;
+
             int lineHeight = this.font.lineHeight;
-            int entrySpacing = 8; // 消息之间的间距
 
             boolean isThreadFinished = ClientTalkUtils.isThreadFinished(selectedThread);
 
             long now = System.currentTimeMillis();
             long previousVisualEndTime = 0;
+            int charDelay = ClientTalkUtils.CHAR_DELAY_MS;
+            int msgPause = ClientTalkUtils.MSG_PAUSE_MS;
+
+            int maxBubbleWidth = (int) (areaWidth * MAX_BUBBLE_WIDTH_RATIO);
 
             for (TalkMessage msg : msgs) {
                 // 1. 预处理文本（替换占位符、颜色等），因为长度会变，所以要先处理
@@ -314,14 +312,14 @@ public class TalkScreen extends Screen {
                 } else {
                     // 慢速路径：动态计算打字机效果
                     String cleanText = ClientTalkUtils.stripColor(rawText).replace("\n", "");
-                    long typingDuration = (long) cleanText.length() * ClientTalkUtils.CHAR_DELAY_MS;
+                    long typingDuration = (long) cleanText.length() * charDelay;
 
                     long visualStartTime;
                     if (msg.getTimestamp() == 0) {
                         visualStartTime = 0;
                         previousVisualEndTime = 0;
                     } else {
-                        visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + ClientTalkUtils.MSG_PAUSE_MS);
+                        visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + msgPause);
                         previousVisualEndTime = visualStartTime + typingDuration;
                     }
 
@@ -343,25 +341,77 @@ public class TalkScreen extends Screen {
                     }
                 }
 
-                Component textComp = Component.literal(textToShow);
-                List<FormattedCharSequence> lines = this.font.split(textComp, textWidth);
+                Component fullTextComp = Component.literal(rawText);
+                List<FormattedCharSequence> allLines = this.font.split(fullTextComp, maxBubbleWidth - (2 * BUBBLE_PADDING_X));
+                int contentWidth = 0;
+                for (FormattedCharSequence seq : allLines) {
+                    int w = this.font.width(seq);
+                    if (w > contentWidth) contentWidth = w;
+                }
+                int contentHeight = allLines.size() * this.font.lineHeight;
+
+                // 气泡最终尺寸
+                int bubbleWidth = contentWidth + (2 * BUBBLE_PADDING_X);
+                int bubbleHeight = contentHeight + (2 * BUBBLE_PADDING_Y);
+
+                boolean isPlayer = (msg.getSpeakerType() == TalkMessage.SpeakerType.PLAYER);
+
+                int bubbleX;
+                if (isPlayer) {
+                    // 玩家气泡靠右对齐
+                    bubbleX = areaRight - bubbleWidth;
+                } else {
+                    // NPC气泡靠左对齐
+                    bubbleX = areaLeft;
+                }
 
                 // --- 渲染说话人 ---
                 Component speakerComp = Component.literal(speakerName);
-                gfx.drawString(this.font, speakerComp, startX, currentY, 0xFFFFAA00);
-                currentY += lineHeight + 2;
-
-                // --- 渲染正文 ---
-                for (FormattedCharSequence line : lines) {
-                    gfx.drawString(this.font, line, startX, currentY, 0xFFFFFF);
-                    currentY += lineHeight;
+                int nameWidth = this.font.width(speakerName);
+                int nameX;
+                if (isPlayer) {
+                    // 玩家名字靠右
+                    nameX = areaRight - nameWidth;
+                } else {
+                    // NPC名字靠左
+                    nameX = areaLeft;
                 }
 
-                currentY += entrySpacing;
+                gfx.drawString(this.font, speakerComp, nameX, currentY, 0xFFFFAA00);
+                currentY += lineHeight + 2;
+
+                // --- 绘制气泡背景 ---
+                // 玩家用深绿色半透明，NPC用深灰色半透明
+                int bubbleColor = isPlayer ? 0xD0004000 : 0xD0333333;
+                int borderColor = isPlayer ? 0xFF008000 : 0xFF666666;
+
+                // 填充
+                gfx.fill(bubbleX, currentY, bubbleX + bubbleWidth, currentY + bubbleHeight, bubbleColor);
+                // 边框 (上下左右四条线)
+                gfx.fill(bubbleX, currentY, bubbleX + bubbleWidth, currentY + 1, borderColor); // Top
+                gfx.fill(bubbleX, currentY + bubbleHeight - 1, bubbleX + bubbleWidth, currentY + bubbleHeight, borderColor); // Bottom
+                gfx.fill(bubbleX, currentY, bubbleX + 1, currentY + bubbleHeight, borderColor); // Left
+                gfx.fill(bubbleX + bubbleWidth - 1, currentY, bubbleX + bubbleWidth, currentY + bubbleHeight, borderColor); // Right
+
+                // --- 渲染正文 ---
+                Component textComp = Component.literal(textToShow);
+                List<FormattedCharSequence> lines = this.font.split(textComp, maxBubbleWidth - (2 * BUBBLE_PADDING_X));
+
+                int textY = currentY + BUBBLE_PADDING_Y;
+                int textX = bubbleX + BUBBLE_PADDING_X;
+
+                for (FormattedCharSequence line : lines) {
+                    if (textY + lineHeight <= currentY + bubbleHeight) {
+                        gfx.drawString(this.font, line, textX, textY, 0xFFFFFFFF, false);
+                        textY += lineHeight;
+                    }
+                }
+
+                currentY += bubbleHeight + ENTRY_SPACING;
             }
 
             // 计算总高度，用于滚动条逻辑
-            this.totalContentHeight = currentY - startY;
+            this.totalContentHeight = currentY - areaTop;
 
         } catch (Exception e) {
             // 捕获异常，防止渲染崩溃导致 Scissor 状态锁死
@@ -384,19 +434,19 @@ public class TalkScreen extends Screen {
 
         // 4. 绘制滚动条
         if (this.totalContentHeight > viewHeight) {
-            int scrollbarX = endX - 2;
+            int scrollbarX = areaRight + 8;
             int scrollbarWidth = 2;
 
             // 计算滑块高度和位置
             float ratio = (float) viewHeight / this.totalContentHeight;
             int barHeight = Math.max(10, (int) (viewHeight * ratio));
 
-            int barTop = startY;
+            int barTop = areaTop;
             if (maxScrollPost > 0) {
                 barTop += (int) ((this.scrollAmount / maxScrollPost) * (viewHeight - barHeight));
             }
 
-            gfx.fill(scrollbarX, startY, scrollbarX + scrollbarWidth, endY, 0x20FFFFFF); // 轨道
+            gfx.fill(scrollbarX, areaTop, scrollbarX + scrollbarWidth, areaBottom, 0x20FFFFFF); // 轨道
             gfx.fill(scrollbarX, barTop, scrollbarX + scrollbarWidth, barTop + barHeight, 0xFFCCCCCC); // 滑块
         }
     }

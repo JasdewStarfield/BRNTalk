@@ -2,30 +2,30 @@
   "id": "djw",
   "messages": [
     {
-      "id": "djw_1",
+      "speaker": "DJW",
+      "text": "&c噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷噗呲噗呲嗷",
+      "continue": true
+    },
+    {
       "speaker": "DJW",
       "text": "别急这里死是没死",
-      "nextId": "djw_2"
+      "continue": true
     },
     {
-      "id": "djw_2",
       "speaker": "DJW",
       "text": "死了吗？",
-      "nextId": "djw_3"
+      "continue": true
     },
     {
-      "id": "djw_3",
       "type": "choice",
-      "speaker": "System",
-      "text": "请选择你的回答：",
+      "speaker": "&cSystem",
+      "text": "请选择你的回答，{player}：",
       "choices": [
         {
-          "id": "accept",
           "text": "死了",
           "nextId": "djw_accept_1"
         },
         {
-          "id": "decline",
           "text": "没死",
           "nextId": "djw_decline_1"
         }
@@ -33,29 +33,31 @@
     },
     {
       "id": "djw_accept_1",
+      "speakerType": "player",
+      "speaker": "{player}",
+      "text": "死了",
+      "continue": true
+    },
+    {
       "speaker": "DJW",
       "text": "嗷布莱克斯！",
-      "nextId": "djw_accept_2"
+      "continue": true
     },
     {
-      "id": "djw_accept_2",
       "speaker": "DJW",
       "text": "对吗？",
-      "nextId": "djw_accept_3"
+      "continue": true
     },
     {
-      "id": "djw_accept_3",
       "type": "choice",
-      "speaker": "System",
-      "text": "请选择你的回答：",
+      "speaker": "&cSystem",
+      "text": "请选择你的回答，{player}：",
       "choices": [
         {
-          "id": "accept2",
           "text": "对的",
           "nextId": "djw_accept_accept_1"
         },
         {
-          "id": "decline2",
           "text": "不对",
           "nextId": "djw_accept_decline_1"
         }
@@ -63,18 +65,77 @@
     },
     {
       "id": "djw_accept_accept_1",
+      "speakerType": "player",
+      "speaker": "{player}",
+      "text": "对的",
+      "continue": true
+    },
+    {
       "speaker": "DJW",
       "text": "嗷对的对的，对的"
     },
     {
       "id": "djw_accept_decline_1",
+      "speakerType": "player",
+      "speaker": "{player}",
+      "text": "对的",
+      "continue": true
+    },
+    {
       "speaker": "DJW",
       "text": "诶呀不对，这个一费奶五不对"
     },
     {
       "id": "djw_decline_1",
+      "speakerType": "player",
+      "speaker": "{player}",
+      "text": "没死",
+      "continue": true
+    },
+    {
       "speaker": "DJW",
-      "text": "哦没死！哦死了我草！"
+      "text": "哦没死！哦死了我草！",
+      "continue": true
+    },
+    {
+      "speaker": "system",
+      "text": "滚动测试1",
+      "continue": true
+    },
+    {
+      "speaker": "system",
+      "text": "滚动测试2",
+      "continue": true
+    },
+    {
+      "speaker": "system",
+      "text": "滚动测试3",
+      "continue": true
+    },
+    {
+      "speaker": "system",
+      "text": "滚动测试4",
+      "continue": true
+    },
+    {
+      "speaker": "system",
+      "text": "滚动测试5",
+      "continue": true
+    },
+    {
+      "speaker": "system",
+      "text": "滚动测试6",
+      "continue": true
+    },
+    {
+      "speaker": "system",
+      "text": "滚动测试7",
+      "continue": true
+    },
+    {
+      "speaker": "system",
+      "text": "滚动测试8",
+      "continue": true
     }
   ]
 }

@@ -37,6 +37,7 @@ public class PayloadSync {
     public record NetMessage(
             String id,
             TalkMessage.Type type,
+            TalkMessage.SpeakerType speakerType,
             String speaker,
             String text,
             long timestamp,
@@ -50,11 +51,18 @@ public class PayloadSync {
                         TalkMessage.Type::ordinal
                 );
 
+        public static final StreamCodec<ByteBuf, TalkMessage.SpeakerType> SPEAKER_TYPE_STREAM_CODEC =
+                ByteBufCodecs.VAR_INT.map(
+                        i -> TalkMessage.SpeakerType.values()[i],
+                        TalkMessage.SpeakerType::ordinal
+                );
+
         public static final StreamCodec<ByteBuf, NetMessage> STREAM_CODEC = StreamCodec.of(
                 // 1. 编码器 (Encoder): 把对象写入 Buffer
                 (buf, val) -> {
                     ByteBufCodecs.STRING_UTF8.encode(buf, val.id());
                     TYPE_STREAM_CODEC.encode(buf, val.type());
+                    SPEAKER_TYPE_STREAM_CODEC.encode(buf, val.speakerType());
                     ByteBufCodecs.STRING_UTF8.encode(buf, val.speaker());
                     ByteBufCodecs.STRING_UTF8.encode(buf, val.text());
                     ByteBufCodecs.VAR_LONG.encode(buf, val.timestamp());
@@ -65,6 +73,7 @@ public class PayloadSync {
                 (buf) -> new NetMessage(
                         ByteBufCodecs.STRING_UTF8.decode(buf),
                         TYPE_STREAM_CODEC.decode(buf),
+                        SPEAKER_TYPE_STREAM_CODEC.decode(buf),
                         ByteBufCodecs.STRING_UTF8.decode(buf),
                         ByteBufCodecs.STRING_UTF8.decode(buf),
                         ByteBufCodecs.VAR_LONG.decode(buf),
@@ -81,6 +90,7 @@ public class PayloadSync {
             return new NetMessage(
                     msg.getId(),
                     msg.getType(),
+                    msg.getSpeakerType(),
                     msg.getSpeaker(),
                     msg.getText(),
                     msg.getTimestamp(),
@@ -94,6 +104,7 @@ public class PayloadSync {
             TalkMessage m = new TalkMessage(
                     id,
                     type,
+                    speakerType,
                     speaker,
                     text,
                     timestamp,

@@ -19,6 +19,19 @@ public class TalkMessage {
         }
     }
 
+    public enum SpeakerType {
+        NPC,
+        PLAYER;
+
+        public static SpeakerType fromString(String s) {
+            if (s == null) return NPC;
+            return switch (s.toLowerCase()) {
+                case "player" -> PLAYER;
+                default -> NPC;
+            };
+        }
+    }
+
     public static class Choice {
         private final String id;                // 选项 id（可选）
         private final String text;              // 显示在按钮上的文本
@@ -46,14 +59,16 @@ public class TalkMessage {
     private final String id;
     private final String nextId;
     private final Type type;
+    private final SpeakerType speakerType;
     private final String speaker;
     private final String text;
     private final long timestamp;
     private final List<Choice> choices = new ArrayList<>();
 
-    public TalkMessage(String id, Type type, String speaker, String text, long timestamp, String nextId) {
+    public TalkMessage(String id, Type type, SpeakerType speakerType, String speaker, String text, long timestamp, String nextId) {
         this.id = id;
         this.type = type;
+        this.speakerType = speakerType;
         this.speaker = speaker;
         this.text = text;
         this.timestamp = timestamp;
@@ -70,6 +85,10 @@ public class TalkMessage {
 
     public Type getType() {
         return type;
+    }
+
+    public SpeakerType getSpeakerType() {
+        return speakerType;
     }
 
     public String getSpeaker() {
@@ -97,6 +116,7 @@ public class TalkMessage {
         TalkMessage newMsg = new TalkMessage(
                 this.id,
                 this.type,
+                this.speakerType,
                 this.speaker,
                 this.text,
                 newTimestamp,

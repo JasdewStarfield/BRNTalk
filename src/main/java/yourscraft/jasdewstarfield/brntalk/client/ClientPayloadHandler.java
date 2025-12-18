@@ -76,7 +76,7 @@ public class ClientPayloadHandler {
         }
 
         if (messageToast == null) return;
-        
+
         String currentUniqueKey = activeThread.getId() + ":" + messageToast.getId();
 
         if (currentUniqueKey.equals(lastToastUniqueKey)) {
