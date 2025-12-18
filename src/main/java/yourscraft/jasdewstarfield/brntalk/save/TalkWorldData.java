@@ -16,6 +16,15 @@ public class TalkWorldData extends SavedData {
 
     // ----------- 对外操作接口 -----------
 
+    public boolean hasSeenMessage(UUID uuid, String scriptId, String messageId) {
+        PlayerTalkState state = get(uuid);
+        // 如果玩家没有任何数据，直接返回 false
+        if (state == null) {
+            return false;
+        }
+        return state.hasSeenMessage(scriptId, messageId);
+    }
+
     public PlayerTalkState getOrCreate(UUID uuid) {
         return players.computeIfAbsent(uuid.toString(), s -> new PlayerTalkState());
     }
@@ -34,15 +43,6 @@ public class TalkWorldData extends SavedData {
     public void startThread(UUID uuid, String threadId, String scriptId, String startMsgId) {
         PlayerTalkState state = getOrCreate(uuid);
         state.startThread(threadId, scriptId, startMsgId);
-        setDirty();
-    }
-
-    /**
-     * 记录玩家刚刚看到的一条新消息
-     */
-    public void appendMessage(UUID uuid, String threadId, String messageId) {
-        PlayerTalkState state = getOrCreate(uuid);
-        state.appendMessage(threadId, messageId);
         setDirty();
     }
 

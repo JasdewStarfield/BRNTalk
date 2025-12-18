@@ -41,6 +41,16 @@ public class BrntalkCommands {
                                         )
                                 )
                         )
+                        // --- has_seen 命令分支 ---
+                        .then(Commands.literal("has_seen")
+                                .then(Commands.argument("target", EntityArgument.player())
+                                        .then(Commands.argument("scriptId", StringArgumentType.string())
+                                                .then(Commands.argument("messageId", StringArgumentType.string())
+                                                        .executes(BrntalkCommands::checkSeen)
+                                                )
+                                        )
+                                )
+                        )
         );
     }
 
@@ -112,5 +122,26 @@ public class BrntalkCommands {
         source.sendSuccess(() -> Component.literal("[BRNTalk] 已清除 " + targets.size() + " 名玩家的对话进度。"), true);
 
         return targets.size();
+    }
+
+    private static int checkSeen(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer target = EntityArgument.getPlayer(ctx, "target");
+        String scriptId = StringArgumentType.getString(ctx, "scriptId");
+        String messageId = StringArgumentType.getString(ctx, "messageId");
+
+        boolean hasSeen = BrntalkAPI.hasSeen(target, scriptId, messageId);
+
+        if (hasSeen) {
+            ctx.getSource().sendSuccess(() ->
+                    Component.literal("§a[BRNTalk] 玩家 " + target.getName().getString() + " 已达成/阅读: " + messageId + " (剧本: " + scriptId + ")"),
+                    false
+            );
+            return 1;
+        } else {
+            ctx.getSource().sendFailure(
+                    Component.literal("§c[BRNTalk] 玩家 " + target.getName().getString() + " 尚未阅读: " + messageId + " (剧本: " + scriptId + ")")
+            );
+            return 0;
+        }
     }
 }

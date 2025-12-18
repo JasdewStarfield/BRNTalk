@@ -92,15 +92,6 @@ public class PlayerTalkState {
         threads.put(threadId, st);
     }
 
-    /** * 追加一条新的消息 ID
-     */
-    public void appendMessage(String threadId, String messageId) {
-        SavedThread st = threads.get(threadId);
-        if (st != null) {
-            st.addMessage(messageId);
-        }
-    }
-
     /** * 追加多条新的消息 ID
      */
     public void appendMessages(String threadId, List<String> messageIds) {
@@ -127,6 +118,28 @@ public class PlayerTalkState {
 
     public boolean hasThread(String threadId) {
         return threads.containsKey(threadId);
+    }
+
+    /**
+     * 检查玩家是否在指定的剧本中看到过某条消息
+     * @param scriptId 剧本 ID (Conversation ID)
+     * @param messageId 消息 ID
+     * @return 如果找到记录返回 true
+     */
+    public boolean hasSeenMessage(String scriptId, String messageId) {
+        // 遍历该玩家所有的对话线程
+        for (SavedThread thread : threads.values()) {
+            // 1. 匹配剧本 ID (如果不关心是哪个剧本里的，scriptId 可以传 null，这里我们严格匹配)
+            if (scriptId != null && !scriptId.equals(thread.getScriptId())) {
+                continue;
+            }
+
+            // 2. 检查历史记录
+            if (thread.getHistory().contains(messageId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // --------- NBT 序列化 / 反序列化 ---------

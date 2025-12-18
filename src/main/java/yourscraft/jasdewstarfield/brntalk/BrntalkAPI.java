@@ -112,15 +112,20 @@ public class BrntalkAPI {
     }
 
     /**
-     * 检查玩家当前是否有正在进行的对话线程。
+     * 检查玩家是否已经阅读过某条消息（或到达过某个对话节点）。
+     * 这可以用于判断玩家的剧情进度。
+     *
      * @param player 目标玩家
-     * @return 如果有活跃线程返回 true
+     * @param scriptId 对话剧本 ID
+     * @param messageId 消息 ID
+     * @return 如果玩家的历史记录中包含该消息ID，返回 true
      */
-    public static boolean isTalking(ServerPlayer player) {
-        if (player == null) return false;
+    public static boolean hasSeen(ServerPlayer player, String scriptId, String messageId) {
+        if (player == null || scriptId == null || messageId == null) {
+            return false;
+        }
 
-        TalkManager manager = TalkManager.getInstance();
-        var threads = manager.getActiveThreads(player.getUUID());
-        return threads != null && !threads.isEmpty();
+        TalkWorldData data = TalkWorldData.get(player.serverLevel());
+        return data.hasSeenMessage(player.getUUID(), scriptId, messageId);
     }
 }
