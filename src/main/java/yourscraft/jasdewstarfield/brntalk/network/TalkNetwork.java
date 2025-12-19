@@ -8,12 +8,15 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
+import yourscraft.jasdewstarfield.brntalk.event.PlayerSeenMessageEvent;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
@@ -31,7 +34,7 @@ public class TalkNetwork {
                 StreamCodec.unit(new RequestOpenTalkPayload());
 
         @Override
-        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
             return TYPE;
         }
     }
@@ -44,7 +47,7 @@ public class TalkNetwork {
                 StreamCodec.unit(new OpenTalkScreenPayload());
 
         @Override
-        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
             return TYPE;
         }
     }
@@ -62,7 +65,7 @@ public class TalkNetwork {
                 );
 
         @Override
-        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
             return TYPE;
         }
     }
@@ -151,7 +154,13 @@ public class TalkNetwork {
             TalkWorldData data = TalkWorldData.get(serverPlayer.serverLevel());
             data.appendMessages(serverPlayer.getUUID(), threadId, newMsgIds);
 
-            // 5. 同步给客户端
+            // 5. 触发 PlayerSeenMessageEvent 事件
+            String scriptId = thread.getScriptId();
+            for (String msgId : newMsgIds) {
+                NeoForge.EVENT_BUS.post(new PlayerSeenMessageEvent(serverPlayer, scriptId, msgId));
+            }
+
+            // 6. 同步给客户端
             TalkNetwork.syncThreadsTo(serverPlayer);
         }
     }

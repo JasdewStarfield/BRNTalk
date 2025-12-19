@@ -1,7 +1,9 @@
 package yourscraft.jasdewstarfield.brntalk;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.common.NeoForge;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
+import yourscraft.jasdewstarfield.brntalk.event.PlayerSeenMessageEvent;
 import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
@@ -52,9 +54,14 @@ public class BrntalkAPI {
                 List<String> restIds = allMsgIds.subList(1, allMsgIds.size());
                 data.appendMessages(player.getUUID(), thread.getId(), restIds);
             }
+
+            // 3. 触发事件
+            for (String msgId : allMsgIds) {
+                NeoForge.EVENT_BUS.post(new PlayerSeenMessageEvent(player, scriptId, msgId));
+            }
         }
 
-        // 3. 同步网络包给客户端
+        // 4. 同步网络包给客户端
         TalkNetwork.syncThreadsTo(player);
 
         return true;
