@@ -4,6 +4,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
@@ -55,6 +56,12 @@ public class TalkWorldData extends SavedData {
         setDirty();
     }
 
+    public void updateLastReadTime(UUID uuid, String threadId, long time) {
+        PlayerTalkState state = getOrCreate(uuid);
+        state.updateLastReadTime(threadId, time);
+        setDirty();
+    }
+
     // ------------ SavedData -------------
 
     /** 新建一个空实例 */
@@ -78,7 +85,7 @@ public class TalkWorldData extends SavedData {
 
     /** 把当前实例写入 NBT */
     @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    public @NotNull CompoundTag save(@NotNull CompoundTag tag, HolderLookup.@NotNull Provider registries) {
         CompoundTag playersTag = new CompoundTag();
         for (Map.Entry<String, PlayerTalkState> entry : players.entrySet()) {
             CompoundTag playerTag = new CompoundTag();

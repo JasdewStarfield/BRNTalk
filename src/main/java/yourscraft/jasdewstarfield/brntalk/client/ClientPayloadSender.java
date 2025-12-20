@@ -11,4 +11,8 @@ public class ClientPayloadSender {
     public static void sendSelectChoice(String threadId, String choiceId) {
         PacketDistributor.sendToServer(new TalkNetwork.SelectChoicePayload(threadId, choiceId));
     }
+
+    public static void sendMarkRead(String threadId) {
+        PacketDistributor.sendToServer(new TalkNetwork.MarkThreadReadPayload(threadId));
+    }
 }

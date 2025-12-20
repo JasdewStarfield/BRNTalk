@@ -38,7 +38,8 @@ public class SyncEventListener {
             if (conv == null) continue;
 
             long startedAt = saved.getStartTime();
-            TalkThread thread = new TalkThread(threadId, scriptId, startedAt);
+            long lastRead = saved.getLastReadTime();
+            TalkThread thread = new TalkThread(threadId, scriptId, startedAt, lastRead);
 
             // 逐条恢复消息
             List<String> historyIds = saved.getHistory();

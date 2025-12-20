@@ -74,7 +74,7 @@ public class TalkManager {
         // 创建新线程
         long now = System.currentTimeMillis();
         String threadId = UUID.randomUUID().toString();
-        TalkThread thread = new TalkThread(threadId, scriptId, now);
+        TalkThread thread = new TalkThread(threadId, scriptId, now, 0L);
 
         // 存入对应玩家的初始消息
         thread.appendMessage(firstMsg.withTimestamp(now));

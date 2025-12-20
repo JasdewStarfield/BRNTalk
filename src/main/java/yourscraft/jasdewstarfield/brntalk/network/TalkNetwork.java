@@ -70,6 +70,21 @@ public class TalkNetwork {
         }
     }
 
+    public record MarkThreadReadPayload(String threadId) implements CustomPacketPayload {
+
+        public static final Type<MarkThreadReadPayload> TYPE =
+                new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "mark_read"));
+
+        public static final StreamCodec<ByteBuf, MarkThreadReadPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.STRING_UTF8, MarkThreadReadPayload::threadId,
+                        MarkThreadReadPayload::new
+                );
+
+        @Override
+        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     @SubscribeEvent
     public static void register(final RegisterPayloadHandlersEvent event) {
         final PayloadRegistrar registrar = event.registrar("1");
@@ -85,6 +100,12 @@ public class TalkNetwork {
                 SelectChoicePayload.TYPE,
                 SelectChoicePayload.STREAM_CODEC,
                 TalkNetwork::handleSelectChoice
+        );
+
+        registrar.playToServer(
+                MarkThreadReadPayload.TYPE,
+                MarkThreadReadPayload.STREAM_CODEC,
+                TalkNetwork::handleMarkRead
         );
 
         // 服务端 -> 客户端 的包在 ClientPayloads 注册（服务端对应的包在ServerPayloads）
@@ -163,5 +184,26 @@ public class TalkNetwork {
             // 6. 同步给客户端
             TalkNetwork.syncThreadsTo(serverPlayer);
         }
+    }
+
+    public static void handleMarkRead(final MarkThreadReadPayload payload, final IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer serverPlayer)) return;
+
+        context.enqueueWork(() -> {
+            String threadId = payload.threadId();
+            long now = System.currentTimeMillis();
+
+            TalkWorldData.get(serverPlayer.serverLevel())
+                    .updateLastReadTime(serverPlayer.getUUID(), payload.threadId(), now);
+
+            TalkManager manager = TalkManager.getInstance();
+            TalkThread activeThread = manager.getActiveThread(serverPlayer.getUUID(), threadId);
+            if (activeThread != null) {
+                activeThread.setLastReadTime(now);
+            }
+
+            // 更新完 NBT 后，同步回客户端
+            TalkNetwork.syncThreadsTo(serverPlayer);
+        });
     }
 }

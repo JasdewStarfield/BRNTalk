@@ -19,6 +19,7 @@ public class PlayerTalkState {
         private final String scriptId;
         private final List<String> history = new ArrayList<>();
         private long startTime;
+        private long lastReadTime = 0;
 
         public SavedThread(String scriptId, long startTime) {
             this.scriptId = scriptId;
@@ -37,6 +38,10 @@ public class PlayerTalkState {
             return history;
         }
 
+        public long getLastReadTime() { return lastReadTime; }
+
+        public void setLastReadTime(long time) { this.lastReadTime = time; }
+
         public void addMessage(String msgId) {
             history.add(msgId);
         }
@@ -51,6 +56,7 @@ public class PlayerTalkState {
             CompoundTag tag = new CompoundTag();
             tag.putString("scriptId", scriptId);
             tag.putLong("startTime", startTime);
+            tag.putLong("lastReadTime", lastReadTime);
 
             ListTag list = new ListTag();
             for (String msgId : history) {
@@ -64,6 +70,10 @@ public class PlayerTalkState {
             String scriptId = tag.getString("scriptId");
             long startTime = tag.contains("startTime") ? tag.getLong("startTime") : System.currentTimeMillis();
             SavedThread st = new SavedThread(scriptId, startTime);
+
+            if (tag.contains("lastReadTime")) {
+                st.setLastReadTime(tag.getLong("lastReadTime"));
+            }
 
             if (tag.contains("history", Tag.TAG_LIST)) {
                 ListTag list = tag.getList("history", Tag.TAG_STRING);
@@ -140,6 +150,13 @@ public class PlayerTalkState {
             }
         }
         return false;
+    }
+
+    public void updateLastReadTime(String threadId, long time) {
+        SavedThread st = threads.get(threadId);
+        if (st != null) {
+            st.setLastReadTime(time);
+        }
     }
 
     // --------- NBT 序列化 / 反序列化 ---------

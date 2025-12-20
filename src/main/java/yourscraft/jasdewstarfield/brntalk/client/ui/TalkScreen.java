@@ -251,6 +251,11 @@ public class TalkScreen extends Screen {
             for (AbstractWidget btn : this.choiceButtons) {
                 btn.visible = isFinished;
             }
+
+            if (isFinished && ClientTalkState.get().hasUnread(this.selectedThread)) {
+                ClientPayloadSender.sendMarkRead(this.selectedThread.getId());
+                this.selectedThread.setLastReadTime(System.currentTimeMillis());
+            }
         }
 
         this.renderBackground(gfx, mouseX, mouseY, partialTick);

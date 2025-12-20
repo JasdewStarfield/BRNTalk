@@ -5,6 +5,7 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
@@ -122,6 +123,7 @@ public class PayloadSync {
             String id,
             String scriptId,
             long startedAt,
+            long lastReadTime,
             List<NetMessage> messages
     ) {
         public static final StreamCodec<ByteBuf, NetThread> STREAM_CODEC =
@@ -129,6 +131,7 @@ public class PayloadSync {
                         ByteBufCodecs.STRING_UTF8, NetThread::id,
                         ByteBufCodecs.STRING_UTF8, NetThread::scriptId,
                         ByteBufCodecs.VAR_LONG, NetThread::startedAt,
+                        ByteBufCodecs.VAR_LONG, NetThread::lastReadTime,
                         NetMessage.STREAM_CODEC.apply(ByteBufCodecs.list()), NetThread::messages,
                         NetThread::new
                 );
@@ -138,12 +141,12 @@ public class PayloadSync {
                     .stream()
                     .map(NetMessage::fromMessage)
                     .toList();
-            return new NetThread(thread.getId(), thread.getScriptId(), thread.getStartTime(), msgs);
+            return new NetThread(thread.getId(), thread.getScriptId(), thread.getStartTime(), thread.getLastReadTime(), msgs);
         }
 
         /** 在客户端把快照还原成 TalkThread（内部用一个临时 TalkConversation 来填充消息） */
         public TalkThread toThread() {
-            TalkThread thread = new TalkThread(id, scriptId, startedAt);
+            TalkThread thread = new TalkThread(id, scriptId, startedAt, lastReadTime);
 
             for (NetMessage nm : messages) {
                 thread.appendMessage(nm.toMessage());
@@ -164,7 +167,7 @@ public class PayloadSync {
                         .map(SyncThreadsPayload::new, SyncThreadsPayload::threads);
 
         @Override
-        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
             return TYPE;
         }
     }

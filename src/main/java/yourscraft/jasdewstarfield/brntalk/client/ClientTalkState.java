@@ -2,9 +2,7 @@ package yourscraft.jasdewstarfield.brntalk.client;
 
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class ClientTalkState {
     private static final ClientTalkState INSTANCE = new ClientTalkState();
@@ -22,5 +20,16 @@ public class ClientTalkState {
 
     public List<TalkThread> getThreads() {
         return Collections.unmodifiableList(threads);
+    }
+
+    public boolean hasUnread(TalkThread thread) {
+        if (thread == null) return false;
+        long lastActivity = thread.getLastActivityTime();
+        long lastRead = thread.getLastReadTime();
+        return lastActivity > lastRead;
+    }
+
+    public void clear() {
+        threads.clear();
     }
 }

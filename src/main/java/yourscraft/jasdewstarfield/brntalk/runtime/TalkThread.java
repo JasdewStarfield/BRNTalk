@@ -14,6 +14,7 @@ public class TalkThread {
     private final String id;
     private final String scriptId;
     private final long startTime;
+    private long lastReadTime;
     private final List<TalkMessage> messages = new ArrayList<>();
 
     /**
@@ -22,10 +23,11 @@ public class TalkThread {
      * @param scriptId 剧本 ID
      * @param startTime 启动时间
      */
-    public TalkThread(String id, String scriptId, long startTime) {
+    public TalkThread(String id, String scriptId, long startTime, long lastReadTime) {
         this.id = id;
         this.scriptId = scriptId;
         this.startTime = startTime;
+        this.lastReadTime = lastReadTime;
     }
 
     // ---------- Getter 方法 ----------
@@ -78,6 +80,10 @@ public class TalkThread {
         return Math.max(this.startTime, last.getTimestamp());
     }
 
+    public long getLastReadTime() {
+        return lastReadTime;
+    }
+
     // ---------- Setter 方法 ----------
 
     /**
@@ -87,6 +93,10 @@ public class TalkThread {
     public void appendMessage(TalkMessage message) {
         if (message == null) return;
         messages.add(message);
+    }
+
+    public void setLastReadTime(long lastReadTime) {
+        this.lastReadTime = lastReadTime;
     }
 
 }

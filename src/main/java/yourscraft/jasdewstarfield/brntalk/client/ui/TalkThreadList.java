@@ -1,7 +1,9 @@
 package yourscraft.jasdewstarfield.brntalk.client.ui;
 
 import org.jetbrains.annotations.NotNull;
+import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
+import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -83,24 +85,36 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
 
             var timelineState = ClientTalkUtils.calculateTimeline(thread);
 
+            boolean isUnread = ClientTalkState.get().hasUnread(thread);
+
+            // 检查是否等待选项：看最后一条消息是否为 CHOICE
+            TalkMessage lastMsg = thread.getCurrentMessage();
+            boolean isWaitingForChoice = (lastMsg != null && lastMsg.getType() == TalkMessage.Type.CHOICE);
+
+            // 点的绘制位置 (右上角)
+            int dotSize = 4;
+            int dotX = left + width - 10;
+            int dotY = top + 4;
+
+            if (!timelineState.isFinished) {
+                // 闪烁绿点（正在输入（打字机动画在播放））
+                long frame = (System.currentTimeMillis() / 200) % 2;
+                if (frame == 0) {
+                    gfx.fill(dotX, dotY, dotX + dotSize, dotY + dotSize, 0xFF00FF00);
+                }
+            } else if (isUnread) {
+                // 红点 (未读)
+                gfx.fill(dotX, dotY, dotX + dotSize, dotY + dotSize, 0xFFFF0000);
+            } else if (isWaitingForChoice) {
+                // 黄点 (等待选择)
+                gfx.fill(dotX, dotY, dotX + dotSize, dotY + dotSize, 0xFFFFFF00);
+            }
+
             // 时间 + 最后一条消息
             String timeStr = thread.getFormattedTime();
             String preview = timelineState.isFinished
                     ? ClientTalkUtils.getSingleLinePreview(timelineState.activeMessage, 115) // 静态
                     : ClientTalkUtils.getThreadTimelinePreview(thread, 115); // 动态
-
-            if (!timelineState.isFinished) {
-                long frame = (System.currentTimeMillis() / 200) % 2;
-                if (frame == 0) {
-                    gfx.drawString(
-                            Minecraft.getInstance().font,
-                            "*",
-                            left + width - 15,
-                            top + 2,
-                            0xFF00FF00
-                    );
-                }
-            }
 
             // 上面一行时间
             gfx.drawString(
