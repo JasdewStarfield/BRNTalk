@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 
@@ -31,22 +32,48 @@ public class BrntalkCommands {
                         // --- clear 命令分支 ---
                         .then(Commands.literal("clear")
                                 // 用法 1: /brntalk clear (清除自己所有)
-                                .executes(BrntalkCommands::clearSelf)
+                                .executes(ctx -> executeClear(
+                                        ctx.getSource(),
+                                        Collections.singleton(ctx.getSource().getPlayerOrException()),
+                                        null
+                                ))
                                 // 用法 2: /brntalk clear <targets> (清除目标所有)
                                 .then(Commands.argument("targets", EntityArgument.players())
-                                        .executes(BrntalkCommands::clearTargets)
+                                        .executes(ctx -> executeClear(
+                                                ctx.getSource(),
+                                                EntityArgument.getPlayers(ctx, "targets"),
+                                                null
+                                        ))
                                         // 用法 3: /brntalk clear <targets> <id> (清除目标指定ID)
                                         .then(Commands.argument("id", StringArgumentType.string())
-                                                .executes(BrntalkCommands::clearSpecificTarget)
+                                                .executes(ctx -> executeClear(
+                                                        ctx.getSource(),
+                                                        EntityArgument.getPlayers(ctx, "targets"),
+                                                        StringArgumentType.getString(ctx, "id")
+                                                ))
                                         )
                                 )
                         )
                         // --- has_seen 命令分支 ---
+                        // /brntalk has_seen <targets> <scriptId> <messageId>
                         .then(Commands.literal("has_seen")
                                 .then(Commands.argument("target", EntityArgument.player())
                                         .then(Commands.argument("scriptId", StringArgumentType.string())
                                                 .then(Commands.argument("messageId", StringArgumentType.string())
                                                         .executes(BrntalkCommands::checkSeen)
+                                                )
+                                        )
+                                )
+                        )
+                        // resume 命令分支
+                        .then(Commands.literal("resume")
+                                .then(Commands.argument("targets", EntityArgument.players())
+                                        .then(Commands.argument("scriptId", StringArgumentType.string())
+                                                // 用法 1: /brntalk resume <targets> <scriptId> (恢复该脚本所有线程)
+                                                .executes(ctx -> resumeConversation(ctx, null))
+                                                // 用法 2: /brntalk resume <targets> <scriptId> <messageId> (仅恢复停在该消息ID的线程)
+                                                .then(Commands.argument("messageId", StringArgumentType.string())
+                                                        .executes(ctx -> resumeConversation(ctx, StringArgumentType.getString(ctx, "messageId")))
                                                 )
                                         )
                                 )
@@ -75,53 +102,50 @@ public class BrntalkCommands {
                 successCount++;
             } else {
                 // 如果 API 返回 false，说明 ID 不对，单独给发令者提示
-                source.sendFailure(Component.literal("[BRNTalk] 找不到对话脚本: " + id + " (玩家: " + player.getName().getString() + ")"));
+                source.sendFailure(Component.literal("§c[BRNTalk] 找不到对话脚本: " + id + " (玩家: " + player.getName().getString() + ")"));
             }
         }
 
         if (successCount > 0) {
             final int finalCount = successCount;
-            source.sendSuccess(() -> Component.literal("[BRNTalk] 已为 " + finalCount + " 名玩家触发: " + id), true);
+            source.sendSuccess(() -> Component.literal("§a[BRNTalk] 已为 " + finalCount + " 名玩家触发: " + id), true);
         }
 
         return successCount;
     }
 
-    private static int clearSelf(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        return clearPlayers(ctx.getSource(), Collections.singleton(ctx.getSource().getPlayerOrException()));
-    }
+    private static int executeClear(CommandSourceStack source, Collection<ServerPlayer> targets, @Nullable String scriptId) {
+        int successCount = 0;
 
-    private static int clearTargets(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        Collection<ServerPlayer> targets = EntityArgument.getPlayers(ctx, "targets");
-        return clearPlayers(ctx.getSource(), targets);
-    }
-
-    private static int clearSpecificTarget(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        Collection<ServerPlayer> targets = EntityArgument.getPlayers(ctx, "targets");
-        String id = StringArgumentType.getString(ctx, "id");
-
-        int count = 0;
         for (ServerPlayer player : targets) {
-            if (BrntalkAPI.clearConversation(player, id)) {
-                count++;
+            boolean result;
+            if (scriptId == null) {
+                // 清除所有
+                result = BrntalkAPI.clearAllConversation(player);
+            } else {
+                // 清除指定
+                result = BrntalkAPI.clearConversation(player, scriptId);
+            }
+
+            if (result) {
+                successCount++;
             }
         }
 
-        ctx.getSource().sendSuccess(
-                () -> Component.literal("[BRNTalk] 已为 " + targets.size() + " 名玩家清除了对话: " + id),
-                true
-        );
-        return count;
-    }
-
-    private static int clearPlayers(CommandSourceStack source, Collection<ServerPlayer> targets){
-        for (ServerPlayer player : targets) {
-            BrntalkAPI.clearAllConversation(player);
+        if (successCount > 0) {
+            final int count = successCount;
+            source.sendSuccess(() -> {
+                if (scriptId == null) {
+                    return Component.literal("§a[BRNTalk] 已清除 " + count + " 名玩家的所有对话进度。");
+                } else {
+                    return Component.literal("§a[BRNTalk] 已为 " + count + " 名玩家清除对话: " + scriptId);
+                }
+            }, true);
+        } else {
+            source.sendFailure(Component.literal("§c[BRNTalk] 未能清除对话 (可能目标当前无对话或指定ID不存在)"));
         }
 
-        source.sendSuccess(() -> Component.literal("[BRNTalk] 已清除 " + targets.size() + " 名玩家的对话进度。"), true);
-
-        return targets.size();
+        return successCount;
     }
 
     private static int checkSeen(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
@@ -133,15 +157,51 @@ public class BrntalkCommands {
 
         if (hasSeen) {
             ctx.getSource().sendSuccess(() ->
-                    Component.literal("§a[BRNTalk] 玩家 " + target.getName().getString() + " 已达成/阅读: " + messageId + " (剧本: " + scriptId + ")"),
+                    Component.literal(
+                            "§a[BRNTalk] 玩家 " + target.getName().getString() + " 已达成/阅读: " +
+                            messageId + " (剧本: " + scriptId + ")"
+                    ),
                     false
             );
             return 1;
         } else {
             ctx.getSource().sendFailure(
-                    Component.literal("§c[BRNTalk] 玩家 " + target.getName().getString() + " 尚未阅读: " + messageId + " (剧本: " + scriptId + ")")
+                    Component.literal(
+                            "§c[BRNTalk] 玩家 " + target.getName().getString() + " 尚未阅读: " + messageId +
+                            " (剧本: " + scriptId + ")"
+                    )
             );
             return 0;
         }
+    }
+
+    private static int resumeConversation(CommandContext<CommandSourceStack> ctx, String matchMessageId) throws CommandSyntaxException {
+        Collection<ServerPlayer> targets = EntityArgument.getPlayers(ctx, "targets");
+        String scriptId = StringArgumentType.getString(ctx, "scriptId");
+
+        int totalResumed = 0;
+        int playersAffected = 0;
+
+        for (ServerPlayer player : targets) {
+            int count = BrntalkAPI.resumeConversation(player, scriptId, matchMessageId);
+            if (count > 0) {
+                totalResumed += count;
+                playersAffected++;
+            }
+        }
+
+        if (totalResumed > 0) {
+            final int pCount = playersAffected;
+            final int tCount = totalResumed;
+            String msgInfo = (matchMessageId == null) ? "" : " (过滤ID: " + matchMessageId + ")";
+            ctx.getSource().sendSuccess(() -> Component.literal(
+                    "§a[BRNTalk] 已为 " + pCount + " 名玩家继续对话: " + scriptId + msgInfo +
+                    "，共恢复 " + tCount + " 个线程。"
+            ), true);
+        } else {
+            ctx.getSource().sendFailure(Component.literal("§c[BRNTalk] 未能继续对话 (可能玩家没有该对话或并未处于等待状态)"));
+        }
+
+        return totalResumed;
     }
 }

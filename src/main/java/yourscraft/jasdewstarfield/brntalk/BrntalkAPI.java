@@ -7,8 +7,11 @@ import yourscraft.jasdewstarfield.brntalk.event.PlayerSeenMessageEvent;
 import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
+import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
 import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
 
+import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -71,7 +74,7 @@ public class BrntalkAPI {
      * 清除指定玩家的【所有】对话进度。
      *
      * @param player 目标玩家
-     * @return 成功执行返回 true
+     * @return 如果找到了对话并成功清除，返回 true；如果没找到，返回 false
      */
     public static boolean clearAllConversation(ServerPlayer player) {
         if (player == null) {
@@ -80,13 +83,19 @@ public class BrntalkAPI {
 
         // 1. 清除存档
         TalkWorldData data = TalkWorldData.get(player.serverLevel());
+        PlayerTalkState state = data.get(player.getUUID());
+
+        if (state == null || state.getThreadIds().isEmpty()) {
+            return false;
+        }
+
         data.removeAllThread(player.getUUID());
 
         // 2. 清除运行时内存
         TalkManager manager = TalkManager.getInstance();
         manager.clearThreadsForPlayer(player.getUUID());
 
-        // 3. 同步空状态给客户端
+        // 3. 同步状态
         TalkNetwork.syncThreadsTo(player);
 
         return true;
@@ -96,23 +105,40 @@ public class BrntalkAPI {
      * 清除指定玩家的【特定】对话进度。
      *
      * @param player 目标玩家
-     * @param threadId 要清除的线程 ID (通常等于 scriptId)
-     * @return 成功执行返回 true
+     * @param scriptId 要清除的脚本 ID
+     * @return 如果找到了对应的对话并成功清除，返回 true；如果没找到，返回 false
      */
-    public static boolean clearConversation(ServerPlayer player, String threadId) {
-        if (player == null || threadId == null) {
+    public static boolean clearConversation(ServerPlayer player, String scriptId) {
+        if (player == null || scriptId == null) {
             return false;
         }
 
-        // 1. 清除存档
+        // 1. 查找所有属于该 scriptId 的 threadId
         TalkWorldData data = TalkWorldData.get(player.serverLevel());
-        data.removeThread(player.getUUID(), threadId);
+        PlayerTalkState state = data.get(player.getUUID());
 
-        // 2. 清除运行时内存
+        if (state == null) return false;
+
+        List<String> threadsToRemove = new ArrayList<>();
+        for (String tid : state.getThreadIds()) {
+            PlayerTalkState.SavedThread st = state.getThread(tid);
+            if (st != null && st.getScriptId().equals(scriptId)) {
+                threadsToRemove.add(tid);
+            }
+        }
+
+        if (threadsToRemove.isEmpty()) {
+            return false;
+        }
+
+        // 2. 清除存档和运行时内存
         TalkManager manager = TalkManager.getInstance();
-        manager.removeThread(player.getUUID(), threadId);
+        for (String tid : threadsToRemove) {
+            data.removeThread(player.getUUID(), tid);      // 移除存档
+            manager.removeThread(player.getUUID(), tid);   // 移除内存
+        }
 
-        // 3. 同步最新状态（客户端会自动移除不在列表中的对话）
+        // 3. 同步状态
         TalkNetwork.syncThreadsTo(player);
 
         return true;
@@ -134,5 +160,82 @@ public class BrntalkAPI {
 
         TalkWorldData data = TalkWorldData.get(player.serverLevel());
         return data.hasSeenMessage(player.getUUID(), scriptId, messageId);
+    }
+
+    /**
+     * [新增] 尝试继续指定玩家的某个对话线程（通常用于解除 WAIT 状态）。
+     *
+     * @param player 目标玩家
+     * @param scriptId 剧本 ID (用于查找线程)
+     * @param matchMessageId (可选) 只有当线程当前停留的消息 ID 等于此值时才恢复。传 null 则不限制。
+     * @return 成功推进返回 true，否则 false
+     */
+    public static int resumeConversation(ServerPlayer player, String scriptId, @Nullable String matchMessageId) {
+        if (player == null || scriptId == null) return 0;
+
+        TalkManager manager = TalkManager.getInstance();
+
+        // 获取玩家存档数据
+        TalkWorldData data = TalkWorldData.get(player.serverLevel());
+        PlayerTalkState state = data.get(player.getUUID());
+        if (state == null) return 0;
+
+        List<String> targetThreadIds = new ArrayList<>();
+
+        // 遍历玩家所有活跃线程，找到匹配 scriptId 的那个
+        for (String tid : state.getThreadIds()) {
+            PlayerTalkState.SavedThread st = state.getThread(tid);
+
+            // 匹配 Script ID
+            if (!st.getScriptId().equals(scriptId)) {
+                continue;
+            }
+
+            // 匹配 Message ID (如果参数不为空)
+            if (matchMessageId != null) {
+                // 为了准确，我们检查运行时对象(TalkThread)的当前消息
+                TalkThread runtimeThread = manager.getActiveThread(player.getUUID(), tid);
+
+                // 如果运行时线程存在，且当前消息ID匹配
+                if (runtimeThread != null) {
+                    TalkMessage current = runtimeThread.getCurrentMessage();
+                    if (current != null && current.getId().equals(matchMessageId)) {
+                        targetThreadIds.add(tid);
+                    }
+                }
+            } else {
+                // 没指定 messageId，则匹配所有该脚本的线程
+                targetThreadIds.add(tid);
+            }
+        }
+
+        if (targetThreadIds.isEmpty()) return 0;
+
+        int successCount = 0;
+        boolean needsSync = false;
+
+        for (String tid : targetThreadIds) {
+            // 调用 TalkManager 的单线程恢复方法
+            List<String> newMsgIds = manager.resumeThread(player.getUUID(), tid);
+
+            if (!newMsgIds.isEmpty()) {
+                // 存入存档
+                data.appendMessages(player.getUUID(), tid, newMsgIds);
+
+                // 触发事件
+                for (String msgId : newMsgIds) {
+                    NeoForge.EVENT_BUS.post(new PlayerSeenMessageEvent(player, scriptId, msgId));
+                }
+
+                successCount++;
+                needsSync = true;
+            }
+        }
+
+        if (needsSync) {
+            TalkNetwork.syncThreadsTo(player);
+        }
+
+        return successCount;
     }
 }

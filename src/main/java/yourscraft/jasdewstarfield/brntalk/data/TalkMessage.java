@@ -8,12 +8,14 @@ public class TalkMessage {
 
     public enum Type {
         TEXT,
+        WAIT,
         CHOICE;
 
         public static Type fromString(String s) {
             if (s == null) return TEXT;
             return switch (s.toLowerCase()) {
                 case "choice" -> CHOICE;
+                case "wait" -> WAIT;
                 default -> TEXT;
             };
         }

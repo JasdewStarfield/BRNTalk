@@ -120,6 +120,7 @@ public class TalkManager {
 
         // 3. 收集所有新增的消息 ID
         List<TalkMessage> allMsgs = thread.getMessages();
+        if (allMsgs.size() <= oldSize) return Collections.emptyList();
         List<TalkMessage> newMsgs = allMsgs.subList(oldSize, allMsgs.size());
 
         return newMsgs.stream().map(TalkMessage::getId).toList();
@@ -133,9 +134,15 @@ public class TalkManager {
             TalkMessage lastMsg = thread.getCurrentMessage();
             if (lastMsg == null) break;
 
+            // 若为 WAIT，CHOICE 类型，则停止
+            if (lastMsg.getType() == TalkMessage.Type.WAIT ||
+                    lastMsg.getType() == TalkMessage.Type.CHOICE ||
+                    lastMsg.getNextId() == null) {
+                break;
+            }
+
             // 只有 TEXT 类型且有 nextId 才自动推进
-            // CHOICE 类型必须停下来等玩家选
-            if (lastMsg.getType() == TalkMessage.Type.TEXT && lastMsg.getNextId() != null) {
+            if (lastMsg.getType() == TalkMessage.Type.TEXT) {
                 String nextId = lastMsg.getNextId();
                 TalkMessage nextMsg = conv.getMessage(nextId);
 
@@ -146,11 +153,24 @@ public class TalkManager {
 
                 thread.appendMessage(nextMsg.withTimestamp(System.currentTimeMillis()));
                 count++;
-            } else {
-                // 遇到 Choice 或者 终点(nextId==null)，停止
-                break;
             }
         }
+    }
+
+    /**
+     * 恢复/继续指定线程的对话 (用于从 WAIT 状态解除)
+     * @return 新增的消息 ID 列表
+     */
+    public List<String> resumeThread(UUID playerUuid, String threadId) {
+        TalkThread thread = getActiveThread(playerUuid, threadId);
+        if (thread == null) return Collections.emptyList();
+
+        TalkMessage lastMsg = thread.getCurrentMessage();
+        if (lastMsg == null || lastMsg.getNextId() == null) {
+            return Collections.emptyList();
+        }
+
+        return proceedThread(playerUuid, threadId, lastMsg.getNextId());
     }
 
     public Collection<TalkThread> getActiveThreads(UUID playerUuid) {
