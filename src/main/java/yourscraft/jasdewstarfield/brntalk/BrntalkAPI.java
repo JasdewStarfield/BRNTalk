@@ -65,7 +65,7 @@ public class BrntalkAPI {
         }
 
         // 4. 同步网络包给客户端
-        TalkNetwork.syncThreadsTo(player);
+        TalkNetwork.sendAddThread(player, thread);
 
         return true;
     }
@@ -212,28 +212,24 @@ public class BrntalkAPI {
         if (targetThreadIds.isEmpty()) return 0;
 
         int successCount = 0;
-        boolean needsSync = false;
 
         for (String tid : targetThreadIds) {
             // 调用 TalkManager 的单线程恢复方法
-            List<String> newMsgIds = manager.resumeThread(player.getUUID(), tid);
+            List<TalkMessage> newMsgs = manager.resumeThread(player.getUUID(), tid);
 
-            if (!newMsgIds.isEmpty()) {
+            if (!newMsgs.isEmpty()) {
                 // 存入存档
-                data.appendMessages(player.getUUID(), tid, newMsgIds);
+                List<String> newIds = newMsgs.stream().map(TalkMessage::getId).toList();
+                data.appendMessages(player.getUUID(), tid, newIds);
 
                 // 触发事件
-                for (String msgId : newMsgIds) {
+                for (String msgId : newIds) {
                     NeoForge.EVENT_BUS.post(new PlayerSeenMessageEvent(player, scriptId, msgId));
                 }
 
+                TalkNetwork.sendAppendMessages(player, tid, newMsgs);
                 successCount++;
-                needsSync = true;
             }
-        }
-
-        if (needsSync) {
-            TalkNetwork.syncThreadsTo(player);
         }
 
         return successCount;

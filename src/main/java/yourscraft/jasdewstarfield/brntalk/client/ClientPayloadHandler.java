@@ -25,6 +25,7 @@ public class ClientPayloadHandler {
         });
     }
 
+    // 处理全量同步
     public static void handleSyncThreads(PayloadSync.SyncThreadsPayload payload,
                                          IPayloadContext context) {
         context.enqueueWork(() -> {
@@ -39,6 +40,33 @@ public class ClientPayloadHandler {
         if (mc.screen instanceof TalkScreen screen) {
             screen.onThreadsSynced();
         }
+    }
+
+    // 处理新增线程
+    public static void handleAddThread(final PayloadSync.AddThreadPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> {
+            // 将 NetThread 还原为 TalkThread 并加入状态管理器
+            ClientTalkState.get().addThread(payload.thread().toThread());
+        });
+    }
+
+    // 处理附加消息
+    public static void handleAppendMessages(final PayloadSync.AppendMessagesPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> {
+            // 将 NetMessage 转回 TalkMessage
+            List<TalkMessage> msgs = payload.newMessages().stream()
+                    .map(PayloadSync.NetMessage::toMessage)
+                    .toList();
+            // 更新客户端状态
+            ClientTalkState.get().appendMessages(payload.threadId(), msgs);
+        });
+    }
+
+    // 处理未读状态更新
+    public static void handleUpdateState(final PayloadSync.UpdateStatePayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> {
+            ClientTalkState.get().updateReadTime(payload.threadId(), payload.lastReadTime());
+        });
     }
 
     private static void checkAndShowToast(List<TalkThread> threads) {

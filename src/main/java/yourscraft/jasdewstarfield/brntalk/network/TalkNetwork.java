@@ -53,7 +53,6 @@ public class TalkNetwork {
     }
 
     public record SelectChoicePayload(String threadId, String choiceId) implements CustomPacketPayload {
-
         public static final Type<SelectChoicePayload> TYPE =
                 new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "select_choice"));
 
@@ -120,19 +119,6 @@ public class TalkNetwork {
         PacketDistributor.sendToPlayer(serverPlayer, new OpenTalkScreenPayload());
     }
 
-    public static void syncThreadsTo(ServerPlayer player) {
-        TalkManager manager = TalkManager.getInstance();
-
-        var netThreads = manager.getActiveThreads(player.getUUID()).stream() //
-                .map(PayloadSync.NetThread::fromThread)
-                .toList();
-
-        PayloadSync.SyncThreadsPayload payload =
-                new PayloadSync.SyncThreadsPayload(netThreads);
-
-        PacketDistributor.sendToPlayer(player, payload);
-    }
-
     public static void handleSelectChoice(final SelectChoicePayload payload,
                                           final IPayloadContext context) {
         // 这个 handler 在服务端逻辑线程上调用
@@ -169,20 +155,21 @@ public class TalkNetwork {
         }
 
         // 3. 推进剧情 (在内存中追加消息)
-        List<String> newMsgIds = manager.proceedThread(serverPlayer.getUUID(), threadId, nextMsgId);
-        if (!newMsgIds.isEmpty()) {
+        List<TalkMessage> newMsgs = manager.proceedThread(serverPlayer.getUUID(), threadId, nextMsgId);
+        if (!newMsgs.isEmpty()) {
+            List<String> newIds = newMsgs.stream().map(TalkMessage::getId).toList();
             // 4. 保存到存档 (批量追加)
             TalkWorldData data = TalkWorldData.get(serverPlayer.serverLevel());
-            data.appendMessages(serverPlayer.getUUID(), threadId, newMsgIds);
+            data.appendMessages(serverPlayer.getUUID(), threadId, newIds);
 
             // 5. 触发 PlayerSeenMessageEvent 事件
             String scriptId = thread.getScriptId();
-            for (String msgId : newMsgIds) {
+            for (String msgId : newIds) {
                 NeoForge.EVENT_BUS.post(new PlayerSeenMessageEvent(serverPlayer, scriptId, msgId));
             }
 
             // 6. 同步给客户端
-            TalkNetwork.syncThreadsTo(serverPlayer);
+            TalkNetwork.sendAppendMessages(serverPlayer, threadId, newMsgs);
         }
     }
 
@@ -194,7 +181,7 @@ public class TalkNetwork {
             long now = System.currentTimeMillis();
 
             TalkWorldData.get(serverPlayer.serverLevel())
-                    .updateLastReadTime(serverPlayer.getUUID(), payload.threadId(), now);
+                    .updateLastReadTime(serverPlayer.getUUID(), threadId, now);
 
             TalkManager manager = TalkManager.getInstance();
             TalkThread activeThread = manager.getActiveThread(serverPlayer.getUUID(), threadId);
@@ -203,7 +190,39 @@ public class TalkNetwork {
             }
 
             // 更新完 NBT 后，同步回客户端
-            TalkNetwork.syncThreadsTo(serverPlayer);
+            TalkNetwork.sendUpdateState(serverPlayer, threadId, now);
         });
+    }
+
+    // 全量同步
+    public static void syncThreadsTo(ServerPlayer player) {
+        var threads = TalkManager.getInstance().getActiveThreads(player.getUUID());
+
+        List<PayloadSync.NetThread> netThreads = threads.stream()
+                .map(PayloadSync.NetThread::fromThread)
+                .toList();
+
+        PacketDistributor.sendToPlayer(player, new PayloadSync.SyncThreadsPayload(netThreads));
+    }
+
+    // 新线程同步
+    public static void sendAddThread(ServerPlayer player, TalkThread thread) {
+        PayloadSync.NetThread netThread = PayloadSync.NetThread.fromThread(thread);
+        PacketDistributor.sendToPlayer(player, new PayloadSync.AddThreadPayload(netThread));
+    }
+
+    // 增量消息同步
+    public static void sendAppendMessages(ServerPlayer player, String threadId, List<TalkMessage> newMessages) {
+        if (newMessages.isEmpty()) return;
+
+        List<PayloadSync.NetMessage> netMsgs = newMessages.stream()
+                .map(PayloadSync.NetMessage::fromMessage)
+                .toList();
+
+        PacketDistributor.sendToPlayer(player, new PayloadSync.AppendMessagesPayload(threadId, netMsgs));
+    }
+
+    public static void sendUpdateState(ServerPlayer player, String threadId, long lastReadTime) {
+        PacketDistributor.sendToPlayer(player, new PayloadSync.UpdateStatePayload(threadId, lastReadTime));
     }
 }

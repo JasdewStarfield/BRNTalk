@@ -1,5 +1,8 @@
 package yourscraft.jasdewstarfield.brntalk.client;
 
+import net.minecraft.client.Minecraft;
+import yourscraft.jasdewstarfield.brntalk.client.ui.TalkScreen;
+import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 
 import java.util.*;
@@ -27,6 +30,48 @@ public class ClientTalkState {
         long lastActivity = thread.getLastActivityTime();
         long lastRead = thread.getLastReadTime();
         return lastActivity > lastRead;
+    }
+
+    public void addThread(TalkThread newThread) {
+        // 防止重复添加
+        threads.removeIf(t -> t.getId().equals(newThread.getId()));
+
+        threads.add(newThread);
+
+        notifyUI();
+    }
+
+    public void appendMessages(String threadId, List<TalkMessage> newMsgs) {
+        TalkThread target = null;
+        for (TalkThread t : threads) {
+            if (t.getId().equals(threadId)) {
+                target = t;
+                break;
+            }
+        }
+
+        if (target != null) {
+            for (TalkMessage m : newMsgs) {
+                target.appendMessage(m);
+            }
+            notifyUI();
+        }
+    }
+
+    public void updateReadTime(String threadId, long newTime) {
+        for (TalkThread t : threads) {
+            if (t.getId().equals(threadId)) {
+                t.setLastReadTime(newTime);
+                notifyUI();
+                return;
+            }
+        }
+    }
+
+    private void notifyUI() {
+        if (Minecraft.getInstance().screen instanceof TalkScreen screen) {
+            screen.onThreadsSynced();
+        }
     }
 
     public void clear() {

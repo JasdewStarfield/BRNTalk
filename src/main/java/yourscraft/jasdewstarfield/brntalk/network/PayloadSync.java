@@ -156,7 +156,8 @@ public class PayloadSync {
         }
     }
 
-    /* ------------- 真正发送的 S2C 包：同步所有 thread ------------- */
+    /* ------------- 1. 全量同步包 ------------- */
+    // 场景：玩家加入或服务器 /reload
     public record SyncThreadsPayload(List<NetThread> threads) implements CustomPacketPayload {
 
         public static final Type<SyncThreadsPayload> TYPE =
@@ -165,6 +166,63 @@ public class PayloadSync {
         public static final StreamCodec<ByteBuf, SyncThreadsPayload> STREAM_CODEC =
                 NetThread.STREAM_CODEC.apply(ByteBufCodecs.list())
                         .map(SyncThreadsPayload::new, SyncThreadsPayload::threads);
+
+        @Override
+        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+
+    /* ------------- 2. 追加新对话包 ------------- */
+    // 场景：使用startConversation
+    public record AddThreadPayload(PayloadSync.NetThread thread) implements CustomPacketPayload {
+        public static final Type<AddThreadPayload> TYPE =
+                new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "add_thread"));
+
+        public static final StreamCodec<ByteBuf, AddThreadPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        PayloadSync.NetThread.STREAM_CODEC, AddThreadPayload::thread,
+                        AddThreadPayload::new
+                );
+
+        @Override
+        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /* ------------- 2. 追加消息包 ------------- */
+    // 场景：对话进行中，发送新生成的文本
+    public record AppendMessagesPayload(String threadId, List<NetMessage> newMessages) implements CustomPacketPayload {
+        public static final Type<AppendMessagesPayload> TYPE =
+                new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "append_msgs"));
+
+        public static final StreamCodec<ByteBuf, AppendMessagesPayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.STRING_UTF8, AppendMessagesPayload::threadId,
+                        NetMessage.STREAM_CODEC.apply(ByteBufCodecs.list()), AppendMessagesPayload::newMessages,
+                        AppendMessagesPayload::new
+                );
+
+        @Override
+        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /* ------------- 3. 状态更新包 ------------- */
+    // 场景：更新已读时间 (消除红点)
+    public record UpdateStatePayload(String threadId, long lastReadTime) implements CustomPacketPayload {
+        public static final Type<UpdateStatePayload> TYPE =
+                new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "update_state"));
+
+        public static final StreamCodec<ByteBuf, UpdateStatePayload> STREAM_CODEC =
+                StreamCodec.composite(
+                        ByteBufCodecs.STRING_UTF8, UpdateStatePayload::threadId,
+                        ByteBufCodecs.VAR_LONG, UpdateStatePayload::lastReadTime,
+                        UpdateStatePayload::new
+                );
 
         @Override
         public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {

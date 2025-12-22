@@ -27,5 +27,23 @@ public class ClientPayloads {
                 PayloadSync.SyncThreadsPayload.STREAM_CODEC,
                 ClientPayloadHandler::handleSyncThreads
         );
+
+        registrar.playToClient(
+                PayloadSync.AppendMessagesPayload.TYPE,
+                PayloadSync.AppendMessagesPayload.STREAM_CODEC,
+                ClientPayloadHandler::handleAppendMessages
+        );
+
+        registrar.playToClient(
+                PayloadSync.AddThreadPayload.TYPE,
+                PayloadSync.AddThreadPayload.STREAM_CODEC,
+                ClientPayloadHandler::handleAddThread
+        );
+
+        registrar.playToClient(
+                PayloadSync.UpdateStatePayload.TYPE,
+                PayloadSync.UpdateStatePayload.STREAM_CODEC,
+                ClientPayloadHandler::handleUpdateState
+        );
     }
 }

@@ -27,5 +27,26 @@ public class ServerPayloads {
                 (payload, context) -> {
                 }
         );
+
+        registrar.playToClient(
+                PayloadSync.AppendMessagesPayload.TYPE,
+                PayloadSync.AppendMessagesPayload.STREAM_CODEC,
+                (payload, context) -> {
+                }
+        );
+
+        registrar.playToClient(
+                PayloadSync.AddThreadPayload.TYPE,
+                PayloadSync.AddThreadPayload.STREAM_CODEC,
+                (payload, context) -> {
+                }
+        );
+
+        registrar.playToClient(
+                PayloadSync.UpdateStatePayload.TYPE,
+                PayloadSync.UpdateStatePayload.STREAM_CODEC,
+                (payload, context) -> {
+                }
+        );
     }
 }

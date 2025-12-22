@@ -99,7 +99,7 @@ public class TalkManager {
         }
     }
 
-    public List<String> proceedThread(UUID playerUuid, String threadId, String nextMsgId) {
+    public List<TalkMessage> proceedThread(UUID playerUuid, String threadId, String nextMsgId) {
         TalkThread thread = getActiveThread(playerUuid, threadId);
         if (thread == null) return Collections.emptyList();
 
@@ -121,9 +121,8 @@ public class TalkManager {
         // 3. 收集所有新增的消息 ID
         List<TalkMessage> allMsgs = thread.getMessages();
         if (allMsgs.size() <= oldSize) return Collections.emptyList();
-        List<TalkMessage> newMsgs = allMsgs.subList(oldSize, allMsgs.size());
 
-        return newMsgs.stream().map(TalkMessage::getId).toList();
+        return allMsgs.subList(oldSize, allMsgs.size());
     }
 
     private void autoAdvance(TalkThread thread, TalkConversation conv) {
@@ -161,7 +160,7 @@ public class TalkManager {
      * 恢复/继续指定线程的对话 (用于从 WAIT 状态解除)
      * @return 新增的消息 ID 列表
      */
-    public List<String> resumeThread(UUID playerUuid, String threadId) {
+    public List<TalkMessage> resumeThread(UUID playerUuid, String threadId) {
         TalkThread thread = getActiveThread(playerUuid, threadId);
         if (thread == null) return Collections.emptyList();
 
