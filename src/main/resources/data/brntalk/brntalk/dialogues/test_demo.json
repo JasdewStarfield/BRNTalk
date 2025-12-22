@@ -1,0 +1,92 @@
+{
+  "conversations": [
+    {
+      "id": "test_demo",
+      "messages": [
+        {
+          "id": "start",
+          "type": "text",
+          "speaker": "Guide NPC",
+          "text": "你好！欢迎来到 BRNTalk 功能测试脚本。",
+          "nextId": "auto_continue",
+          "continue": true
+        },
+        {
+          "id": "auto_continue",
+          "type": "text",
+          "speaker": "Guide NPC",
+          "text": "这条消息是自动推进的 (continue: true)，你应该紧接着上一条看到它。",
+          "nextId": "player_speak"
+        },
+        {
+          "id": "player_speak",
+          "type": "text",
+          "speakerType": "player",
+          "speaker": "{player}",
+          "text": "这是我（玩家）在说话吗？测试玩家气泡渲染。",
+          "nextId": "i18n"
+        },
+        {
+          "id": "i18n",
+          "type": "text",
+          "speaker": "item.minecraft.iron_sword",
+          "text": "本条消息测试i18n自动转换。讲话者的名字使用了翻译键“item.minecraft.iron_sword”，正常情况下，应当为你的语言中的“铁剑”。",
+          "nextId": "choice_node"
+        },
+        {
+          "id": "choice_node",
+          "type": "choice",
+          "speaker": "Guide NPC",
+          "text": "现在测试分支选项。请选择一条测试路径：",
+          "choices": [
+            {
+              "id": "opt_a",
+              "text": "测试 WAIT 和 Resume 功能",
+              "nextId": "branch_wait_1"
+            },
+            {
+              "id": "opt_b",
+              "text": "测试长文本和 UI 滚动",
+              "nextId": "branch_long_text"
+            }
+          ]
+        },
+        {
+          "id": "branch_wait_1",
+          "type": "text",
+          "speaker": "Guide NPC",
+          "text": "你选择了测试暂停功能。下一条消息将进入 WAIT 状态，对话会卡住。",
+          "nextId": "wait_node"
+        },
+        {
+          "id": "wait_node",
+          "type": "wait",
+          "speaker": "System",
+          "text": "（对话已暂停... 请使用 /brntalk resume @s test_demo 继续）",
+          "nextId": "resume_success"
+        },
+        {
+          "id": "resume_success",
+          "type": "text",
+          "speaker": "Guide NPC",
+          "text": "恭喜！resume 命令执行成功，对话已恢复！",
+          "nextId": "end"
+        },
+        {
+          "id": "branch_long_text",
+          "type": "text",
+          "speaker": "Guide NPC",
+          "text": "这是一段非常非常长的文本，用来测试自动换行、气泡高度计算以及滚动条功能是否正常。为了凑字数，我需要多说一点废话。不仅仅是换行，还要确保气泡不会超出屏幕边缘，并且玩家名字和 NPC 名字的颜色区分正确。如果你的 UI 渲染没有问题，这段话应该能完整显示。",
+          "nextId": "end"
+        },
+        {
+          "id": "end",
+          "type": "text",
+          "speaker": "Guide NPC",
+          "text": "测试结束，点击关闭或按 ESC 退出。",
+          "nextId": null
+        }
+      ]
+    }
+  ]
+}

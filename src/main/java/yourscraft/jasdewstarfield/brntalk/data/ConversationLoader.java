@@ -100,7 +100,10 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
 
             String speaker = GsonHelper.getAsString(msgObj, "speaker", "&c**EMPTY SPEAKER**");
             String text = GsonHelper.getAsString(msgObj, "text", "&c**EMPTY TEXT**");
-            String nextId = GsonHelper.getAsString(msgObj, "nextId", null);
+            String nextId = null;
+            if (msgObj.has("nextId") && !msgObj.get("nextId").isJsonNull()) {
+                nextId = GsonHelper.getAsString(msgObj, "nextId", null);
+            }
             boolean autoContinue = GsonHelper.getAsBoolean(msgObj, "continue", false);
 
             // 自动推断nextId
@@ -130,7 +133,10 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
 
                     String choiceId = GsonHelper.getAsString(choiceObj, "id", msgId + "_choice_" + choiceIdx);
                     String choiceText = GsonHelper.getAsString(choiceObj, "text", "&c**EMPTY CHOICE TEXT**");
-                    String cNextId = GsonHelper.getAsString(choiceObj, "nextId", "");
+                    String cNextId = "";
+                    if (choiceObj.has("nextId") && !choiceObj.get("nextId").isJsonNull()) {
+                        cNextId = GsonHelper.getAsString(choiceObj, "nextId", "");
+                    }
 
                     TalkMessage.Choice choice = new TalkMessage.Choice(
                             choiceId,
