@@ -33,7 +33,6 @@ public class ClientPayloadHandler {
                     .map(PayloadSync.NetThread::toThread)
                     .toList();
             ClientTalkState.get().setThreads(threads);
-            checkAndShowToast(threads);
         });
 
         Minecraft mc = Minecraft.getInstance();
@@ -45,8 +44,14 @@ public class ClientPayloadHandler {
     // 处理新增线程
     public static void handleAddThread(final PayloadSync.AddThreadPayload payload, final IPayloadContext context) {
         context.enqueueWork(() -> {
+            TalkThread thread = payload.thread().toThread();
             // 将 NetThread 还原为 TalkThread 并加入状态管理器
             ClientTalkState.get().addThread(payload.thread().toThread());
+
+            List<TalkMessage> msgs = thread.getMessages();
+            if (!msgs.isEmpty()) {
+                tryShowToast(msgs.getFirst(), thread.getId());
+            }
         });
     }
 
@@ -59,6 +64,11 @@ public class ClientPayloadHandler {
                     .toList();
             // 更新客户端状态
             ClientTalkState.get().appendMessages(payload.threadId(), msgs);
+
+            if (!msgs.isEmpty()) {
+                TalkMessage newestMsg = msgs.getFirst();
+                tryShowToast(newestMsg, payload.threadId());
+            }
         });
     }
 
@@ -69,51 +79,34 @@ public class ClientPayloadHandler {
         });
     }
 
-    private static void checkAndShowToast(List<TalkThread> threads) {
-        if (threads.isEmpty()) return;
+    /**
+     * 尝试显示弹窗
+     * @param message 消息对象
+     * @param threadId 线程ID (用于去重)
+     */
+    private static void tryShowToast(TalkMessage message, String threadId) {
+        if (message == null) return;
 
         Minecraft mc = Minecraft.getInstance();
+
+        // 1. 如果正在看对话界面，就不弹窗
         if (mc.screen instanceof TalkScreen) return;
 
-        // 1. 找到所有线程中，最新的那个线程
-        TalkThread activeThread = null;
-        long maxTimestamp = -1;
-
-        for (TalkThread t : threads) {
-            TalkMessage last = t.getCurrentMessage();
-            if (last != null && last.getTimestamp() > maxTimestamp) {
-                maxTimestamp = last.getTimestamp();
-                activeThread = t;
-            }
-        }
-
-        if (activeThread == null) return;
-
-        // 3. 检查是否是"新鲜"的消息
-        // 条件B: 消息产生的时间距离现在不超过 3秒 (防止重进存档时把历史消息全弹一遍)
-        TalkMessage messageToast = null;
+        // 2. 检查消息时效性：如果消息产生时间距离现在超过3秒，就不弹了
         long now = System.currentTimeMillis();
-
-        for (TalkMessage msg : activeThread.getMessages()) {
-            // 如果这条消息是 3秒内 产生的，它就是候选人
-            if ((now - msg.getTimestamp()) < 3000) {
-                // 选中第一条
-                messageToast = msg;
-                break;
-            }
-        }
-
-        if (messageToast == null) return;
-
-        String currentUniqueKey = activeThread.getId() + ":" + messageToast.getId();
-
-        if (currentUniqueKey.equals(lastToastUniqueKey)) {
+        if ((now - message.getTimestamp()) > 3000) {
             return;
         }
 
+        // 3. 去重
+        String currentUniqueKey = threadId + ":" + message.getId();
+        if (currentUniqueKey.equals(lastToastUniqueKey)) {
+            return;
+        }
         lastToastUniqueKey = currentUniqueKey;
 
-        mc.getToasts().addToast(new TalkToast(messageToast));
+        // 4. 显示 Toast 并播放音效
+        mc.getToasts().addToast(new TalkToast(message));
         mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_TOAST_IN, 1.0F));
     }
 }
