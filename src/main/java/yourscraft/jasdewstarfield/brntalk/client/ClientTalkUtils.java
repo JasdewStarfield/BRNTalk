@@ -4,14 +4,20 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.resources.language.I18n;
+import yourscraft.jasdewstarfield.brntalk.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 
 public class ClientTalkUtils {
 
-    // 统一的打字机参数
-    public static final int CHAR_DELAY_MS = 20;
-    public static final int MSG_PAUSE_MS = 500;
+    // 读取打字机参数
+    public static int getCharDelay() {
+        return BrntalkConfig.CLIENT.charDelay.get();
+    }
+
+    public static int getMsgPause() {
+        return BrntalkConfig.CLIENT.msgPause.get();
+    }
 
     /**
      * 核心处理逻辑：I18n + 颜色代码 + 玩家名占位符
@@ -99,17 +105,20 @@ public class ClientTalkUtils {
         long now = System.currentTimeMillis();
         long previousVisualEndTime = 0;
 
+        int charDelay = getCharDelay();
+        int msgPause = getMsgPause();
+
         for (TalkMessage msg : thread.getMessages()) {
             // 计算时长 (使用去色后的文本长度)
             String cleanText = stripColor(processText(msg.getText())).replace("\n", "");
-            long duration = (long) cleanText.length() * CHAR_DELAY_MS;
+            long duration = (long) cleanText.length() * charDelay;
 
             long visualStartTime;
             if (msg.getTimestamp() == 0) {
                 visualStartTime = 0;
                 previousVisualEndTime = 0;
             } else {
-                visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + MSG_PAUSE_MS);
+                visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + msgPause);
                 previousVisualEndTime = visualStartTime + duration;
             }
 
@@ -186,14 +195,16 @@ public class ClientTalkUtils {
         long now = System.currentTimeMillis();
         long timePassed = now - startTime;
 
+        int charDelay = getCharDelay();
+
         String visibleText;
-        long fullDuration = (long) fullText.length() * CHAR_DELAY_MS;
+        long fullDuration = (long) fullText.length() * charDelay;
         if (timePassed <= 0) {
             visibleText = "";
         } else if (timePassed >= fullDuration) {
             visibleText = fullText;
         } else {
-            int charCount = (int) (timePassed / CHAR_DELAY_MS);
+            int charCount = (int) (timePassed / charDelay);
             charCount = Math.min(charCount, fullText.length());
             visibleText = fullText.substring(0, charCount);
         }

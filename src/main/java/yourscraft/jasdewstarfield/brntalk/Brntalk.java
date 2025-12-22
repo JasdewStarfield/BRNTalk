@@ -7,6 +7,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.FMLEnvironment;
@@ -46,6 +47,8 @@ public class Brntalk {
 
     */
     public Brntalk(IEventBus modEventBus, ModContainer modContainer) {
+        modContainer.registerConfig(ModConfig.Type.CLIENT, BrntalkConfig.CLIENT_SPEC);
+
         // Common (Client + Server)
         modEventBus.addListener(this::onCommonSetup);
         NeoForge.EVENT_BUS.addListener(this::onAddReloadListeners);

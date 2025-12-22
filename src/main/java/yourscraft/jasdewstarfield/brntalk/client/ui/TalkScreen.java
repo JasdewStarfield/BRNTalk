@@ -313,8 +313,8 @@ public class TalkScreen extends Screen {
             long now = System.currentTimeMillis();
 
             long previousVisualEndTime = 0;
-            int charDelay = ClientTalkUtils.CHAR_DELAY_MS;
-            int msgPause = ClientTalkUtils.MSG_PAUSE_MS;
+            int charDelay = ClientTalkUtils.getCharDelay();
+            int msgPause = ClientTalkUtils.getMsgPause();
 
             for (TalkMessage msg : msgs) {
                 // 1. 获取或创建缓存
