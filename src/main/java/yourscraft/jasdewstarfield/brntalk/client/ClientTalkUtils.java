@@ -33,6 +33,10 @@ public class ClientTalkUtils {
             }
         }
 
+        // 4. 自动优化中英文排版
+        processing = processing.replaceAll("(?<=[\\u4e00-\\u9fa5]) (?=[a-zA-Z0-9])", "\u00A0");
+        processing = processing.replaceAll("(?<=[a-zA-Z0-9]) (?=[\\u4e00-\\u9fa5])", "\u00A0");
+
         return processing;
     }
 

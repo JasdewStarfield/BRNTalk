@@ -16,9 +16,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 public class TalkScreen extends Screen {
 
@@ -42,6 +40,8 @@ public class TalkScreen extends Screen {
 
     private final List<AbstractWidget> choiceButtons = new ArrayList<>();
 
+    private final Map<String, MessageRenderCache> renderCacheMap = new HashMap<>();
+
     public TalkScreen() {
         super(Component.literal("BRNTalk"));
     }
@@ -49,6 +49,7 @@ public class TalkScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        this.renderCacheMap.clear();
         rebuildUI();
     }
 
@@ -306,93 +307,89 @@ public class TalkScreen extends Screen {
 
             int lineHeight = this.font.lineHeight;
 
-            boolean isThreadFinished = ClientTalkUtils.isThreadFinished(selectedThread);
+            int maxBubbleWidth = (int) (areaWidth * MAX_BUBBLE_WIDTH_RATIO);
+            int textMaxWidth = maxBubbleWidth - (2 * BUBBLE_PADDING_X);
 
             long now = System.currentTimeMillis();
+
             long previousVisualEndTime = 0;
             int charDelay = ClientTalkUtils.CHAR_DELAY_MS;
             int msgPause = ClientTalkUtils.MSG_PAUSE_MS;
 
-            int maxBubbleWidth = (int) (areaWidth * MAX_BUBBLE_WIDTH_RATIO);
-
             for (TalkMessage msg : msgs) {
-                // 1. 预处理文本（替换占位符、颜色等），因为长度会变，所以要先处理
-                String rawText = ClientTalkUtils.processText(msg.getText());
-                String speakerName = ClientTalkUtils.processText(msg.getSpeaker());
+                // 1. 获取或创建缓存
+                MessageRenderCache cache = renderCacheMap.computeIfAbsent(msg.getId(), k -> new MessageRenderCache());
 
-                String textToShow;
-                if (isThreadFinished) {
-                    // 快速路径：如果对话已结束，直接显示全文
-                    textToShow = rawText;
-                } else {
-                    // 慢速路径：动态计算打字机效果
-                    String cleanText = ClientTalkUtils.stripColor(rawText).replace("\n", "");
-                    long typingDuration = (long) cleanText.length() * charDelay;
-
-                    long visualStartTime;
-                    if (msg.getTimestamp() == 0) {
-                        visualStartTime = 0;
-                        previousVisualEndTime = 0;
-                    } else {
-                        visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + msgPause);
-                        previousVisualEndTime = visualStartTime + typingDuration;
-                    }
-
-                    long timePassed = now - visualStartTime;
-
-                    if (timePassed < 0) {
-                        // 还没轮到这条消息，跳过渲染
-                        continue;
-                    } else if (timePassed >= typingDuration) {
-                        // 播完了
-                        textToShow = rawText;
-                    } else {
-                        // 正在打字
-                        int charCount = (int) (timePassed / ClientTalkUtils.CHAR_DELAY_MS);
-                        // 防溢出保护
-                        int safeLen = rawText.length();
-                        charCount = Math.max(0, Math.min(charCount, safeLen));
-                        textToShow = rawText.substring(0, charCount);
-                    }
+                // 2. 检查缓存是否过期（例如：首次加载、或宽度变化导致需要重新折行）
+                // 只要 textMaxWidth 不变，font.split 的结果就是一样的
+                if (!cache.isLayoutValid(textMaxWidth)) {
+                    cache.updateLayout(msg, textMaxWidth, this.font);
                 }
 
-                Component fullTextComp = Component.literal(rawText);
-                List<FormattedCharSequence> allLines = this.font.split(fullTextComp, maxBubbleWidth - (2 * BUBBLE_PADDING_X));
+                // 3. 计算时间轴
+                long visualStartTime;
+                if (msg.getTimestamp() == 0) {
+                    visualStartTime = 0;
+                    previousVisualEndTime = 0;
+                } else {
+                    visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + msgPause);
+                    // 使用缓存中计算好的纯文本长度
+                    long duration = (long) cache.cleanTextLength * charDelay;
+                    previousVisualEndTime = visualStartTime + duration;
+                }
+
+                // 4. 判断当前消息的打字机进度
+                String textToShow;
+                long timePassed = now - visualStartTime;
+
+                if (timePassed < 0) {
+                    // 还没轮到，直接跳过
+                    continue;
+                } else if (timePassed >= (long) cache.cleanTextLength * charDelay) {
+                    // 播完了，直接用缓存的完整文本
+                    textToShow = cache.processedText;
+                } else {
+                    int charCount = (int) (timePassed / charDelay);
+                    charCount = Math.max(0, Math.min(charCount, cache.processedText.length()));
+                    textToShow = cache.processedText.substring(0, charCount);
+                }
+
+                // 5. 再次折行 (只有当正在打字时，才需要实时折行；如果播完了，直接用缓存的 lines)
+                List<FormattedCharSequence> linesToDraw;
+                if (textToShow.length() == cache.processedText.length()) {
+                    // 完整显示，使用缓存
+                    linesToDraw = cache.cachedLines;
+                } else {
+                    // 动态显示，必须实时算，但只针对当前正在打字的那一条
+                    linesToDraw = this.font.split(Component.literal(textToShow), textMaxWidth);
+                }
+
+                // 气泡最终尺寸
                 int contentWidth = 0;
-                for (FormattedCharSequence seq : allLines) {
+                for (FormattedCharSequence seq : linesToDraw) {
                     int w = this.font.width(seq);
                     if (w > contentWidth) contentWidth = w;
                 }
-                int contentHeight = allLines.size() * this.font.lineHeight;
+                int contentHeight = linesToDraw.size() * lineHeight;
 
-                // 气泡最终尺寸
                 int bubbleWidth = contentWidth + (2 * BUBBLE_PADDING_X);
                 int bubbleHeight = contentHeight + (2 * BUBBLE_PADDING_Y);
 
                 boolean isPlayer = (msg.getSpeakerType() == TalkMessage.SpeakerType.PLAYER);
+                int bubbleX = isPlayer ? (areaRight - bubbleWidth) : areaLeft;
 
-                int bubbleX;
-                if (isPlayer) {
-                    // 玩家气泡靠右对齐
-                    bubbleX = areaRight - bubbleWidth;
-                } else {
-                    // NPC气泡靠左对齐
-                    bubbleX = areaLeft;
+                int entryTotalHeight = lineHeight + 2 + bubbleHeight;
+                float visualEntryTop = currentY - this.scrollAmount;
+                float visualEntryBottom = visualEntryTop + entryTotalHeight;
+                // 块级Culling
+                if (visualEntryBottom < areaTop || visualEntryTop > areaBottom) {
+                    currentY += entryTotalHeight + ENTRY_SPACING;
+                    continue;
                 }
 
                 // --- 渲染说话人 ---
-                Component speakerComp = Component.literal(speakerName);
-                int nameWidth = this.font.width(speakerName);
-                int nameX;
-                if (isPlayer) {
-                    // 玩家名字靠右
-                    nameX = areaRight - nameWidth;
-                } else {
-                    // NPC名字靠左
-                    nameX = areaLeft;
-                }
-
-                gfx.drawString(this.font, speakerComp, nameX, currentY, 0xFFFFAA00);
+                int nameX = isPlayer ? (areaRight - cache.speakerNameWidth) : areaLeft;
+                gfx.drawString(this.font, cache.speakerComp, nameX, currentY, 0xFFFFAA00);
                 currentY += lineHeight + 2;
 
                 // --- 绘制气泡背景 ---
@@ -409,17 +406,18 @@ public class TalkScreen extends Screen {
                 gfx.fill(bubbleX + bubbleWidth - 1, currentY, bubbleX + bubbleWidth, currentY + bubbleHeight, borderColor); // Right
 
                 // --- 渲染正文 ---
-                Component textComp = Component.literal(textToShow);
-                List<FormattedCharSequence> lines = this.font.split(textComp, maxBubbleWidth - (2 * BUBBLE_PADDING_X));
-
                 int textY = currentY + BUBBLE_PADDING_Y;
                 int textX = bubbleX + BUBBLE_PADDING_X;
 
-                for (FormattedCharSequence line : lines) {
-                    if (textY + lineHeight <= currentY + bubbleHeight) {
+                float viewTop = areaTop + this.scrollAmount;
+                float viewBottom = areaBottom + this.scrollAmount;
+
+                for (FormattedCharSequence line : linesToDraw) {
+                    // 文字Culling
+                    if (textY + lineHeight > viewTop && textY < viewBottom) {
                         gfx.drawString(this.font, line, textX, textY, 0xFFFFFFFF, false);
-                        textY += lineHeight;
                     }
+                    textY += lineHeight;
                 }
 
                 currentY += bubbleHeight + ENTRY_SPACING;
@@ -488,7 +486,46 @@ public class TalkScreen extends Screen {
 
     @Override
     public void onClose() {
-        // 关闭界面时回到游戏
+        // 关闭界面时清理缓存，回到游戏
+        this.renderCacheMap.clear();
         Minecraft.getInstance().setScreen(null);
+    }
+
+    private static class MessageRenderCache {
+        // 缓存的文本数据
+        String processedText;      // I18n处理后的完整文本
+        String speakerName;        // I18n处理后的名字
+        int cleanTextLength;       // 去色后的长度（用于时间轴计算）
+
+        // 缓存的渲染组件
+        Component speakerComp;
+        int speakerNameWidth;
+
+        // 缓存的布局数据
+        List<FormattedCharSequence> cachedLines; // 完整文本的折行结果
+        int cachedLayoutWidth;     // 上次计算时的最大宽度
+
+        boolean isLayoutValid(int widthLimit) {
+            return processedText != null && cachedLines != null && cachedLayoutWidth == widthLimit;
+        }
+
+        void updateLayout(TalkMessage msg, int widthLimit, net.minecraft.client.gui.Font font) {
+            // 1. 只有第一次才处理文本
+            if (processedText == null) {
+                this.processedText = ClientTalkUtils.processText(msg.getText());
+                this.speakerName = ClientTalkUtils.processText(msg.getSpeaker());
+
+                String clean = ClientTalkUtils.stripColor(processedText).replace("\n", "");
+                this.cleanTextLength = clean.length();
+
+                this.speakerComp = Component.literal(speakerName);
+                this.speakerNameWidth = font.width(speakerName);
+            }
+
+            // 2. 重新计算折行
+            this.cachedLayoutWidth = widthLimit;
+            // 缓存完整显示的折行结果
+            this.cachedLines = font.split(Component.literal(processedText), widthLimit);
+        }
     }
 }
