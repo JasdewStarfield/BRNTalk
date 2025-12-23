@@ -1,7 +1,9 @@
 package yourscraft.jasdewstarfield.brntalk.client.ui;
 
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
+import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadSender;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
@@ -20,6 +22,9 @@ import java.util.*;
 
 public class TalkScreen extends Screen {
 
+    private static final ResourceLocation BACKGROUND_SPRITE =
+            ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "talk_background");
+
     private TalkThreadList threadList;
     private TalkThread selectedThread;
 
@@ -34,7 +39,7 @@ public class TalkScreen extends Screen {
     private static final int BUBBLE_PADDING_X = 8;
     private static final int BUBBLE_PADDING_Y = 6;
     private static final int ENTRY_SPACING = 10;
-    private static final float MAX_BUBBLE_WIDTH_RATIO = 0.75f;
+    private static final float MAX_BUBBLE_WIDTH_RATIO = 0.85f;
 
     private boolean needScrollToBottom = true;
 
@@ -260,6 +265,18 @@ public class TalkScreen extends Screen {
         }
 
         this.renderBackground(gfx, mouseX, mouseY, partialTick);
+
+        int bgX = 10;
+        int bgY = 15;
+        int bgWidth = this.width - 20;  // 左右各留 10 像素
+        int bgHeight = this.height - 30; // 上下各留 15 像素
+
+        gfx.blitSprite(
+                BACKGROUND_SPRITE,
+                bgX, bgY,          // x, y
+                bgWidth, bgHeight  // width, height
+        );
+
         super.render(gfx, mouseX, mouseY, partialTick);
 
         if (selectedThread != null) {
