@@ -264,19 +264,6 @@ public class TalkScreen extends Screen {
             }
         }
 
-        this.renderBackground(gfx, mouseX, mouseY, partialTick);
-
-        int bgX = 10;
-        int bgY = 15;
-        int bgWidth = this.width - 20;  // 左右各留 10 像素
-        int bgHeight = this.height - 30; // 上下各留 15 像素
-
-        gfx.blitSprite(
-                BACKGROUND_SPRITE,
-                bgX, bgY,          // x, y
-                bgWidth, bgHeight  // width, height
-        );
-
         super.render(gfx, mouseX, mouseY, partialTick);
 
         if (selectedThread != null) {
@@ -493,6 +480,24 @@ public class TalkScreen extends Screen {
             return true;
         }
         return false;
+    }
+
+    @Override
+    public void renderBackground(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
+        int bgX = 10;
+        int bgY = 15;
+        int bgWidth = this.width - 20;  // 左右各留 10 像素
+        int bgHeight = this.height - 30; // 上下各留 15 像素
+
+        this.renderBlurredBackground(partialTick);
+        this.renderMenuBackground(gfx);
+
+        // 渲染自定义背景
+        gfx.blitSprite(
+                BACKGROUND_SPRITE,
+                bgX, bgY,          // x, y
+                bgWidth, bgHeight  // width, height
+        );
     }
 
     @Override
