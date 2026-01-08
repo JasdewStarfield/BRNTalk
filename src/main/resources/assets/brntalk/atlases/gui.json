@@ -1,9 +1,0 @@
-{
-  "sources": [
-    {
-      "type": "single",
-      "resource": "brntalk:talk_background",
-      "sprite": "brntalk:talk_background"
-    }
-  ]
-}

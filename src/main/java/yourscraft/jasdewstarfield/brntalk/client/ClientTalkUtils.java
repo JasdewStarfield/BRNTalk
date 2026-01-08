@@ -1,9 +1,12 @@
 package yourscraft.jasdewstarfield.brntalk.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
+import net.minecraft.resources.ResourceLocation;
 import yourscraft.jasdewstarfield.brntalk.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
@@ -231,5 +234,86 @@ public class ClientTalkUtils {
 
         String full = speaker + ": " + text;
         return trimToWidth(full, widthLimit);
+    }
+
+    /**
+     * 平铺绘制纹理 (用于背景和分割线)
+     * 会自动循环重复贴图来填满指定区域
+     *
+     * @param gfx GuiGraphics
+     * @param texture 贴图 ID
+     * @param x 绘制区域 X
+     * @param y 绘制区域 Y
+     * @param width 绘制区域总宽
+     * @param height 绘制区域总高
+     * @param texW 贴图单元宽度 (如 16)
+     * @param texH 贴图单元高度 (如 16)
+     */
+    public static void drawRepeatedTexture(GuiGraphics gfx, ResourceLocation texture,
+                                           int x, int y, int width, int height,
+                                           int texW, int texH) {
+        RenderSystem.setShaderTexture(0, texture);
+
+        // 双重循环铺满区域
+        for (int dx = 0; dx < width; dx += texW) {
+            for (int dy = 0; dy < height; dy += texH) {
+                // 计算当前这块砖的实际显示大小 (处理边缘裁切)
+                int drawW = Math.min(texW, width - dx);
+                int drawH = Math.min(texH, height - dy);
+
+                gfx.blit(texture,
+                        x + dx, y + dy,     // 屏幕坐标
+                        0, 0,               // UV 起点
+                        drawW, drawH,       // 截取大小
+                        texW, texH          // 纹理总大小
+                );
+            }
+        }
+    }
+
+    /**
+     * 绘制 9-Slice 外框 (带平铺边缘)
+     *
+     * @param borderW 横向边框宽度
+     * @param borderH 纵向边框宽度
+     */
+    public static void drawTextureFrame(GuiGraphics gfx, ResourceLocation texture,
+                                        int x, int y, int width, int height,
+                                        int borderW, int borderH,
+                                        int texW, int texH) {
+        RenderSystem.setShaderTexture(0, texture);
+
+        int innerW = width - borderW * 2;
+        int innerH = height - borderH * 2;
+        int texInnerW = texW - borderW * 2;
+        int texInnerH = texH - borderH * 2;
+
+        // 1. 四个角 (Corners)
+        // 左上
+        gfx.blit(texture, x, y, 0, 0, borderW, borderH, texW, texH);
+        // 右上
+        gfx.blit(texture, x + width - borderW, y, texW - borderW, 0, borderW, borderH, texW, texH);
+        // 左下
+        gfx.blit(texture, x, y + height - borderH, 0, texH - borderH, borderW, borderH, texW, texH);
+        // 右下
+        gfx.blit(texture, x + width - borderW, y + height - borderH, texW - borderW, texH - borderH, borderW, borderH, texW, texH);
+
+        // 2. 上下边 (水平平铺)
+        for (int dx = 0; dx < innerW; dx += texInnerW) {
+            int w = Math.min(texInnerW, innerW - dx);
+            // Top
+            gfx.blit(texture, x + borderW + dx, y, borderW, 0, w, borderH, texW, texH);
+            // Bottom
+            gfx.blit(texture, x + borderW + dx, y + height - borderH, borderW, texH - borderH, w, borderH, texW, texH);
+        }
+
+        // 3. 左右边 (垂直平铺)
+        for (int dy = 0; dy < innerH; dy += texInnerH) {
+            int h = Math.min(texInnerH, innerH - dy);
+            // Left
+            gfx.blit(texture, x, y + borderH + dy, 0, borderH, borderW, h, texW, texH);
+            // Right
+            gfx.blit(texture, x + width - borderW, y + borderH + dy, texW - borderW, borderH, borderW, h, texW, texH);
+        }
     }
 }

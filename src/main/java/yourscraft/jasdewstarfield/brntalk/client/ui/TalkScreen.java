@@ -1,9 +1,7 @@
 package yourscraft.jasdewstarfield.brntalk.client.ui;
 
 import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
-import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadSender;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
@@ -20,10 +18,9 @@ import net.minecraft.util.Mth;
 import javax.annotation.Nullable;
 import java.util.*;
 
-public class TalkScreen extends Screen {
+import static yourscraft.jasdewstarfield.brntalk.client.ui.TalkUIStyles.*;
 
-    private static final ResourceLocation BACKGROUND_SPRITE =
-            ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "talk_background");
+public class TalkScreen extends Screen {
 
     private TalkThreadList threadList;
     private TalkThread selectedThread;
@@ -34,18 +31,18 @@ public class TalkScreen extends Screen {
     // --- 滚动与动画控制变量 ---
     private float scrollAmount = 0.0f;
     private int totalContentHeight = 0;
-
-    // --- 样式常量 ---
-    private static final int BUBBLE_PADDING_X = 8;
-    private static final int BUBBLE_PADDING_Y = 6;
-    private static final int ENTRY_SPACING = 10;
-    private static final float MAX_BUBBLE_WIDTH_RATIO = 0.85f;
-
     private boolean needScrollToBottom = true;
 
     private final List<AbstractWidget> choiceButtons = new ArrayList<>();
-
     private final Map<String, MessageRenderCache> renderCacheMap = new HashMap<>();
+
+    private int winX, winY, winW, winH;
+    private int innerX, innerY, innerW, innerH;
+    private int listAreaX, listAreaW;
+    private int dividerX;
+    private int chatAreaX, chatAreaW;
+
+    private Button closeButton;
 
     public TalkScreen() {
         super(Component.literal("BRNTalk"));
@@ -55,45 +52,61 @@ public class TalkScreen extends Screen {
     protected void init() {
         super.init();
         this.renderCacheMap.clear();
+
+        // 1. 初始化布局坐标
+        this.winX = WIN_MARGIN_X;
+        this.winY = WIN_MARGIN_Y;
+        this.winW = this.width - (WIN_MARGIN_X * 2);
+        this.winH = this.height - (WIN_MARGIN_Y * 2);
+
+        this.innerX = winX + FRAME_BORDER_W;
+        this.innerY = winY + FRAME_BORDER_H;
+        this.innerW = winW - (FRAME_BORDER_W * 2);
+        this.innerH = winH - (FRAME_BORDER_H * 2);
+
+        // 左侧列表区域
+        this.listAreaX = innerX;
+        this.listAreaW = LEFT_AREA_WIDTH; // 使用常量
+
+        // 分割线
+        this.dividerX = innerX + listAreaW;
+
+        // 右侧聊天区域
+        this.chatAreaX = dividerX + DIVIDER_WIDTH;
+        this.chatAreaW = innerW - listAreaW - DIVIDER_WIDTH;
+
         rebuildUI();
     }
 
     private void rebuildUI() {
-
         this.clearWidgets();
         this.choiceButtons.clear();
 
-        Minecraft mc = Minecraft.getInstance();
-
-        // 左侧列表区域
-        int listX = 20;
-        int listTop = 25;
-        int listWidth = 140;
-        int listBottom = this.height - 20;
-        int listHeight = listBottom - listTop;
+        int listPadding = 2;
 
         this.threadList = new TalkThreadList(
                 this,
-                mc,
-                listX,
-                listTop,
-                listWidth,
-                listHeight
+                Minecraft.getInstance(),
+                listAreaX + listPadding,
+                innerY + listPadding,
+                listAreaW - (listPadding * 2),
+                innerH - (listPadding * 2)
         );
         this.addRenderableWidget(this.threadList);
 
         // 更新左侧列表内容
         reloadThreadList();
 
+        // 退出按钮
         int closeBtnSize = 16;
-        int closeX = this.width - closeBtnSize - 5;
-        int closeY = 5;
+        int closeX = this.width - closeBtnSize - 7;
+        int closeY = 6;
 
-        this.addRenderableWidget(
-                Button.builder(Component.literal("×"), btn -> this.onClose())
-                        .bounds(closeX, closeY, closeBtnSize, closeBtnSize)
-                        .build()
-        );
+        this.closeButton = Button.builder(Component.literal("×"), btn -> this.onClose())
+                .bounds(closeX, closeY, closeBtnSize, closeBtnSize)
+                .build();
+
+        this.addWidget(this.closeButton);
 
         // 根据当前对话的最后一条消息，生成选项按钮（如果是 CHOICE 类型）
         addChoiceButtonsForCurrentConversation();
@@ -153,9 +166,7 @@ public class TalkScreen extends Screen {
         int choiceHeight = 20;
         int spacing = 5;
         int startY = this.height - 20;
-        int listRight = this.threadList.getX() + this.threadList.getWidth();
-        int availableWidth = this.width - listRight;
-        int centerX = listRight + availableWidth / 2;
+        int centerX = chatAreaX + chatAreaW / 2;
 
 
         for (int i = 0; i < choices.size(); i++) {
@@ -175,7 +186,7 @@ public class TalkScreen extends Screen {
     }
 
     private int getChatBottomY() {
-        int defaultBottom = this.height - 20; // 默认底部
+        int defaultBottom = this.innerY + this.innerH;
 
         TalkMessage last = getLastMessageOfSelected();
         if (last != null && last.getType() == TalkMessage.Type.CHOICE) {
@@ -183,7 +194,7 @@ public class TalkScreen extends Screen {
             if (choiceCount > 0) {
                 int buttonAreaHeight = choiceCount * 25;
 
-                int buttonsTop = (this.height - 25) - buttonAreaHeight;
+                int buttonsTop = (this.height - 20) - buttonAreaHeight;
                 return Math.min(defaultBottom, buttonsTop - 5);
             }
         }
@@ -230,7 +241,7 @@ public class TalkScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         // 如果鼠标在右侧区域，则允许滚动
-        if (mouseX > this.threadList.getX() + this.threadList.getWidth()) {
+        if (mouseX > chatAreaX) {
             this.scrollAmount = (float) (this.scrollAmount - scrollY * 20); // 每次滚动 20 像素
             this.clampScroll();
             return true;
@@ -239,13 +250,40 @@ public class TalkScreen extends Screen {
     }
 
     private void clampScroll() {
-        int listTop = 25;
+        int listTop = this.innerY;
         int listBottom = getChatBottomY();
         int viewHeight = listBottom - listTop;
 
         // 只有内容高度超过视口高度才允许滚动
         int maxScroll = Math.max(0, this.totalContentHeight - viewHeight);
         this.scrollAmount = Mth.clamp(this.scrollAmount, 0, maxScroll);
+    }
+
+    // ----- 渲染 -----
+
+    @Override
+    public void renderBackground(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
+        // 让父类先渲染背景模糊和变暗等
+        super.renderBackground(gfx,mouseX, mouseY, partialTick);
+
+        // 1. 左背景
+        if (listAreaW > 0) {
+            ClientTalkUtils.drawRepeatedTexture(gfx, TEX_BG_LEFT,
+                    innerX, innerY, listAreaW, innerH, 16, 16);
+        }
+        // 2. 右背景
+        if (chatAreaW > 0) {
+            ClientTalkUtils.drawRepeatedTexture(gfx, TEX_BG_RIGHT,
+                    chatAreaX, innerY, chatAreaW, innerH, 16, 16);
+        }
+        // 3. 分割线
+        ClientTalkUtils.drawRepeatedTexture(gfx, TEX_DIVIDER,
+                dividerX, innerY, DIVIDER_WIDTH, innerH, 9, 16);
+        // 4. 外框
+        ClientTalkUtils.drawTextureFrame(gfx, TEX_FRAME,
+                winX, winY, winW, winH,
+                FRAME_BORDER_W, FRAME_BORDER_H,
+                FRAME_W, FRAME_H);
     }
 
     @Override
@@ -273,20 +311,40 @@ public class TalkScreen extends Screen {
             gfx.drawString(
                     this.font,
                     Component.translatable("gui.brntalk.no_conversation").getString(),
-                    this.threadList.getX() + this.threadList.getWidth() + 10,
+                    chatAreaX + 10,
                     this.height / 2,
-                    0xFFFFFF
+                    COLOR_NO_MSG_TEXT
             );
+        }
+
+        // 5. 装饰层，在所有组件之上
+        gfx.pose().pushPose();
+        gfx.pose().translate(0, 0, 100);
+
+        ClientTalkUtils.drawTextureFrame(gfx, TEX_DECO,
+                0, 0, this.width, this.height,
+                DECO_BORDER_W, DECO_BORDER_H,
+                DECO_W, DECO_H);
+
+        gfx.pose().popPose();
+
+        // 6. 手动绘制关闭按钮
+        if (this.closeButton != null) {
+            gfx.pose().pushPose();
+            gfx.pose().translate(0, 0, 110);
+
+            this.closeButton.render(gfx, mouseX, mouseY, partialTick);
+
+            gfx.pose().popPose();
         }
     }
 
     private void renderChatArea(GuiGraphics gfx, int mouseX, int mouseY) {
-        int listRight = this.threadList.getX() + this.threadList.getWidth();
-        int areaLeft = listRight + 10; // 文字左边距
-        int areaRight = this.width - 25;  // 文字右边距
-        int areaWidth = areaRight - areaLeft;
+        int contentLeft = chatAreaX + 10;
+        int contentRight = innerX + innerW - 10;
+        int contentWidth = contentRight - contentLeft;
 
-        int areaTop = 25;
+        int areaTop = innerY;
         int areaBottom = getChatBottomY();
         int viewHeight = areaBottom - areaTop;
 
@@ -296,10 +354,10 @@ public class TalkScreen extends Screen {
         // 如果当前滚动位置接近最大值(允许 5 像素误差)，或者有强制置底信号，则认为需要"粘"在底部
         boolean isAtBottom = (this.scrollAmount >= maxScrollPre - 5) || this.needScrollToBottom;
 
-        if (areaRight - areaLeft < 10 || areaBottom - areaTop < 10) return;
+        if (contentWidth < 10 || viewHeight < 10) return;
 
         // 2. 开启裁剪 (Scissor Test)，只在指定矩形内绘制，防止溢出
-        gfx.enableScissor(areaLeft, areaTop, areaRight, areaBottom);
+        gfx.enableScissor(contentLeft, areaTop, contentRight, areaBottom);
         gfx.pose().pushPose();
 
         try {
@@ -308,10 +366,9 @@ public class TalkScreen extends Screen {
 
             List<TalkMessage> msgs = selectedThread.getMessages();
             int currentY = areaTop;
-
             int lineHeight = this.font.lineHeight;
 
-            int maxBubbleWidth = (int) (areaWidth * MAX_BUBBLE_WIDTH_RATIO);
+            int maxBubbleWidth = (int) (contentWidth * MAX_BUBBLE_WIDTH_RATIO);
             int textMaxWidth = maxBubbleWidth - (2 * BUBBLE_PADDING_X);
 
             long now = System.currentTimeMillis();
@@ -369,45 +426,44 @@ public class TalkScreen extends Screen {
                 }
 
                 // 气泡最终尺寸
-                int contentWidth = 0;
+                int contentH = linesToDraw.size() * lineHeight;
+                int bubbleW = 0;
                 for (FormattedCharSequence seq : linesToDraw) {
                     int w = this.font.width(seq);
-                    if (w > contentWidth) contentWidth = w;
+                    if (w > bubbleW) bubbleW = w;
                 }
-                int contentHeight = linesToDraw.size() * lineHeight;
-
-                int bubbleWidth = contentWidth + (2 * BUBBLE_PADDING_X);
-                int bubbleHeight = contentHeight + (2 * BUBBLE_PADDING_Y);
+                bubbleW += (2 * BUBBLE_PADDING_X);
+                int bubbleH = contentH + (2 * BUBBLE_PADDING_Y);
 
                 boolean isPlayer = (msg.getSpeakerType() == TalkMessage.SpeakerType.PLAYER);
-                int bubbleX = isPlayer ? (areaRight - bubbleWidth) : areaLeft;
+                int bubbleX = isPlayer ? (contentRight - bubbleW) : contentLeft;
 
-                int entryTotalHeight = lineHeight + 2 + bubbleHeight;
+                int entryTotalHeight = lineHeight + 2 + bubbleH;
                 float visualEntryTop = currentY - this.scrollAmount;
                 float visualEntryBottom = visualEntryTop + entryTotalHeight;
                 // 块级Culling
                 if (visualEntryBottom < areaTop || visualEntryTop > areaBottom) {
-                    currentY += entryTotalHeight + ENTRY_SPACING;
+                    currentY += entryTotalHeight + MSG_SPACING;
                     continue;
                 }
 
                 // --- 渲染说话人 ---
-                int nameX = isPlayer ? (areaRight - cache.speakerNameWidth) : areaLeft;
-                gfx.drawString(this.font, cache.speakerComp, nameX, currentY, 0xFFFFAA00);
+                int nameX = isPlayer ? (contentRight - cache.speakerNameWidth) : contentLeft;
+                int nameColor = isPlayer ? COLOR_PLAYER_NAME : COLOR_NPC_NAME;
+                gfx.drawString(this.font, cache.speakerComp, nameX, currentY, nameColor);
                 currentY += lineHeight + 2;
 
                 // --- 绘制气泡背景 ---
-                // 玩家用深绿色半透明，NPC用深灰色半透明
-                int bubbleColor = isPlayer ? 0xD0004000 : 0xD0333333;
-                int borderColor = isPlayer ? 0xFF008000 : 0xFF666666;
+                int bgColor = isPlayer ? COLOR_PLAYER_BUBBLE_BG : COLOR_NPC_BUBBLE_BG;
+                int borderColor = isPlayer ? COLOR_PLAYER_BUBBLE_BORDER : COLOR_NPC_BUBBLE_BORDER;
 
                 // 填充
-                gfx.fill(bubbleX, currentY, bubbleX + bubbleWidth, currentY + bubbleHeight, bubbleColor);
-                // 边框 (上下左右四条线)
-                gfx.fill(bubbleX, currentY, bubbleX + bubbleWidth, currentY + 1, borderColor); // Top
-                gfx.fill(bubbleX, currentY + bubbleHeight - 1, bubbleX + bubbleWidth, currentY + bubbleHeight, borderColor); // Bottom
-                gfx.fill(bubbleX, currentY, bubbleX + 1, currentY + bubbleHeight, borderColor); // Left
-                gfx.fill(bubbleX + bubbleWidth - 1, currentY, bubbleX + bubbleWidth, currentY + bubbleHeight, borderColor); // Right
+                gfx.fill(bubbleX, currentY, bubbleX + bubbleW, currentY + bubbleH, bgColor);
+                // 简单的四边框绘制
+                gfx.fill(bubbleX, currentY, bubbleX + bubbleW, currentY + 1, borderColor);
+                gfx.fill(bubbleX, currentY + bubbleH - 1, bubbleX + bubbleW, currentY + bubbleH, borderColor);
+                gfx.fill(bubbleX, currentY, bubbleX + 1, currentY + bubbleH, borderColor);
+                gfx.fill(bubbleX + bubbleW - 1, currentY, bubbleX + bubbleW, currentY + bubbleH, borderColor);
 
                 // --- 渲染正文 ---
                 int textY = currentY + BUBBLE_PADDING_Y;
@@ -419,12 +475,12 @@ public class TalkScreen extends Screen {
                 for (FormattedCharSequence line : linesToDraw) {
                     // 文字Culling
                     if (textY + lineHeight > viewTop && textY < viewBottom) {
-                        gfx.drawString(this.font, line, textX, textY, 0xFFFFFFFF, false);
+                        gfx.drawString(this.font, line, textX, textY, COLOR_TEXT_NORMAL, false);
                     }
                     textY += lineHeight;
                 }
 
-                currentY += bubbleHeight + ENTRY_SPACING;
+                currentY += bubbleH + MSG_SPACING;
             }
 
             // 计算总高度，用于滚动条逻辑
@@ -451,20 +507,16 @@ public class TalkScreen extends Screen {
 
         // 4. 绘制滚动条
         if (this.totalContentHeight > viewHeight) {
-            int scrollbarX = areaRight + 8;
-            int scrollbarWidth = 2;
-
             // 计算滑块高度和位置
+            int scrollbarX = contentRight + 4;
             float ratio = (float) viewHeight / this.totalContentHeight;
             int barHeight = Math.max(10, (int) (viewHeight * ratio));
-
             int barTop = areaTop;
             if (maxScrollPost > 0) {
                 barTop += (int) ((this.scrollAmount / maxScrollPost) * (viewHeight - barHeight));
             }
-
-            gfx.fill(scrollbarX, areaTop, scrollbarX + scrollbarWidth, areaBottom, 0x20FFFFFF); // 轨道
-            gfx.fill(scrollbarX, barTop, scrollbarX + scrollbarWidth, barTop + barHeight, 0xFFCCCCCC); // 滑块
+            gfx.fill(scrollbarX, areaTop, scrollbarX + 2, areaBottom, COLOR_SCROLLBAR_TRACK); // 轨道
+            gfx.fill(scrollbarX, barTop, scrollbarX + 2, barTop + barHeight, COLOR_SCROLLBAR_THUMB); // 滑块
         }
     }
 
@@ -482,23 +534,7 @@ public class TalkScreen extends Screen {
         return false;
     }
 
-    @Override
-    public void renderBackground(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
-        int bgX = 10;
-        int bgY = 15;
-        int bgWidth = this.width - 20;  // 左右各留 10 像素
-        int bgHeight = this.height - 30; // 上下各留 15 像素
 
-        this.renderBlurredBackground(partialTick);
-        this.renderMenuBackground(gfx);
-
-        // 渲染自定义背景
-        gfx.blitSprite(
-                BACKGROUND_SPRITE,
-                bgX, bgY,          // x, y
-                bgWidth, bgHeight  // width, height
-        );
-    }
 
     @Override
     public boolean isPauseScreen() {

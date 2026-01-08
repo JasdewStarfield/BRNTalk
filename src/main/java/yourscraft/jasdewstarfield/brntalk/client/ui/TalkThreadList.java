@@ -10,9 +10,10 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.network.chat.Component;
 
+import static yourscraft.jasdewstarfield.brntalk.client.ui.TalkUIStyles.*;
+
 public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
     private final TalkScreen parent;
-    private final int listX;
     private final int listWidth;
 
     /**
@@ -31,14 +32,29 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
                           int width,
                           int height
     ) {
-        super(mc, width, height, top, 28);
+        super(mc, width, height, top, THREAD_LIST_ENTRY_HEIGHT);
 
         this.parent = parent;
-        this.listX = x;
         this.listWidth = width;
 
         this.setX(x);
     }
+
+    @Override
+    protected void renderListBackground(@NotNull GuiGraphics guiGraphics) {
+        // 透明背景
+    }
+
+    @Override
+    protected void renderListSeparators(@NotNull GuiGraphics guiGraphics) {
+        // 移除上下阴影
+    }
+
+    @Override
+    protected int getScrollbarPosition() {
+        return this.getX() + this.getWidth() + 3;
+    }
+
 
     @Override
     public int getRowWidth() {
@@ -52,7 +68,6 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
             this.addEntry(new Entry(thread));
         }
     }
-
     // 单个条目
     public class Entry extends ObjectSelectionList.Entry<Entry> {
 
@@ -79,8 +94,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
                            float partialTick) {
             // 背景高亮
             if (isHovered || TalkThreadList.this.getSelected() == this) {
-                int bgColor = 0x40FFFFFF; // 半透明白色背景
-                gfx.fill(left, top, left + width - 4, top + height, bgColor);
+                gfx.fill(left, top, left + width - 4, top + height, COLOR_LIST_HOVER_BG);
             }
 
             var timelineState = ClientTalkUtils.calculateTimeline(thread);
@@ -100,38 +114,25 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
                 // 闪烁绿点（正在输入（打字机动画在播放））
                 long frame = (System.currentTimeMillis() / 200) % 2;
                 if (frame == 0) {
-                    gfx.fill(dotX, dotY, dotX + dotSize, dotY + dotSize, 0xFF00FF00);
+                    gfx.fill(dotX, dotY, dotX + dotSize, dotY + dotSize, COLOR_DOT_TYPING);
                 }
             } else if (isUnread) {
                 // 红点 (未读)
-                gfx.fill(dotX, dotY, dotX + dotSize, dotY + dotSize, 0xFFFF0000);
+                gfx.fill(dotX, dotY, dotX + dotSize, dotY + dotSize, COLOR_DOT_UNREAD);
             } else if (isWaitingForChoice) {
                 // 黄点 (等待选择)
-                gfx.fill(dotX, dotY, dotX + dotSize, dotY + dotSize, 0xFFFFFF00);
+                gfx.fill(dotX, dotY, dotX + dotSize, dotY + dotSize, COLOR_DOT_WAITING);
             }
 
-            // 时间 + 最后一条消息
             String timeStr = thread.getFormattedTime();
             String preview = timelineState.isFinished
                     ? ClientTalkUtils.getSingleLinePreview(timelineState.activeMessage, 115) // 静态
                     : ClientTalkUtils.getThreadTimelinePreview(thread, 115); // 动态
 
-            // 上面一行时间
-            gfx.drawString(
-                    Minecraft.getInstance().font,
-                    timeStr,
-                    left + 4,
-                    top + 4,
-                    0xFFFFFFFF
-            );
-            // 下面一行消息预览
-            gfx.drawString(
-                    Minecraft.getInstance().font,
-                    preview,
-                    left + 4,
-                    top + 4 + 10,
-                    0xFFAAAAAA
-            );
+            //时间
+            gfx.drawString(Minecraft.getInstance().font, timeStr, left + 4, top + 4, COLOR_LIST_TIME);
+            //消息预览
+            gfx.drawString(Minecraft.getInstance().font, preview, left + 4, top + 14, COLOR_LIST_PREVIEW);
         }
 
         @Override
