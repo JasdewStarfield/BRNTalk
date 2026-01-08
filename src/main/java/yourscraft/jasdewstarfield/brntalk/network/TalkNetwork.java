@@ -6,15 +6,19 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.network.handling.IPayloadHandler;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
+import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadHandler;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.event.PlayerSeenMessageEvent;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
@@ -107,7 +111,41 @@ public class TalkNetwork {
                 TalkNetwork::handleMarkRead
         );
 
-        // 服务端 -> 客户端 的包在 ClientPayloads 注册（服务端对应的包在ServerPayloads）
+        // 服务端 -> 客户端 的包
+        registerClientPacket(
+                registrar,
+                PayloadSync.SyncThreadsPayload.TYPE,
+                PayloadSync.SyncThreadsPayload.STREAM_CODEC,
+                ClientPacketDelegate::handleSyncThreads
+        );
+
+        registerClientPacket(
+                registrar,
+                PayloadSync.AddThreadPayload.TYPE,
+                PayloadSync.AddThreadPayload.STREAM_CODEC,
+                ClientPacketDelegate::handleAddThread
+        );
+
+        registerClientPacket(
+                registrar,
+                PayloadSync.AppendMessagesPayload.TYPE,
+                PayloadSync.AppendMessagesPayload.STREAM_CODEC,
+                ClientPacketDelegate::handleAppendMessages
+        );
+
+        registerClientPacket(
+                registrar,
+                PayloadSync.UpdateStatePayload.TYPE,
+                PayloadSync.UpdateStatePayload.STREAM_CODEC,
+                ClientPacketDelegate::handleUpdateState
+        );
+
+        registerClientPacket(
+                registrar,
+                OpenTalkScreenPayload.TYPE,
+                OpenTalkScreenPayload.STREAM_CODEC,
+                ClientPacketDelegate::handleOpenTalkScreen
+        );
     }
 
     public static void handleRequestOpenTalk(final RequestOpenTalkPayload payload, final IPayloadContext context) {
@@ -224,5 +262,43 @@ public class TalkNetwork {
 
     public static void sendUpdateState(ServerPlayer player, String threadId, long lastReadTime) {
         PacketDistributor.sendToPlayer(player, new PayloadSync.UpdateStatePayload(threadId, lastReadTime));
+    }
+
+    /**
+     * 辅助方法：安全地注册客户端包
+     * 如果是客户端，使用提供的 realHandler；
+     * 如果是服务端，注册一个空 Handler (No-op)。
+     */
+    private static <T extends CustomPacketPayload> void registerClientPacket(
+            PayloadRegistrar registrar,
+            CustomPacketPayload.Type<T> type,
+            StreamCodec<? super ByteBuf, T> codec,
+            IPayloadHandler<T> clientHandlerProvider
+    ) {
+        if (FMLEnvironment.dist == Dist.CLIENT) {
+            // 在客户端：注册真正的处理逻辑
+            registrar.playToClient(type, codec, clientHandlerProvider);
+        } else {
+            // 在服务端：注册占位符，仅为了握手同步
+            registrar.playToClient(type, codec, (payload, context) -> {});
+        }
+    }
+
+    private static class ClientPacketDelegate {
+        public static void handleSyncThreads(PayloadSync.SyncThreadsPayload p, IPayloadContext c) {
+            ClientPayloadHandler.handleSyncThreads(p, c);
+        }
+        public static void handleAddThread(PayloadSync.AddThreadPayload p, IPayloadContext c) {
+            ClientPayloadHandler.handleAddThread(p, c);
+        }
+        public static void handleAppendMessages(PayloadSync.AppendMessagesPayload p, IPayloadContext c) {
+            ClientPayloadHandler.handleAppendMessages(p, c);
+        }
+        public static void handleUpdateState(PayloadSync.UpdateStatePayload p, IPayloadContext c) {
+            ClientPayloadHandler.handleUpdateState(p, c);
+        }
+        public static void handleOpenTalkScreen(TalkNetwork.OpenTalkScreenPayload p, IPayloadContext c) {
+            ClientPayloadHandler.handleOpenTalkScreen(p, c);
+        }
     }
 }

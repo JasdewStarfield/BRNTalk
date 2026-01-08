@@ -11,7 +11,12 @@ import yourscraft.jasdewstarfield.brntalk.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class ClientTalkUtils {
+
+    private static final Map<String, String> TEXT_CACHE = new HashMap<>();
 
     // 读取打字机参数
     public static int getCharDelay() {
@@ -27,6 +32,11 @@ public class ClientTalkUtils {
      */
     public static String processText(String text) {
         if (text == null) return "";
+
+        // 检查缓存
+        if (TEXT_CACHE.containsKey(text)) {
+            return TEXT_CACHE.get(text);
+        }
 
         // 1. I18n 翻译 (如果 text 是 lang key，则翻译；否则原样返回)
         String translated = I18n.get(text);
@@ -46,7 +56,13 @@ public class ClientTalkUtils {
         processing = processing.replaceAll("(?<=[\\u4e00-\\u9fa5]) (?=[a-zA-Z0-9])", "\u00A0");
         processing = processing.replaceAll("(?<=[a-zA-Z0-9]) (?=[\\u4e00-\\u9fa5])", "\u00A0");
 
+        TEXT_CACHE.put(text, processing);
+
         return processing;
+    }
+
+    public static void clearCache() {
+        TEXT_CACHE.clear();
     }
 
     /**
@@ -106,6 +122,19 @@ public class ClientTalkUtils {
         if (thread == null || thread.getMessages().isEmpty()) return state;
 
         long now = System.currentTimeMillis();
+
+        // 1. 如果我们已经计算过总时长，且当前时间已经超过了总时长
+        // 说明动画早就播完了，直接返回结束状态，不用循环了
+        long cachedDuration = thread.getTotalDurationCache();
+        if (cachedDuration != -1) {
+            // 如果现在的时间 > (开始时间 + 总时长)，说明肯定播完了
+            if (now >= thread.getStartTime() + cachedDuration) {
+                // 把最后一条消息设为 active，因为播完后应该停留在最后一条
+                state.activeMessage = thread.getCurrentMessage();
+                return state;
+            }
+        }
+
         long previousVisualEndTime = 0;
 
         int charDelay = getCharDelay();
@@ -145,6 +174,8 @@ public class ClientTalkUtils {
                 // 继续循环，看看下一条消息是否开始了
             }
         }
+
+        thread.updateDurationCache(previousVisualEndTime);
 
         // 如果循环走完，说明时间超过了最后一条的结束时间
         return state;

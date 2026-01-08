@@ -534,8 +534,6 @@ public class TalkScreen extends Screen {
         return false;
     }
 
-
-
     @Override
     public boolean isPauseScreen() {
         // 返回 false：打开对话 UI 时，游戏不会暂停
@@ -545,6 +543,7 @@ public class TalkScreen extends Screen {
     @Override
     public void onClose() {
         // 关闭界面时清理缓存，回到游戏
+        ClientTalkUtils.clearCache();
         this.renderCacheMap.clear();
         Minecraft.getInstance().setScreen(null);
     }

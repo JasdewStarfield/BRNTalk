@@ -15,6 +15,7 @@ public class TalkThread {
     private final String scriptId;
     private final long startTime;
     private long lastReadTime;
+    private long cachedTotalDuration = -1;
     private final List<TalkMessage> messages = new ArrayList<>();
 
     /**
@@ -93,10 +94,18 @@ public class TalkThread {
     public void appendMessage(TalkMessage message) {
         if (message == null) return;
         messages.add(message);
+        this.cachedTotalDuration = -1;
     }
 
     public void setLastReadTime(long lastReadTime) {
         this.lastReadTime = lastReadTime;
     }
 
+    public long getTotalDurationCache() {
+        return cachedTotalDuration;
+    }
+
+    public void updateDurationCache(long duration) {
+        this.cachedTotalDuration = duration;
+    }
 }
