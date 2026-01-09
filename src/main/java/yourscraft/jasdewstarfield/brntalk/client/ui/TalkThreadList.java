@@ -1,5 +1,6 @@
 package yourscraft.jasdewstarfield.brntalk.client.ui;
 
+import net.minecraft.util.Mth;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
@@ -15,6 +16,12 @@ import static yourscraft.jasdewstarfield.brntalk.client.ui.TalkUIStyles.*;
 public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
     private final TalkScreen parent;
     private final int listWidth;
+
+    private double targetScrollAmount = 0.0;
+    private boolean isSmoothScrolling = false;
+
+    private static final int SCROLL_SENSITIVITY = 25;
+    private static final float SMOOTH_FACTOR = 0.5f;
 
     /**
      * @param parent      TalkScreen
@@ -38,6 +45,62 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
         this.listWidth = width;
 
         this.setX(x);
+    }
+
+    // 用于在重建 UI 时恢复滚动位置
+    public void restoreScroll(double scroll) {
+        this.setScrollAmount(scroll);
+        this.targetScrollAmount = scroll;
+        this.isSmoothScrolling = false;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        // 获取列表最大滚动范围
+        double maxScroll = Math.max(0, this.getMaxScroll());
+
+        // 根据滚轮方向更新目标值
+        this.targetScrollAmount -= scrollY * SCROLL_SENSITIVITY;
+
+        // 限制目标值在合法范围内
+        this.targetScrollAmount = Mth.clamp(this.targetScrollAmount, 0, maxScroll);
+
+        return true;
+    }
+
+    @Override
+    public void setScrollAmount(double scroll) {
+        // 拖拽：直接更新
+        super.setScrollAmount(scroll);
+        this.targetScrollAmount = scroll;
+        this.isSmoothScrolling = false;
+    }
+
+    // 在渲染时进行平滑插值
+    @Override
+    public void renderWidget(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
+        double currentScroll = this.getScrollAmount();
+        double maxScroll = Math.max(0, this.getMaxScroll());
+
+        // 1. 确保 target 也没越界 (防止 resizing 等情况导致 maxScroll 变小)
+        this.targetScrollAmount = Mth.clamp(this.targetScrollAmount, 0, maxScroll);
+
+        // 2. 平滑插值 (系数 0.3 与右侧保持一致)
+        if (Math.abs(this.targetScrollAmount - currentScroll) > 0.1) {
+            double newScroll = currentScroll + (this.targetScrollAmount - currentScroll) * SMOOTH_FACTOR;
+            super.setScrollAmount(newScroll);
+        } else {
+            super.setScrollAmount(this.targetScrollAmount);
+        }
+
+        super.render(gfx, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    protected void updateScrollingState(double mouseX, double mouseY, int button) {
+        super.updateScrollingState(mouseX, mouseY, button);
+        // 把 target 也同步过去，避免松手后回弹
+        this.targetScrollAmount = this.getScrollAmount();
     }
 
     @Override
