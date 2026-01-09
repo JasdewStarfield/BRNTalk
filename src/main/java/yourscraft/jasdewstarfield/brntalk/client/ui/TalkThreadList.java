@@ -20,7 +20,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
     private double targetScrollAmount = 0.0;
     private boolean isSmoothScrolling = false;
 
-    private static final int SCROLL_SENSITIVITY = 25;
+    private static final double SCROLL_SENSITIVITY = 25;
     private static final float SMOOTH_FACTOR = 0.5f;
 
     /**
@@ -85,7 +85,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
         // 1. 确保 target 也没越界 (防止 resizing 等情况导致 maxScroll 变小)
         this.targetScrollAmount = Mth.clamp(this.targetScrollAmount, 0, maxScroll);
 
-        // 2. 平滑插值 (系数 0.3 与右侧保持一致)
+        // 2. 平滑插值
         if (Math.abs(this.targetScrollAmount - currentScroll) > 0.1) {
             double newScroll = currentScroll + (this.targetScrollAmount - currentScroll) * SMOOTH_FACTOR;
             super.setScrollAmount(newScroll);
@@ -93,7 +93,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
             super.setScrollAmount(this.targetScrollAmount);
         }
 
-        super.render(gfx, mouseX, mouseY, partialTick);
+        super.renderWidget(gfx, mouseX, mouseY, partialTick);
     }
 
     @Override

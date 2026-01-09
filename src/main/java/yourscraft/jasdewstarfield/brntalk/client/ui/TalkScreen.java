@@ -35,6 +35,7 @@ public class TalkScreen extends Screen {
     private int totalContentHeight = 0;
     private boolean needScrollToBottom = true;
 
+    private static final double SCROLL_SENSITIVITY = 25;
     private static final float SMOOTH_FACTOR = 0.5f;
 
     private final List<AbstractWidget> choiceButtons = new ArrayList<>();
@@ -87,9 +88,11 @@ public class TalkScreen extends Screen {
     }
 
     private void rebuildUI() {
+        // 清理
         this.clearWidgets();
         this.choiceButtons.clear();
 
+        // 列表
         int listPadding = 2;
         double listScroll = (this.threadList != null) ? this.threadList.getScrollAmount() : 0;
         this.threadList = new TalkThreadList(
@@ -100,21 +103,25 @@ public class TalkScreen extends Screen {
                 listAreaW - (listPadding * 2),
                 innerH - (listPadding * 2)
         );
-        this.threadList.restoreScroll(listScroll); // 恢复位置
         this.addRenderableWidget(this.threadList);
+        // 更新左侧列表内容
+        reloadThreadList();
+        // 恢复位置
+        this.threadList.restoreScroll(listScroll);
+
+        // 根据当前对话的最后一条消息，生成选项按钮（如果是 CHOICE 类型）
+        addChoiceButtonsForCurrentConversation();
 
         // ChatWidget
         double chatScroll = (this.chatWidget != null) ? this.chatWidget.getTargetScroll() : 0;
-        this.chatWidget = new ChatWidget(chatAreaX, innerY, chatAreaW, innerH);
+        int chatWidgetHeight = getChatViewHeight();
+        this.chatWidget = new ChatWidget(chatAreaX, innerY, chatAreaW, chatWidgetHeight);
 
         if (!this.needScrollToBottom) {
             this.chatWidget.restoreScroll(chatScroll);
         }
 
         this.addRenderableWidget(this.chatWidget);
-
-        // 更新左侧列表内容
-        reloadThreadList();
 
         // 退出按钮
         int closeBtnSize = 16;
@@ -126,9 +133,6 @@ public class TalkScreen extends Screen {
                 .build();
 
         this.addWidget(this.closeButton);
-
-        // 根据当前对话的最后一条消息，生成选项按钮（如果是 CHOICE 类型）
-        addChoiceButtonsForCurrentConversation();
     }
 
     private void reloadThreadList() {
@@ -184,7 +188,7 @@ public class TalkScreen extends Screen {
         int choiceWidth = 140;
         int choiceHeight = 20;
         int spacing = 5;
-        int startY = this.height - 20;
+        int startY = this.height - 10;
         int centerX = chatAreaX + chatAreaW / 2;
 
 
@@ -211,7 +215,7 @@ public class TalkScreen extends Screen {
         if (last != null && last.getType() == TalkMessage.Type.CHOICE) {
             int choiceCount = last.getChoices().size();
             if (choiceCount > 0) {
-                int buttonAreaHeight = choiceCount * 25 + 10;
+                int buttonAreaHeight = choiceCount * 25 - 10;
                 return Math.max(10, defaultHeight - buttonAreaHeight);
             }
         }
@@ -251,6 +255,8 @@ public class TalkScreen extends Screen {
             this.selectedThread = thread;
             this.selectedThreadId = thread != null ? thread.getId() : null;
             this.needScrollToBottom = true;
+
+            this.totalContentHeight = 0;
         }
         rebuildUI();
     }
@@ -458,7 +464,7 @@ public class TalkScreen extends Screen {
                 textY += lineHeight;
             }
 
-            currentY += bubbleH + MSG_SPACING;
+            currentY += entryTotalHeight + MSG_SPACING;
         }
     }
 
@@ -597,7 +603,7 @@ public class TalkScreen extends Screen {
 
         @Override
         protected void updateWidgetNarration(@NotNull NarrationElementOutput narrationElementOutput) {
-            super.updateNarration(narrationElementOutput);
+            this.defaultButtonNarrationText(narrationElementOutput);
         }
 
         // --- 实现抽象方法 ---
@@ -609,7 +615,7 @@ public class TalkScreen extends Screen {
 
         @Override
         protected double scrollRate() {
-            return 25.0; // 滚动灵敏度
+            return SCROLL_SENSITIVITY; // 滚动灵敏度
         }
 
         @Override
