@@ -4,6 +4,7 @@ import net.minecraft.client.gui.components.AbstractScrollWidget;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import org.jetbrains.annotations.NotNull;
+import yourscraft.jasdewstarfield.brntalk.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadSender;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
@@ -34,9 +35,6 @@ public class TalkScreen extends Screen {
     // --- 滚动与动画控制变量 ---
     private int totalContentHeight = 0;
     private boolean needScrollToBottom = true;
-
-    private static final double SCROLL_SENSITIVITY = 25;
-    private static final float SMOOTH_FACTOR = 0.5f;
 
     private final List<AbstractWidget> choiceButtons = new ArrayList<>();
     private final Map<String, MessageRenderCache> renderCacheMap = new HashMap<>();
@@ -638,7 +636,7 @@ public class TalkScreen extends Screen {
                 double current = this.scrollAmount();
                 // 2. 平滑插值
                 if (Math.abs(this.targetScroll - current) > 0.1) {
-                    double newScroll = current + (this.targetScroll - current) * SMOOTH_FACTOR;
+                    double newScroll = current + (this.targetScroll - current) * BrntalkConfig.CLIENT.smoothFactor.get();
                     super.setScrollAmount(newScroll);
                 } else {
                     super.setScrollAmount(this.targetScroll);
@@ -662,7 +660,7 @@ public class TalkScreen extends Screen {
 
         @Override
         protected double scrollRate() {
-            return SCROLL_SENSITIVITY; // 滚动灵敏度
+            return BrntalkConfig.CLIENT.scrollRate.get(); // 滚动灵敏度
         }
 
         @Override

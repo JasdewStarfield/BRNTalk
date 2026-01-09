@@ -2,6 +2,7 @@ package yourscraft.jasdewstarfield.brntalk.client.ui;
 
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.NotNull;
+import yourscraft.jasdewstarfield.brntalk.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
@@ -15,13 +16,8 @@ import static yourscraft.jasdewstarfield.brntalk.client.ui.TalkUIStyles.*;
 
 public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
     private final TalkScreen parent;
-    private final int listWidth;
 
     private double targetScrollAmount = 0.0;
-    private boolean isSmoothScrolling = false;
-
-    private static final double SCROLL_SENSITIVITY = 25;
-    private static final float SMOOTH_FACTOR = 0.5f;
 
     /**
      * @param parent      TalkScreen
@@ -42,7 +38,6 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
         super(mc, width, height, top, THREAD_LIST_ENTRY_HEIGHT);
 
         this.parent = parent;
-        this.listWidth = width;
 
         this.setX(x);
     }
@@ -51,7 +46,6 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
     public void restoreScroll(double scroll) {
         this.setScrollAmount(scroll);
         this.targetScrollAmount = scroll;
-        this.isSmoothScrolling = false;
     }
 
     // 重写鼠标判定区域，让滚动条能被选中
@@ -67,7 +61,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
         double maxScroll = Math.max(0, this.getMaxScroll());
 
         // 根据滚轮方向更新目标值
-        this.targetScrollAmount -= scrollY * SCROLL_SENSITIVITY;
+        this.targetScrollAmount -= scrollY * BrntalkConfig.CLIENT.scrollRate.get();
 
         // 限制目标值在合法范围内
         this.targetScrollAmount = Mth.clamp(this.targetScrollAmount, 0, maxScroll);
@@ -80,7 +74,6 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
         // 拖拽：直接更新
         super.setScrollAmount(scroll);
         this.targetScrollAmount = scroll;
-        this.isSmoothScrolling = false;
     }
 
     // 在渲染时进行平滑插值
@@ -94,7 +87,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
 
         // 2. 平滑插值
         if (Math.abs(this.targetScrollAmount - currentScroll) > 0.1) {
-            double newScroll = currentScroll + (this.targetScrollAmount - currentScroll) * SMOOTH_FACTOR;
+            double newScroll = currentScroll + (this.targetScrollAmount - currentScroll) * BrntalkConfig.CLIENT.smoothFactor.get();
             super.setScrollAmount(newScroll);
         } else {
             super.setScrollAmount(this.targetScrollAmount);
