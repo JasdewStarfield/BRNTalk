@@ -41,8 +41,8 @@ public class BrntalkAPI {
             return false;
         }
 
-        // 2. 写入世界存档 (NBT)
-        TalkWorldData data = TalkWorldData.get(player.serverLevel());
+        // 2. 写入玩家数据 (NBT)
+        PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
 
         List<String> allMsgIds = thread.getMessages().stream()
                 .map(TalkMessage::getId)
@@ -50,12 +50,12 @@ public class BrntalkAPI {
 
         if (!allMsgIds.isEmpty()) {
             // 1. 存第一条 (创建线程结构)
-            data.startThread(player.getUUID(), thread.getId(), scriptId, allMsgIds.getFirst());
+            state.startThread(thread.getId(), scriptId, allMsgIds.getFirst());
 
             // 2. 如果还有后续，批量追加
             if (allMsgIds.size() > 1) {
                 List<String> restIds = allMsgIds.subList(1, allMsgIds.size());
-                data.appendMessages(player.getUUID(), thread.getId(), restIds);
+                state.appendMessages(thread.getId(), restIds);
             }
 
             // 3. 触发事件
@@ -82,14 +82,14 @@ public class BrntalkAPI {
         }
 
         // 1. 清除存档
-        TalkWorldData data = TalkWorldData.get(player.serverLevel());
-        PlayerTalkState state = data.get(player.getUUID());
+        PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
 
-        if (state == null || state.getThreadIds().isEmpty()) {
+        if (state.getThreadIds().isEmpty()) {
             return false;
         }
 
-        data.removeAllThread(player.getUUID());
+        // 直接设置一个新的空状态对象来清除所有数据
+        player.setData(BrntalkRegistries.PLAYER_TALK_STATE, new PlayerTalkState());
 
         // 2. 清除运行时内存
         TalkManager manager = TalkManager.getInstance();
@@ -114,10 +114,9 @@ public class BrntalkAPI {
         }
 
         // 1. 查找所有属于该 scriptId 的 threadId
-        TalkWorldData data = TalkWorldData.get(player.serverLevel());
-        PlayerTalkState state = data.get(player.getUUID());
+        PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
 
-        if (state == null) return false;
+        if (state.getThreadIds().isEmpty()) return false;
 
         List<String> threadsToRemove = new ArrayList<>();
         for (String tid : state.getThreadIds()) {
@@ -134,7 +133,7 @@ public class BrntalkAPI {
         // 2. 清除存档和运行时内存
         TalkManager manager = TalkManager.getInstance();
         for (String tid : threadsToRemove) {
-            data.removeThread(player.getUUID(), tid);      // 移除存档
+            state.removeThread(tid);      // 移除存档
             manager.removeThread(player.getUUID(), tid);   // 移除内存
         }
 
@@ -158,8 +157,8 @@ public class BrntalkAPI {
             return false;
         }
 
-        TalkWorldData data = TalkWorldData.get(player.serverLevel());
-        return data.hasSeenMessage(player.getUUID(), scriptId, messageId);
+        PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
+        return state.hasSeenMessage(scriptId, messageId);
     }
 
     /**
@@ -176,9 +175,8 @@ public class BrntalkAPI {
         TalkManager manager = TalkManager.getInstance();
 
         // 获取玩家存档数据
-        TalkWorldData data = TalkWorldData.get(player.serverLevel());
-        PlayerTalkState state = data.get(player.getUUID());
-        if (state == null) return 0;
+        PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
+        if (state.getThreadIds().isEmpty()) return 0;
 
         List<String> targetThreadIds = new ArrayList<>();
 
@@ -218,9 +216,9 @@ public class BrntalkAPI {
             List<TalkMessage> newMsgs = manager.resumeThread(player.getUUID(), tid);
 
             if (!newMsgs.isEmpty()) {
-                // 存入存档
+                // 存入玩家数据
                 List<String> newIds = newMsgs.stream().map(TalkMessage::getId).toList();
-                data.appendMessages(player.getUUID(), tid, newIds);
+                state.appendMessages(tid, newIds);
 
                 // 触发事件
                 for (String msgId : newIds) {

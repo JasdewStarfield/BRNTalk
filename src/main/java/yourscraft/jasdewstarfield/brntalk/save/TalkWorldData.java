@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
+@Deprecated
 public class TalkWorldData extends SavedData {
 
     // playerUUID.toString() -> PlayerTalkState
@@ -17,49 +18,8 @@ public class TalkWorldData extends SavedData {
 
     // ----------- 对外操作接口 -----------
 
-    public boolean hasSeenMessage(UUID uuid, String scriptId, String messageId) {
-        PlayerTalkState state = get(uuid);
-        // 如果玩家没有任何数据，直接返回 false
-        if (state == null) {
-            return false;
-        }
-        return state.hasSeenMessage(scriptId, messageId);
-    }
-
-    public PlayerTalkState getOrCreate(UUID uuid) {
-        return players.computeIfAbsent(uuid.toString(), s -> new PlayerTalkState());
-    }
-
     public PlayerTalkState get(UUID uuid) {
         return players.get(uuid.toString());
-    }
-
-    /**
-     * 启动一个新的对话线程
-     * @param uuid 玩家UUID
-     * @param threadId 线程ID (运行时唯一标识)
-     * @param scriptId 剧本ID (Conversation ID)
-     * @param startMsgId 起始消息 ID
-     */
-    public void startThread(UUID uuid, String threadId, String scriptId, String startMsgId) {
-        PlayerTalkState state = getOrCreate(uuid);
-        state.startThread(threadId, scriptId, startMsgId);
-        setDirty();
-    }
-
-    /**
-     * 批量记录新消息 (用于自动推进逻辑)
-     */
-    public void appendMessages(UUID uuid, String threadId, List<String> messageIds) {
-        PlayerTalkState state = getOrCreate(uuid);
-        state.appendMessages(threadId, messageIds);
-        setDirty();
-    }
-
-    public void updateLastReadTime(UUID uuid, String threadId, long time) {
-        PlayerTalkState state = getOrCreate(uuid);
-        state.updateLastReadTime(threadId, time);
-        setDirty();
     }
 
     // ------------ SavedData -------------
@@ -103,17 +63,6 @@ public class TalkWorldData extends SavedData {
     /** 从某个维度的 dataStorage 获取/创建数据 */
     public static TalkWorldData get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(FACTORY, "brntalk_talk_data");
-    }
-
-    /**
-     * 清除玩家特定的对话线程
-     */
-    public void removeThread(UUID uuid, String threadId) {
-        PlayerTalkState state = get(uuid);
-        if (state != null) {
-            state.removeThread(threadId);
-            setDirty();
-        }
     }
 
     /** 清除玩家全部的对话数据 */

@@ -9,10 +9,9 @@ import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
+import yourscraft.jasdewstarfield.brntalk.Brntalk;
 
 public class ClientInit {
-
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     private ClientInit() {}
 
@@ -24,7 +23,7 @@ public class ClientInit {
     }
 
     public static void onClientSetup(FMLClientSetupEvent event) {
-        LOGGER.info("[BRNTalk] HELLO FROM CLIENT SETUP");
+        Brntalk.LOGGER.info("[BRNTalk] HELLO FROM CLIENT SETUP");
     }
 
     private static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
@@ -38,7 +37,7 @@ public class ClientInit {
     private static void onRegisterClientReloadListeners(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener((ResourceManagerReloadListener) resourceManager -> {
             ClientTalkUtils.clearCache();
-            LOGGER.debug("[BRNTalk] Text cache cleared due to resource reload.");
+            Brntalk.LOGGER.debug("[BRNTalk] Text cache cleared due to resource reload.");
         });
     }
 }

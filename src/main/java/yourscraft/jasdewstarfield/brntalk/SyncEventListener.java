@@ -1,10 +1,13 @@
 package yourscraft.jasdewstarfield.brntalk;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
@@ -19,11 +22,9 @@ import java.util.List;
 public class SyncEventListener {
 
     public static void rebuildThreadsForPlayer(ServerPlayer player) {
-        ServerLevel level = player.serverLevel();
-        TalkWorldData data = TalkWorldData.get(level);
+        PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
 
-        PlayerTalkState state = data.get(player.getUUID());
-        if (state == null) {
+        if (state.getThreadIds().isEmpty()) {
             return;
         }
 
@@ -74,5 +75,35 @@ public class SyncEventListener {
             SyncEventListener.rebuildThreadsForPlayer(player);
             TalkNetwork.syncThreadsTo(player);
         }
+    }
+
+    @SubscribeEvent
+    @SuppressWarnings("deprecation")
+    public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+
+        ServerLevel level = player.serverLevel();
+
+        // 1. 获取老的全局数据
+        TalkWorldData oldGlobalData = TalkWorldData.get(level);
+
+        // 2. 检查该玩家是否有旧数据
+        PlayerTalkState oldState = oldGlobalData.get(player.getUUID());
+
+        if (oldState != null) {
+            // 3. 将旧数据覆盖到新的 Attachment 中
+            // Data Attachments 的 setData 会直接替换对象
+            player.setData(BrntalkRegistries.PLAYER_TALK_STATE, oldState);
+
+            // 4. 从旧的全局数据中移除该玩家，防止重复迁移
+            oldGlobalData.removeAllThread(player.getUUID());
+
+            player.sendSystemMessage(Component.literal("[BRNTalk] Migrated talk data for you! Your data is now an attachment!").withStyle(ChatFormatting.GREEN));
+            Brntalk.LOGGER.info("[BRNTalk] Migrated talk data for player {}", player.getName().getString());
+        }
+
+        // 5. 同步
+        SyncEventListener.rebuildThreadsForPlayer(player);
+        TalkNetwork.syncThreadsTo(player);
     }
 }

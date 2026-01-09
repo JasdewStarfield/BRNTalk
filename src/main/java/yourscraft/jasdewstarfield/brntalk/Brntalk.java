@@ -20,13 +20,14 @@ import yourscraft.jasdewstarfield.brntalk.data.ConversationLoader;
 public class Brntalk {
 
     public static final String MODID = "brntalk";
-    private static final Logger LOGGER = LogUtils.getLogger();
+    public static final Logger LOGGER = LogUtils.getLogger();
 
     public Brntalk(IEventBus modEventBus, ModContainer modContainer) {
         modContainer.registerConfig(ModConfig.Type.CLIENT, BrntalkConfig.CLIENT_SPEC);
 
         // Common (Client + Server)
         modEventBus.addListener(this::onCommonSetup);
+        BrntalkRegistries.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(this::onAddReloadListeners);
 
         // Server

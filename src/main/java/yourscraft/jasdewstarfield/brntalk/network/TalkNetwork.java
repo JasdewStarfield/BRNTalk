@@ -18,12 +18,13 @@ import net.neoforged.neoforge.network.handling.IPayloadHandler;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
+import yourscraft.jasdewstarfield.brntalk.BrntalkRegistries;
 import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadHandler;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.event.PlayerSeenMessageEvent;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
-import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
+import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
 
 import java.util.List;
 
@@ -197,8 +198,8 @@ public class TalkNetwork {
         if (!newMsgs.isEmpty()) {
             List<String> newIds = newMsgs.stream().map(TalkMessage::getId).toList();
             // 4. 保存到存档 (批量追加)
-            TalkWorldData data = TalkWorldData.get(serverPlayer.serverLevel());
-            data.appendMessages(serverPlayer.getUUID(), threadId, newIds);
+            PlayerTalkState state = serverPlayer.getData(BrntalkRegistries.PLAYER_TALK_STATE);
+            state.appendMessages(threadId, newIds);
 
             // 5. 触发 PlayerSeenMessageEvent 事件
             String scriptId = thread.getScriptId();
@@ -218,8 +219,8 @@ public class TalkNetwork {
             String threadId = payload.threadId();
             long now = System.currentTimeMillis();
 
-            TalkWorldData.get(serverPlayer.serverLevel())
-                    .updateLastReadTime(serverPlayer.getUUID(), threadId, now);
+            PlayerTalkState state = serverPlayer.getData(BrntalkRegistries.PLAYER_TALK_STATE);
+            state.updateLastReadTime(threadId, now);
 
             TalkManager manager = TalkManager.getInstance();
             TalkThread activeThread = manager.getActiveThread(serverPlayer.getUUID(), threadId);

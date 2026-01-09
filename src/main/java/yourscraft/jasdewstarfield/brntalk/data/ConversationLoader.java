@@ -8,6 +8,7 @@ import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
+import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -19,7 +20,6 @@ import java.util.*;
 
 public class ConversationLoader extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new GsonBuilder().create();
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     public ConversationLoader() {
         super(GSON, "brntalk/dialogues");
@@ -55,11 +55,11 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
                     loadedCount++;
                 }
             } catch (Exception e) {
-                LOGGER.error("[BRNTalk] Failed to load conversation file: {}", rl, e);
+                Brntalk.LOGGER.error("[BRNTalk] Failed to load conversation file: {}", rl, e);
             }
         }
 
-        LOGGER.info("[BRNTalk] Loaded {} conversations.", loadedCount);
+        Brntalk.LOGGER.info("[BRNTalk] Loaded {} conversations.", loadedCount);
     }
 
     private static void loadSingleConversation(TalkManager manager,
@@ -168,7 +168,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
             // A. 检查消息本身的 nextId 跳转
             String next = msg.getNextId();
             if (next != null && !next.isEmpty() && !validIds.contains(next)) {
-                LOGGER.warn("[BRNTalk] Validation: Broken Link in Script '{}': Message '{}' points to missing nextId '{}'",
+                Brntalk.LOGGER.warn("[BRNTalk] Validation: Broken Link in Script '{}': Message '{}' points to missing nextId '{}'",
                         convId, msg.getId(), next);
             }
 
@@ -177,7 +177,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
                 for (TalkMessage.Choice c : msg.getChoices()) {
                     String cNext = c.getNextId();
                     if (cNext != null && !cNext.isEmpty() && !validIds.contains(cNext)) {
-                        LOGGER.warn("[BRNTalk] Validation: Broken Link in Script '{}': Choice '{}' (in msg '{}') points to missing nextId '{}'",
+                        Brntalk.LOGGER.warn("[BRNTalk] Validation: Broken Link in Script '{}': Choice '{}' (in msg '{}') points to missing nextId '{}'",
                                 convId, c.getId(), msg.getId(), cNext);
                     }
                 }
@@ -223,7 +223,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
 
             if (nextState == 1) {
                 // 撞到了正在访问的节点 -> 发现环！
-                LOGGER.error("[BRNTalk] Validation: **INFINITE LOOP** Detected in Script '{}'! The loop closes at message '{}'.",
+                Brntalk.LOGGER.error("[BRNTalk] Validation: **INFINITE LOOP** Detected in Script '{}'! The loop closes at message '{}'.",
                         convId, currId);
                 return true;
             }
