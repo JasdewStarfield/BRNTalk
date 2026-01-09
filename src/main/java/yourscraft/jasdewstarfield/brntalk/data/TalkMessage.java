@@ -64,15 +64,18 @@ public class TalkMessage {
     private final SpeakerType speakerType;
     private final String speaker;
     private final String text;
+    private final String action;
     private final long timestamp;
     private final List<Choice> choices = new ArrayList<>();
 
-    public TalkMessage(String id, Type type, SpeakerType speakerType, String speaker, String text, long timestamp, String nextId) {
+    public TalkMessage(String id, Type type, SpeakerType speakerType, String speaker, String text, String action,
+                       long timestamp, String nextId) {
         this.id = id;
         this.type = type;
         this.speakerType = speakerType;
         this.speaker = speaker;
         this.text = text;
+        this.action = action;
         this.timestamp = timestamp;
         this.nextId = nextId;
     }
@@ -101,6 +104,10 @@ public class TalkMessage {
         return text;
     }
 
+    public String getAction() {
+        return action;
+    }
+
     public long getTimestamp() {
         return timestamp;
     }
@@ -121,6 +128,7 @@ public class TalkMessage {
                 this.speakerType,
                 this.speaker,
                 this.text,
+                this.action,
                 newTimestamp,
                 this.nextId
         );

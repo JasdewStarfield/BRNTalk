@@ -194,7 +194,7 @@ public class TalkNetwork {
         }
 
         // 3. 推进剧情 (在内存中追加消息)
-        List<TalkMessage> newMsgs = manager.proceedThread(serverPlayer.getUUID(), threadId, nextMsgId);
+        List<TalkMessage> newMsgs = manager.proceedThread(serverPlayer, threadId, nextMsgId);
         if (!newMsgs.isEmpty()) {
             List<String> newIds = newMsgs.stream().map(TalkMessage::getId).toList();
             // 4. 保存到存档 (批量追加)

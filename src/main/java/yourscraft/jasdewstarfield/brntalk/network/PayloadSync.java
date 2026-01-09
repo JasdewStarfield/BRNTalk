@@ -108,6 +108,7 @@ public class PayloadSync {
                     speakerType,
                     speaker,
                     text,
+                    null,   // 客户端不需要知道执行了什么命令
                     timestamp,
                     nextId.orElse(null)
             );

@@ -35,7 +35,7 @@ public class BrntalkAPI {
         TalkManager manager = TalkManager.getInstance();
 
         // 1. 尝试在内存中启动线程
-        TalkThread thread = manager.startThread(player.getUUID(), scriptId, null);
+        TalkThread thread = manager.startThread(player, scriptId, null);
         if (thread == null) {
             // 脚本 ID 不存在
             return false;
@@ -213,7 +213,7 @@ public class BrntalkAPI {
 
         for (String tid : targetThreadIds) {
             // 调用 TalkManager 的单线程恢复方法
-            List<TalkMessage> newMsgs = manager.resumeThread(player.getUUID(), tid);
+            List<TalkMessage> newMsgs = manager.resumeThread(player, tid);
 
             if (!newMsgs.isEmpty()) {
                 // 存入玩家数据

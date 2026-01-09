@@ -1,6 +1,5 @@
 package yourscraft.jasdewstarfield.brntalk.client;
 
-import com.mojang.logging.LogUtils;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
@@ -8,7 +7,6 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.common.NeoForge;
-import org.slf4j.Logger;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 
 public class ClientInit {

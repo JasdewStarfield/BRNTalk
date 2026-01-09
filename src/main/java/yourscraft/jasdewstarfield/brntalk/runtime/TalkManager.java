@@ -1,5 +1,7 @@
 package yourscraft.jasdewstarfield.brntalk.runtime;
 
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.server.level.ServerPlayer;
 import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 
@@ -52,7 +54,7 @@ public class TalkManager {
     /**
      * 启动线程逻辑
      */
-    public TalkThread startThread(UUID playerUuid, String scriptId, String startMsgId) {
+    public TalkThread startThread(ServerPlayer player, String scriptId, String startMsgId) {
         TalkConversation conv = conversations.get(scriptId);
         if (conv == null) {
             return null;
@@ -77,12 +79,15 @@ public class TalkManager {
         TalkThread thread = new TalkThread(threadId, scriptId, now, 0L);
 
         // 存入对应玩家的初始消息
-        thread.appendMessage(firstMsg.withTimestamp(now));
+        TalkMessage msgWithTime = firstMsg.withTimestamp(now);
+        thread.appendMessage(msgWithTime);
+
+        executeAction(player, msgWithTime);
 
         // 尝试自动推进
-        autoAdvance(thread, conv);
+        autoAdvance(player, thread, conv);
 
-        playerThreads.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>())
+        playerThreads.computeIfAbsent(player.getUUID(), k -> new ConcurrentHashMap<>())
                 .put(threadId, thread);
 
         return thread;
@@ -99,8 +104,8 @@ public class TalkManager {
         }
     }
 
-    public List<TalkMessage> proceedThread(UUID playerUuid, String threadId, String nextMsgId) {
-        TalkThread thread = getActiveThread(playerUuid, threadId);
+    public List<TalkMessage> proceedThread(ServerPlayer player, String threadId, String nextMsgId) {
+        TalkThread thread = getActiveThread(player.getUUID(), threadId);
         if (thread == null) return Collections.emptyList();
 
         TalkConversation conv = conversations.get(thread.getScriptId());
@@ -113,10 +118,11 @@ public class TalkManager {
         int oldSize = thread.getMessages().size();
 
         // 1. 添加目标消息
-        thread.appendMessage(nextMsg.withTimestamp(System.currentTimeMillis()));
+        TalkMessage msgWithTime = nextMsg.withTimestamp(System.currentTimeMillis());
+        thread.appendMessage(msgWithTime);
 
         // 2. 尝试自动推进
-        autoAdvance(thread, conv);
+        autoAdvance(player, thread, conv);
 
         // 3. 收集所有新增的消息 ID
         List<TalkMessage> allMsgs = thread.getMessages();
@@ -125,7 +131,7 @@ public class TalkManager {
         return allMsgs.subList(oldSize, allMsgs.size());
     }
 
-    private void autoAdvance(TalkThread thread, TalkConversation conv) {
+    private void autoAdvance(ServerPlayer player, TalkThread thread, TalkConversation conv) {
         int safetyLimit = 100; // 防止恶意脚本死循环
         int count = 0;
 
@@ -150,7 +156,11 @@ public class TalkManager {
                     break;
                 }
 
-                thread.appendMessage(nextMsg.withTimestamp(System.currentTimeMillis()));
+                TalkMessage msgWithTime = nextMsg.withTimestamp(System.currentTimeMillis());
+                thread.appendMessage(msgWithTime);
+
+                executeAction(player, msgWithTime);
+
                 count++;
             }
         }
@@ -160,8 +170,8 @@ public class TalkManager {
      * 恢复/继续指定线程的对话 (用于从 WAIT 状态解除)
      * @return 新增的消息 ID 列表
      */
-    public List<TalkMessage> resumeThread(UUID playerUuid, String threadId) {
-        TalkThread thread = getActiveThread(playerUuid, threadId);
+    public List<TalkMessage> resumeThread(ServerPlayer player, String threadId) {
+        TalkThread thread = getActiveThread(player.getUUID(), threadId);
         if (thread == null) return Collections.emptyList();
 
         TalkMessage lastMsg = thread.getCurrentMessage();
@@ -169,7 +179,7 @@ public class TalkManager {
             return Collections.emptyList();
         }
 
-        return proceedThread(playerUuid, threadId, lastMsg.getNextId());
+        return proceedThread(player, threadId, lastMsg.getNextId());
     }
 
     public Collection<TalkThread> getActiveThreads(UUID playerUuid) {
@@ -180,5 +190,19 @@ public class TalkManager {
         var map = playerThreads.get(playerUuid);
         if (map == null) return null;
         return map.get(threadId);
+    }
+
+    /**
+     * 执行命令的辅助方法
+     */
+    private void executeAction(ServerPlayer player, TalkMessage msg) {
+        String action = msg.getAction();
+        if (action != null && !action.isBlank()) {
+            CommandSourceStack source = player.createCommandSourceStack()
+                    .withPermission(2)
+                    .withSuppressedOutput();
+
+            player.server.getCommands().performPrefixedCommand(source, action);
+        }
     }
 }

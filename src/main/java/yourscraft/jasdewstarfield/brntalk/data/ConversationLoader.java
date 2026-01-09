@@ -5,9 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import net.minecraft.resources.ResourceLocation;
@@ -100,10 +98,17 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
 
             String speaker = GsonHelper.getAsString(msgObj, "speaker", "&c**EMPTY SPEAKER**");
             String text = GsonHelper.getAsString(msgObj, "text", "&c**EMPTY TEXT**");
+
+            String action = null;
+            if (msgObj.has("action") && !msgObj.get("action").isJsonNull()) {
+                action = GsonHelper.getAsString(msgObj, "action", null);
+            }
+
             String nextId = null;
             if (msgObj.has("nextId") && !msgObj.get("nextId").isJsonNull()) {
                 nextId = GsonHelper.getAsString(msgObj, "nextId", null);
             }
+
             boolean autoContinue = GsonHelper.getAsBoolean(msgObj, "continue", false);
 
             // 自动推断nextId
@@ -119,6 +124,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
                     speakerType,
                     speaker,
                     text,
+                    action,
                     System.currentTimeMillis(),
                     nextId
             );

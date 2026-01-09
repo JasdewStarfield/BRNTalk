@@ -70,19 +70,26 @@
           "type": "text",
           "speaker": "Guide NPC",
           "text": "恭喜！resume 命令执行成功，对话已恢复！",
-          "nextId": "end"
+          "nextId": "reward"
         },
         {
           "id": "branch_long_text",
           "type": "text",
           "speaker": "Guide NPC",
           "text": "这是一段非常非常长的文本，用来测试自动换行、气泡高度计算以及滚动条功能是否正常。为了凑字数，我需要多说一点废话。不仅仅是换行，还要确保气泡不会超出屏幕边缘，并且玩家名字和 NPC 名字的颜色区分正确。如果你的 UI 渲染没有问题，这段话应该能完整显示。",
+          "nextId": "reward"
+        },
+        {
+          "id": "reward",
+          "speaker": "Guide NPC",
+          "text": "谢谢你完成了指引，这是给你的奖励。（你应该会收到 64 个钻石）",
+          "action": "/give @s diamond 64",
           "nextId": "end"
         },
         {
           "id": "end",
           "type": "text",
-          "speaker": "Guide NPC",
+          "speaker": "System",
           "text": "测试结束，点击关闭或按 ESC 退出。",
           "nextId": null
         }
