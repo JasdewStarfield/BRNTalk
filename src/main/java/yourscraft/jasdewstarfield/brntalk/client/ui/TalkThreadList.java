@@ -54,6 +54,13 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
         this.isSmoothScrolling = false;
     }
 
+    // 重写鼠标判定区域，让滚动条能被选中
+    @Override
+    public boolean isMouseOver(double mouseX, double mouseY) {
+        return mouseY >= this.getY() && mouseY <= this.getY() + this.getHeight() &&
+                mouseX >= this.getX() && mouseX <= this.getX() + this.width + 14;
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         // 获取列表最大滚动范围
@@ -121,8 +128,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
 
     @Override
     public int getRowWidth() {
-        // 行的内容宽度，用左侧列表的宽度
-        return this.listWidth;
+        return this.width - 8;
     }
 
     public void setThreads(java.util.List<TalkThread> threads) {
@@ -131,6 +137,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
             this.addEntry(new Entry(thread));
         }
     }
+
     // 单个条目
     public class Entry extends ObjectSelectionList.Entry<Entry> {
 

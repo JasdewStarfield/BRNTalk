@@ -112,12 +112,25 @@ public class TalkScreen extends Screen {
         // 根据当前对话的最后一条消息，生成选项按钮（如果是 CHOICE 类型）
         addChoiceButtonsForCurrentConversation();
 
+        // 在创建 ChatWidget 之前，立即预计算正确的内容高度
+        if (this.selectedThread != null) {
+            int maxBubbleWidth = (int) (this.chatAreaW * MAX_BUBBLE_WIDTH_RATIO);
+            int textMaxWidth = maxBubbleWidth - (2 * BUBBLE_PADDING_X);
+            // 提前计算高度
+            this.totalContentHeight = calculateTotalHeight(this.selectedThread.getMessages(), textMaxWidth);
+        } else {
+            this.totalContentHeight = 0;
+        }
+
         // ChatWidget
         double chatScroll = (this.chatWidget != null) ? this.chatWidget.getTargetScroll() : 0;
         int chatWidgetHeight = getChatViewHeight();
         this.chatWidget = new ChatWidget(chatAreaX, innerY, chatAreaW, chatWidgetHeight);
 
-        if (!this.needScrollToBottom) {
+        if (this.needScrollToBottom) {
+            this.chatWidget.scrollToBottom();
+            this.needScrollToBottom = false;
+        } else {
             this.chatWidget.restoreScroll(chatScroll);
         }
 
@@ -214,9 +227,11 @@ public class TalkScreen extends Screen {
         TalkMessage last = getLastMessageOfSelected();
         if (last != null && last.getType() == TalkMessage.Type.CHOICE) {
             int choiceCount = last.getChoices().size();
-            if (choiceCount > 0) {
-                int buttonAreaHeight = choiceCount * 25 - 10;
-                return Math.max(10, defaultHeight - buttonAreaHeight);
+            if (ClientTalkUtils.isThreadFinished(selectedThread)) {
+                if (choiceCount > 0) {
+                    int buttonAreaHeight = choiceCount * 25;
+                    return Math.max(10, defaultHeight - buttonAreaHeight);
+                }
             }
         }
         return defaultHeight;
@@ -255,8 +270,6 @@ public class TalkScreen extends Screen {
             this.selectedThread = thread;
             this.selectedThreadId = thread != null ? thread.getId() : null;
             this.needScrollToBottom = true;
-
-            this.totalContentHeight = 0;
         }
         rebuildUI();
     }
@@ -346,11 +359,20 @@ public class TalkScreen extends Screen {
         int maxBubbleWidth = (int) (width * MAX_BUBBLE_WIDTH_RATIO);
         int textMaxWidth = maxBubbleWidth - (2 * BUBBLE_PADDING_X);
 
+        double currentScroll = this.chatWidget.getScrollAmountVal();
+        boolean wasAtBottom = this.chatWidget.isScrolledToBottom(1.0);
+        int oldContentHeight = this.totalContentHeight;
+
         this.totalContentHeight = calculateTotalHeight(selectedThread.getMessages(), textMaxWidth);
 
         if (this.needScrollToBottom) {
             this.chatWidget.scrollToBottom();
             this.needScrollToBottom = false;
+            currentScroll = this.chatWidget.getScrollAmountVal();
+        } else if (this.totalContentHeight > oldContentHeight && wasAtBottom) {
+            // 如果之前在底部，且高度因为打字机增加了，强制吸附到底部
+            this.chatWidget.scrollToBottom();
+            currentScroll = this.chatWidget.getScrollAmountVal();
         }
 
         List<TalkMessage> msgs = selectedThread.getMessages();
@@ -431,7 +453,7 @@ public class TalkScreen extends Screen {
 
             // 块级Culling
             // 如果 底部 < 0 或者 顶部 > Widget 高度，则不画
-            if (currentY + entryTotalHeight < 0 || currentY > widgetHeight) {
+            if (currentY + entryTotalHeight < currentScroll || currentY > currentScroll + widgetHeight) {
                 currentY += entryTotalHeight + MSG_SPACING;
                 continue;
             }
@@ -524,6 +546,16 @@ public class TalkScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // W 或 上箭头
+        if (keyCode == 87 || keyCode == 265) {
+            if (this.chatWidget != null) this.chatWidget.scrollBy(-30); // 向上滚
+            return true;
+        }
+        // S 或 下箭头
+        if (keyCode == 83 || keyCode == 264) {
+            if (this.chatWidget != null) this.chatWidget.scrollBy(30);  // 向下滚
+            return true;
+        }
         // 先让父类处理 (比如 ESC 关闭)
         if (super.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
@@ -573,12 +605,27 @@ public class TalkScreen extends Screen {
             return true;
         }
 
+        public boolean isScrolledToBottom(double tolerance) {
+            return (this.getMaxScrollAmount() - this.scrollAmount()) <= tolerance;
+        }
+
+        public double getScrollAmountVal() {
+            return this.scrollAmount();
+        }
+
         @Override
         protected void setScrollAmount(double amount) {
             // 拖拽滚动条或键盘控制：直接更新，取消平滑动画
             super.setScrollAmount(amount);
             this.targetScroll = amount;
             this.isSmoothScrolling = false;
+        }
+
+        public void scrollBy(double amount) {
+            double newVal = this.scrollAmount() + amount;
+            this.setScrollAmount(newVal);
+            // 同时也更新平滑滚动的目标值，防止冲突
+            this.targetScroll = newVal;
         }
 
         @Override
@@ -620,7 +667,7 @@ public class TalkScreen extends Screen {
 
         @Override
         protected void renderContents(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
-            TalkScreen.this.renderChatContents(gfx, this.getX(), 0, this.width);
+            TalkScreen.this.renderChatContents(gfx, this.getX(), 8, this.width);
         }
 
         @Override
