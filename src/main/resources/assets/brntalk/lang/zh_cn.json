@@ -1,5 +1,18 @@
 {
   "gui.brntalk.no_conversation": "当前无消息……",
   "gui.brntalk.new_message_toast": "收到新消息",
-  "key.brntalk.open_screen": "打开 BRNTalk GUI"
+  "key.brntalk.open_screen": "打开 BRNTalk GUI",
+
+  "title.brntalk.config": "BRNTalk 配置",
+
+  "config.category.brntalk.visual": "视觉设置",
+  "config.category.brntalk.scrolling": "滚轮滚动设置",
+  "config.option.brntalk.char_delay": "打字机速度 (ms/字)",
+  "config.option.brntalk.char_delay.tooltip": "数值越小打字越快。0 为瞬间显示。",
+  "config.option.brntalk.msg_pause": "消息间隔 (ms)",
+  "config.option.brntalk.msg_pause.tooltip": "连续对话时，两条消息之间的停顿时间。0 为无间隔。",
+  "config.option.brntalk.scroll_rate": "滚动率",
+  "config.option.brntalk.scroll_rate.tooltip": "数值越大滚动越快。",
+  "config.option.brntalk.smooth_factor": "滚动阻力",
+  "config.option.brntalk.msg_pause.smooth_factor": "滚动的平滑因子。数值越小滚动越平滑。"
 }

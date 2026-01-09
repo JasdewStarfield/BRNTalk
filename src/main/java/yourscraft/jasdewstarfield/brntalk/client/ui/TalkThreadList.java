@@ -2,7 +2,7 @@ package yourscraft.jasdewstarfield.brntalk.client.ui;
 
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.NotNull;
-import yourscraft.jasdewstarfield.brntalk.BrntalkConfig;
+import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;

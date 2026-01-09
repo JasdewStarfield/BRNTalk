@@ -9,6 +9,7 @@ version = mod_version
 group = mod_group_id
 
 repositories {
+    maven { url "https://maven.shedaniel.me/" }
     mavenLocal()
 }
 
@@ -116,6 +117,9 @@ dependencies {
     // For more info:
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
+
+    compileOnly "me.shedaniel.cloth:cloth-config-neoforge:15.0.140"
+    runtimeOnly "me.shedaniel.cloth:cloth-config-neoforge:15.0.140"
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

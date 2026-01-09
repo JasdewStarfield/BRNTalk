@@ -1,5 +1,18 @@
 {
   "gui.brntalk.no_conversation": "Currently no message...",
   "gui.brntalk.new_message_toast": "New Message Received",
-  "key.brntalk.open_screen": "Open BRNTalk GUI"
+  "key.brntalk.open_screen": "Open BRNTalk GUI",
+
+  "title.brntalk.config": "BRNTalk 配置",
+
+  "config.category.brntalk.visual": "Visual settings",
+  "config.category.brntalk.scrolling": "Scrolling settings",
+  "config.option.brntalk.char_delay": "Typing Speed (ms/char)",
+  "config.option.brntalk.char_delay.tooltip": "Lower value means faster typing speed. Set to 0 to display immediately.",
+  "config.option.brntalk.msg_pause": "Message Pause Interval (ms)",
+  "config.option.brntalk.msg_pause.tooltip": "Pause Time between continuous messages. Set to 0 to disable pausing.",
+  "config.option.brntalk.scroll_rate": "Rate of Scrolling",
+  "config.option.brntalk.scroll_rate.tooltip": "Higher value means faster scrolling.",
+  "config.option.brntalk.smooth_factor": "Scrolling Drag",
+  "config.option.brntalk.msg_pause.smooth_factor": "Smooth factor of scrolling. Lower value means smoother scrolling."
 }

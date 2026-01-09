@@ -1,4 +1,4 @@
-package yourscraft.jasdewstarfield.brntalk;
+package yourscraft.jasdewstarfield.brntalk.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
@@ -24,11 +24,13 @@ public class BrntalkConfig {
             builder.comment("Visual settings").push("visual");
 
             charDelay = builder
-                    .comment("Typing Speed (ms per char). Lower value means faster typing speed")
+                    .comment("Typing Speed (ms/char)")
+                    .comment("Lower value means faster typing speed. Set to 0 to display immediately.")
                     .defineInRange("charDelay", 20, 0, 200);
 
             msgPause = builder
-                    .comment("Pause Time between continuous messages (ms)")
+                    .comment("Message Pause Interval (ms)")
+                    .comment("Pause Time between continuous messages. Set to 0 to disable pausing.")
                     .defineInRange("msgPause", 1000, 0, 10000);
 
             builder.pop();
@@ -36,11 +38,13 @@ public class BrntalkConfig {
             builder.comment("Scrolling settings").push("scrolling");
 
             scrollRate = builder
-                    .comment("Rate of scrolling. Higher value means faster scrolling")
-                    .defineInRange("scrollRate", 25.0, 0, 100);
+                    .comment("Rate of Scrolling")
+                    .comment("Higher value means faster scrolling.")
+                    .defineInRange("scrollRate", 25.0, 1, 100);
 
             smoothFactor = builder
-                    .comment("Scrolling drag. Lower value means smoother scrolling")
+                    .comment("Scrolling Drag")
+                    .comment("Smooth factor of scrolling. Lower value means smoother scrolling.")
                     .defineInRange("smoothFactor", 0.3f, 0f, 1f);
 
             builder.pop();
