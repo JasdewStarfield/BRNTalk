@@ -77,6 +77,7 @@ public class SyncEventListener {
         }
     }
 
+    // 这个类用来迁移旧版世界数据到玩家数据
     @SubscribeEvent
     @SuppressWarnings("deprecation")
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {

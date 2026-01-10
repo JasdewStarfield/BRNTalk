@@ -48,6 +48,9 @@ public class TalkUIStyles {
     // 分割线的宽度
     public static final int DIVIDER_WIDTH = 9;
 
+    // 聊天内容的 y-offset
+    public static final int CHAT_CONTENTS_Y_OFFSET = 8;
+
     // 气泡内边距
     public static final int BUBBLE_PADDING_X = 8;
     public static final int BUBBLE_PADDING_Y = 6;
@@ -86,8 +89,10 @@ public class TalkUIStyles {
     public static final int COLOR_DOT_UNREAD          = 0xFFFF0000; // 未读 (红)
     public static final int COLOR_DOT_WAITING         = 0xFFFFFF00; // 等待选项 (黄)
 
+    // --- Vanilla-Style UI ---
+    public static final int COLOR_VANILLA_BG          = 0xC0101010; // 原版风格背景 (半透明深黑)
+
     // --- 杂项 ---
-    public static final int COLOR_SCROLLBAR_TRACK     = 0x20FFFFFF;
-    public static final int COLOR_SCROLLBAR_THUMB     = 0xFFCCCCCC;
     public static final int COLOR_NO_MSG_TEXT         = 0xFFFFFFFF;
+    public static final int COLOR_DIVISION            = 0xFFFFFFFF; // 原版风格分割线 (白)
 }

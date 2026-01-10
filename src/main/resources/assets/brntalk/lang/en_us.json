@@ -7,6 +7,8 @@
 
   "config.category.brntalk.visual": "Visual settings",
   "config.category.brntalk.scrolling": "Scrolling settings",
+  "config.option.brntalk.use_vanilla_style_ui": "Use Vanilla Style GUI and Background",
+  "config.option.brntalk.use_vanilla_style_ui.tooltip": "If set to true, the custom GUI and background will be replaced by the standard vanilla dark background.",
   "config.option.brntalk.char_delay": "Typing Speed (ms/char)",
   "config.option.brntalk.char_delay.tooltip": "Lower value means faster typing speed. Set to 0 to display immediately.",
   "config.option.brntalk.msg_pause": "Message Pause Interval (ms)",

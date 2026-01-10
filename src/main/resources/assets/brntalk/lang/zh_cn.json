@@ -7,6 +7,8 @@
 
   "config.category.brntalk.visual": "视觉设置",
   "config.category.brntalk.scrolling": "滚轮滚动设置",
+  "config.option.brntalk.use_vanilla_style_ui": "使用原版风格的 GUI 和背景",
+  "config.option.brntalk.use_vanilla_style_ui.tooltip": "如果设置为 true，自定义的 GUI 和背景会被替换成标准的原版风格。",
   "config.option.brntalk.char_delay": "打字机速度 (ms/字)",
   "config.option.brntalk.char_delay.tooltip": "数值越小打字越快。0 为瞬间显示。",
   "config.option.brntalk.msg_pause": "消息间隔 (ms)",

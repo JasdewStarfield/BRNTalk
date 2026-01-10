@@ -15,6 +15,7 @@ public class BrntalkConfig {
     }
 
     public static class ClientConfig {
+        public final ModConfigSpec.BooleanValue useVanillaStyleUI;
         public final ModConfigSpec.IntValue charDelay;
         public final ModConfigSpec.IntValue msgPause;
         public final ModConfigSpec.DoubleValue scrollRate;
@@ -22,6 +23,11 @@ public class BrntalkConfig {
 
         public ClientConfig(ModConfigSpec.Builder builder) {
             builder.comment("Visual settings").push("visual");
+
+            useVanillaStyleUI = builder
+                    .comment("Use Vanilla Style GUI and Background")
+                    .comment("If set to true, the custom GUI and background will be replaced by the standard vanilla dark background.")
+                    .define("useVanillaStyleUI", false);
 
             charDelay = builder
                     .comment("Typing Speed (ms/char)")

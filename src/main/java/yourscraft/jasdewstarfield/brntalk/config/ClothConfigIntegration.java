@@ -22,6 +22,15 @@ public class ClothConfigIntegration {
         ConfigCategory scrollingCategory = builder.getOrCreateCategory(Component.translatable("config.category.brntalk.scrolling"));
 
         // 4. 添加配置项
+        visualCategory.addEntry(entryBuilder.startBooleanToggle(
+                        Component.translatable("config.option.brntalk.use_vanilla_style_ui"),
+                        BrntalkConfig.CLIENT.useVanillaStyleUI.get()
+                )
+                .setDefaultValue(false)
+                .setTooltip(Component.translatable("config.option.brntalk.use_vanilla_style_ui.tooltip"))
+                .setSaveConsumer(BrntalkConfig.CLIENT.useVanillaStyleUI::set)
+                .build());
+
         visualCategory.addEntry(entryBuilder.startIntField(
                         Component.translatable("config.option.brntalk.char_delay"),
                         BrntalkConfig.CLIENT.charDelay.get()

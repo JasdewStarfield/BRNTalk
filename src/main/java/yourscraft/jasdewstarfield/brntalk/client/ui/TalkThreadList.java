@@ -105,12 +105,18 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
 
     @Override
     protected void renderListBackground(@NotNull GuiGraphics guiGraphics) {
-        // 透明背景
+        // 开启配置时才渲染
+        if (BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
+            super.renderListBackground(guiGraphics);
+        }
     }
 
     @Override
     protected void renderListSeparators(@NotNull GuiGraphics guiGraphics) {
-        // 移除上下阴影
+        // 开启配置时才渲染
+        if (BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
+            super.renderListSeparators(guiGraphics);
+        }
     }
 
     @Override
