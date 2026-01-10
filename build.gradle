@@ -10,6 +10,7 @@ group = mod_group_id
 
 repositories {
     maven { url "https://maven.shedaniel.me/" }
+    maven { url "https://cursemaven.com" }
     mavenLocal()
 }
 
@@ -120,6 +121,9 @@ dependencies {
 
     compileOnly "me.shedaniel.cloth:cloth-config-neoforge:15.0.140"
     runtimeOnly "me.shedaniel.cloth:cloth-config-neoforge:15.0.140"
+
+    compileOnly "curse.maven:jei-238222:7391682"
+    runtimeOnly "curse.maven:jei-238222:7391682"
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

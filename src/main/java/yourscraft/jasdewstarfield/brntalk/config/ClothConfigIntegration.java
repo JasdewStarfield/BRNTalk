@@ -20,6 +20,7 @@ public class ClothConfigIntegration {
         // 3. 创建分类
         ConfigCategory visualCategory = builder.getOrCreateCategory(Component.translatable("config.category.brntalk.visual"));
         ConfigCategory scrollingCategory = builder.getOrCreateCategory(Component.translatable("config.category.brntalk.scrolling"));
+        ConfigCategory openButtonCategory = builder.getOrCreateCategory(Component.translatable("config.category.brntalk.open_button"));
 
         // 4. 添加配置项
         visualCategory.addEntry(entryBuilder.startBooleanToggle(
@@ -71,8 +72,30 @@ public class ClothConfigIntegration {
                 .setDefaultValue(0.3f)
                 .setMin(0f)
                 .setMax(1f)
-                .setTooltip(Component.translatable("config.option.brntalk.msg_pause.smooth_factor"))
+                .setTooltip(Component.translatable("config.option.brntalk.smooth_factor.tooltip"))
                 .setSaveConsumer(BrntalkConfig.CLIENT.smoothFactor::set)
+                .build());
+
+        openButtonCategory.addEntry(entryBuilder.startIntField(
+                        Component.translatable("config.option.brntalk.openButtonX"),
+                        BrntalkConfig.CLIENT.openButtonX.get()
+                )
+                .setDefaultValue(5)
+                .setMin(0)
+                .setMax(1000)
+                .setTooltip(Component.translatable("config.option.brntalk.openButtonX.tooltip"))
+                .setSaveConsumer(BrntalkConfig.CLIENT.openButtonX::set)
+                .build());
+
+        openButtonCategory.addEntry(entryBuilder.startIntField(
+                        Component.translatable("config.option.brntalk.openButtonY"),
+                        BrntalkConfig.CLIENT.openButtonY.get()
+                )
+                .setDefaultValue(5)
+                .setMin(0)
+                .setMax(1000)
+                .setTooltip(Component.translatable("config.option.brntalk.openButtonY.tooltip"))
+                .setSaveConsumer(BrntalkConfig.CLIENT.openButtonY::set)
                 .build());
 
         // 5. 保存逻辑

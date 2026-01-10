@@ -3,10 +3,13 @@
   "gui.brntalk.new_message_toast": "New Message Received",
   "key.brntalk.open_screen": "Open BRNTalk GUI",
 
+  "sidebar_button.brntalk.brntalk_open_ui": "View Messages",
+
   "title.brntalk.config": "BRNTalk 配置",
 
   "config.category.brntalk.visual": "Visual settings",
   "config.category.brntalk.scrolling": "Scrolling settings",
+  "config.category.brntalk.open_button": "Open button settings",
   "config.option.brntalk.use_vanilla_style_ui": "Use Vanilla Style GUI and Background",
   "config.option.brntalk.use_vanilla_style_ui.tooltip": "If set to true, the custom GUI and background will be replaced by the standard vanilla dark background.",
   "config.option.brntalk.char_delay": "Typing Speed (ms/char)",
@@ -16,5 +19,9 @@
   "config.option.brntalk.scroll_rate": "Rate of Scrolling",
   "config.option.brntalk.scroll_rate.tooltip": "Higher value means faster scrolling.",
   "config.option.brntalk.smooth_factor": "Scrolling Drag",
-  "config.option.brntalk.msg_pause.smooth_factor": "Smooth factor of scrolling. Lower value means smoother scrolling."
+  "config.option.brntalk.smooth_factor.tooltip": "Smooth factor of scrolling. Lower value means smoother scrolling.",
+  "config.option.brntalk.openButtonX": "X position of the 'Open Screen' button (pixel)",
+  "config.option.brntalk.openButtonX.tooltip": "The distance between button and the left edge of screen. This won't work if you have installed FTB Library.",
+  "config.option.brntalk.openButtonY": "Y position of the 'Open Screen' button (pixel)",
+  "config.option.brntalk.openButtonY.tooltip": "The distance between button and the top edge of screen. This won't work if you have installed FTB Library."
 }

@@ -1,0 +1,10 @@
+{
+  "icon": "brntalk:textures/gui/button/button_open.png",
+  "sort_index": 1000,
+  "click": [
+    "command:/brntalk open_ui"
+  ],
+  "required_mods": [
+    "brntalk"
+  ]
+}

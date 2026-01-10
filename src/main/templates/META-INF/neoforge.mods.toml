@@ -85,3 +85,17 @@ type = "optional"
 versionRange = "[15,)"
 ordering = "NONE"
 side = "CLIENT"
+
+[[dependencies."${mod_id}"]]
+modId = "ftblibrary"
+type = "optional"
+versionRange = "[2100,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies."${mod_id}"]]
+modId = "jei"
+type = "optional"
+versionRange = "[19,20)"
+ordering = "NONE"
+side = "CLIENT"

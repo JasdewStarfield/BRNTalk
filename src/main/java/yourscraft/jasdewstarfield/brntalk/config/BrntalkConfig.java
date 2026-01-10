@@ -20,6 +20,8 @@ public class BrntalkConfig {
         public final ModConfigSpec.IntValue msgPause;
         public final ModConfigSpec.DoubleValue scrollRate;
         public final ModConfigSpec.DoubleValue smoothFactor;
+        public final ModConfigSpec.IntValue openButtonX;
+        public final ModConfigSpec.IntValue openButtonY;
 
         public ClientConfig(ModConfigSpec.Builder builder) {
             builder.comment("Visual settings").push("visual");
@@ -52,6 +54,20 @@ public class BrntalkConfig {
                     .comment("Scrolling Drag")
                     .comment("Smooth factor of scrolling. Lower value means smoother scrolling.")
                     .defineInRange("smoothFactor", 0.3f, 0f, 1f);
+
+            builder.pop();
+
+            builder.comment("Open button settings").push("button");
+
+            openButtonX = builder
+                    .comment("X position of the 'Open Screen' button (pixel)")
+                    .comment("The distance between button and the left edge of screen.")
+                    .defineInRange("openButtonX", 5, 0, 1000);
+
+            openButtonY = builder
+                    .comment("Y position of the 'Open Screen' button")
+                    .comment("The distance between button and the top edge of screen.")
+                    .defineInRange("openButtonY", 5, 0, 1000);
 
             builder.pop();
         }

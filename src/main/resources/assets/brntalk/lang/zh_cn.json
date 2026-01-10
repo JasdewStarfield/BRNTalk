@@ -5,8 +5,11 @@
 
   "title.brntalk.config": "BRNTalk 配置",
 
+  "sidebar_button.brntalk.brntalk_open_ui": "查看消息",
+
   "config.category.brntalk.visual": "视觉设置",
   "config.category.brntalk.scrolling": "滚轮滚动设置",
+  "config.category.brntalk.open_button": "打开按钮设置",
   "config.option.brntalk.use_vanilla_style_ui": "使用原版风格的 GUI 和背景",
   "config.option.brntalk.use_vanilla_style_ui.tooltip": "如果设置为 true，自定义的 GUI 和背景会被替换成标准的原版风格。",
   "config.option.brntalk.char_delay": "打字机速度 (ms/字)",
@@ -16,5 +19,9 @@
   "config.option.brntalk.scroll_rate": "滚动率",
   "config.option.brntalk.scroll_rate.tooltip": "数值越大滚动越快。",
   "config.option.brntalk.smooth_factor": "滚动阻力",
-  "config.option.brntalk.msg_pause.smooth_factor": "滚动的平滑因子。数值越小滚动越平滑。"
+  "config.option.brntalk.smooth_factor.tooltip": "滚动的平滑因子。数值越小滚动越平滑。",
+  "config.option.brntalk.openButtonX": "“打开屏幕”按钮的 X 位置（像素）",
+  "config.option.brntalk.openButtonX.tooltip": "按钮与屏幕左边缘的距离。如果你安装了 FTB Library，则不会起效。",
+  "config.option.brntalk.openButtonY": "“打开屏幕”按钮的 Y 位置（像素）",
+  "config.option.brntalk.openButtonY.tooltip": "按钮与屏幕上边缘的距离。如果你安装了 FTB Library，则不会起效。"
 }
