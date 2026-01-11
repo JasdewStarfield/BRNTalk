@@ -426,10 +426,7 @@ public class TalkScreen extends Screen {
             MessageRenderCache cache = renderCacheMap.computeIfAbsent(msg.getId(), k -> new MessageRenderCache());
 
             // 2. 检查缓存是否过期（例如：首次加载、或宽度变化导致需要重新折行）
-            // 只要 textMaxWidth 不变，font.split 的结果就是一样的
-            if (!cache.isLayoutValid(textMaxWidth)) {
-                cache.updateLayout(msg, textMaxWidth, this.font);
-            }
+            cache.updateLayoutIfNeeded(msg, textMaxWidth, this.font);
 
             // 3. 计算时间轴
             long visualStartTime;
@@ -438,34 +435,32 @@ public class TalkScreen extends Screen {
                 previousVisualEndTime = 0;
             } else {
                 visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + msgPause);
-                // 使用缓存中计算好的纯文本长度
-                long duration = (long) cache.cleanTextLength * charDelay;
-                previousVisualEndTime = visualStartTime + duration;
+                previousVisualEndTime = visualStartTime + cache.duration;
             }
 
             // 4. 判断当前消息的打字机进度
             String textToShow;
             long timePassed = now - visualStartTime;
 
+            String fullText = cache.layoutCache.processedText;
+
             if (timePassed < 0) {
                 // 还没轮到，直接跳过
                 continue;
-            } else if (timePassed >= (long) cache.cleanTextLength * charDelay) {
+            } else if (timePassed >= cache.duration) {
                 // 播完了，直接用缓存的完整文本
-                textToShow = cache.processedText;
+                textToShow = fullText;
             } else {
                 int charCount = (int) (timePassed / charDelay);
-                charCount = Math.max(0, Math.min(charCount, cache.processedText.length()));
-                textToShow = cache.processedText.substring(0, charCount);
+                charCount = Math.max(0, Math.min(charCount, fullText.length()));
+                textToShow = fullText.substring(0, charCount);
             }
 
-            // 5. 再次折行 (只有当正在打字时，才需要实时折行；如果播完了，直接用缓存的 lines)
+            // 5. 获取行 (如果是动态的，需要临时计算；如果是完整的，使用缓存)
             List<FormattedCharSequence> linesToDraw;
-            if (textToShow.length() == cache.processedText.length()) {
-                // 完整显示，使用缓存
-                linesToDraw = cache.cachedLines;
+            if (textToShow.length() == fullText.length()) {
+                linesToDraw = cache.layoutCache.getLines(this.font, msg, textMaxWidth);
             } else {
-                // 动态显示，必须实时算，但只针对当前正在打字的那一条
                 linesToDraw = this.font.split(Component.literal(textToShow), textMaxWidth);
             }
 
@@ -542,10 +537,7 @@ public class TalkScreen extends Screen {
 
             // 获取渲染缓存
             MessageRenderCache cache = renderCacheMap.computeIfAbsent(msg.getId(), k -> new MessageRenderCache());
-            // 确保缓存有效
-            if (!cache.isLayoutValid(textMaxWidth)) {
-                cache.updateLayout(msg, textMaxWidth, this.font);
-            }
+            cache.updateLayoutIfNeeded(msg, textMaxWidth, this.font);
 
             // 计算时间轴 (同渲染逻辑)
             long timePassed = now - visualStartTime;
@@ -555,8 +547,9 @@ public class TalkScreen extends Screen {
                 currentTotal += cache.fixedHeight;
             } else {    // 情况 B: 正在打字
                 int charCount = (int) (timePassed / charDelay);
-                charCount = Math.max(0, Math.min(charCount, cache.processedText.length()));
-                String textToShow = cache.processedText.substring(0, charCount);
+                String fullText = cache.layoutCache.processedText;
+                charCount = Math.max(0, Math.min(charCount, fullText.length()));
+                String textToShow = fullText.substring(0, charCount);
 
                 int lines = this.font.split(Component.literal(textToShow), textMaxWidth).size();
                 int bubbleH = (lines * lineHeight) + (2 * BUBBLE_PADDING_Y);
@@ -571,7 +564,6 @@ public class TalkScreen extends Screen {
     private void updateTimelineCache(List<TalkMessage> msgs) {
         if (msgs.size() == cachedMessageCount) return;
 
-        int charDelay = ClientTalkUtils.getCharDelay();
         int msgPause = ClientTalkUtils.getMsgPause();
 
         // 如果是清空了或者从头开始，清理缓存
@@ -593,18 +585,7 @@ public class TalkScreen extends Screen {
                 previousVisualEndTime = 0;
             } else {
                 visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + msgPause);
-
-                // 计算持续时间
-                long duration;
-                MessageRenderCache rc = renderCacheMap.get(id);
-                if (rc != null && rc.duration != -1) {
-                    duration = rc.duration;
-                } else {
-                    // 还没渲染过，临时算一下长度 (这是极少数情况，通常是新消息)
-                    String clean = ClientTalkUtils.stripColor(ClientTalkUtils.processText(msg.getText())).replace("\n", "");
-                    duration = (long) clean.length() * charDelay;
-                }
-
+                long duration = ClientTalkUtils.calculateDuration(msg);
                 previousVisualEndTime = visualStartTime + duration;
             }
 
@@ -769,48 +750,37 @@ public class TalkScreen extends Screen {
     }
 
     private static class MessageRenderCache {
-        // 缓存的文本数据
-        String processedText;      // I18n处理后的完整文本
-        String speakerName;        // I18n处理后的名字
-        int cleanTextLength;       // 去色后的长度（用于时间轴计算）
+        // 委托给通用的 LayoutCache
+        final ClientTalkUtils.MessageLayoutCache layoutCache = new ClientTalkUtils.MessageLayoutCache();
 
-        // 缓存的渲染组件
+        // 屏幕特有的缓存数据 (气泡高度、名字渲染)
         Component speakerComp;
         int speakerNameWidth;
+        int fixedHeight = -1;
+        long duration = -1;
+        private int cachedLayoutWidth = -1;
 
-        // 缓存的布局数据
-        List<FormattedCharSequence> cachedLines; // 完整文本的折行结果
-        int cachedLayoutWidth;     // 上次计算时的最大宽度
-        int fixedHeight = -1;      // 完整显示时的高度 (像素)
-        long duration = -1;        // 播放所需的总时长 (ms)
-
-        boolean isLayoutValid(int widthLimit) {
-            return processedText != null && cachedLines != null && cachedLayoutWidth == widthLimit;
-        }
-
-        void updateLayout(TalkMessage msg, int widthLimit, net.minecraft.client.gui.Font font) {
-            // 1. 只有第一次才处理文本
-            if (processedText == null) {
-                this.processedText = ClientTalkUtils.processText(msg.getText());
-                this.speakerName = ClientTalkUtils.processText(msg.getSpeaker());
-
-                String clean = ClientTalkUtils.stripColor(processedText).replace("\n", "");
-                this.cleanTextLength = clean.length();
-
-                this.speakerComp = Component.literal(speakerName);
-                this.speakerNameWidth = font.width(speakerName);
-                this.duration = (long) this.cleanTextLength * ClientTalkUtils.getCharDelay();
+        void updateLayoutIfNeeded(TalkMessage msg, int widthLimit, net.minecraft.client.gui.Font font) {
+            // 如果宽度没变且已经初始化过，无需更新
+            if (cachedLayoutWidth == widthLimit && speakerComp != null) {
+                return;
             }
 
-            // 2. 重新计算折行
-            this.cachedLayoutWidth = widthLimit;
-            // 缓存完整显示的折行结果
-            this.cachedLines = font.split(Component.literal(processedText), widthLimit);
+            cachedLayoutWidth = widthLimit;
 
-            // 计算并缓存完整高度
-            // 公式：Speaker行 + (气泡行数 * 行高) + 上下内边距 + 上下气泡外边距
+            // 1. 让通用 Cache 更新文本和折行
+            List<FormattedCharSequence> lines = layoutCache.getLines(font, msg, widthLimit);
+
+            // 2. 更新 Screen 特有的数据
+            if (speakerComp == null) {
+                String speakerName = ClientTalkUtils.processText(msg.getSpeaker());
+                this.speakerComp = Component.literal(speakerName);
+                this.speakerNameWidth = font.width(speakerName);
+                this.duration = ClientTalkUtils.calculateDuration(msg);
+            }
+
             int lineHeight = font.lineHeight;
-            int bubbleH = (cachedLines.size() * lineHeight) + (2 * BUBBLE_PADDING_Y);
+            int bubbleH = (lines.size() * lineHeight) + (2 * BUBBLE_PADDING_Y);
             this.fixedHeight = (lineHeight + 2) + bubbleH + MSG_SPACING;
         }
     }

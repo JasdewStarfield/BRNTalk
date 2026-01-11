@@ -4,8 +4,10 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.toasts.Toast;
 import net.minecraft.client.gui.components.toasts.ToastComponent;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -22,13 +24,11 @@ public class TalkToast implements Toast{
 
     private final Component title;
     private final Component subtitle;
-    private final long firstDrawTime;
-    private boolean playedSound = false;
 
     public TalkToast(TalkMessage message) {
-        this.title = Component.translatable("gui.brntalk.new_message_toast");
-        this.subtitle = Component.literal(ClientTalkUtils.getSingleLinePreview(message, 120));
-        this.firstDrawTime = System.currentTimeMillis();
+        this.title = Component.translatable("gui.brntalk.toast_new_message");
+        String preview = ClientTalkUtils.getSingleLinePreview(message, 120);
+        this.subtitle = Component.literal(preview);
     }
 
     @Override
@@ -46,7 +46,7 @@ public class TalkToast implements Toast{
             gfx.drawString(font, lines.getFirst(), 30, 18, 0xFFFFFFFF, false);
         }
 
-        gfx.renderItem(new ItemStack(Items.PAPER), 8, 8);
+        gfx.renderFakeItem(new ItemStack(Items.PAPER), 8, 8);
 
         // 5000ms (5秒) 后消失
         return timeSinceLastVisible >= 5000L ? Visibility.HIDE : Visibility.SHOW;

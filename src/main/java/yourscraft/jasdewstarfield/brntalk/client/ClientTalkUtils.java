@@ -79,6 +79,16 @@ public class ClientTalkUtils {
     }
 
     /**
+     * 计算消息打字机播放所需的总时长 (ms)
+     */
+    public static long calculateDuration(TalkMessage msg) {
+        if (msg == null) return 0;
+        String processed = processText(msg.getText());
+        String clean = stripColor(processed).replace("\n", "");
+        return (long) clean.length() * getCharDelay();
+    }
+
+    /**
      * 基于像素宽度截断文本
      * 如果文本超过 maxWidth 像素，截断并添加 "..."
      *
@@ -146,8 +156,7 @@ public class ClientTalkUtils {
 
         for (TalkMessage msg : thread.getMessages()) {
             // 计算时长 (使用去色后的文本长度)
-            String cleanText = stripColor(processText(msg.getText())).replace("\n", "");
-            long duration = (long) cleanText.length() * charDelay;
+            long duration = calculateDuration(msg);
 
             long visualStartTime;
             if (msg.getTimestamp() == 0) {
@@ -272,36 +281,34 @@ public class ClientTalkUtils {
     }
 
     /**
-     * 简单的文本布局缓存工具
-     * 用于避免在 render 循环中重复调用 font.split
+     * 统一的排版缓存，供 HUD 和 Screen 使用。
+     * 自动处理 split 重算、完整文本缓存等。
      */
-    public static class TextCache {
-        private String originalText;
-        private int width;
-        private List<FormattedCharSequence> cachedLines;
-
-        public TextCache() {
-            this.originalText = "";
-            this.width = -1;
-            this.cachedLines = Collections.emptyList();
-        }
+    public static class MessageLayoutCache {
+        public String processedText;
+        public List<FormattedCharSequence> lines;
+        private int cachedWidth = -1;
 
         /**
-         * 获取切分好的行。如果文本或宽度发生变化，会重新计算缓存。
+         * 获取折行后的文本行。如果宽度变化或首次调用，会重新计算。
          */
-        public List<FormattedCharSequence> getLines(Font font, String text, int maxWidth) {
-            // 只有当 内容变了 或者 宽度变了 时才重新计算
-            if (!text.equals(originalText) || maxWidth != this.width) {
-                this.originalText = text;
-                this.width = maxWidth;
-                this.cachedLines = font.split(Component.literal(text), maxWidth);
+        public List<FormattedCharSequence> getLines(Font font, TalkMessage msg, int maxWidth) {
+            if (processedText == null) {
+                processedText = processText(msg.getText());
             }
-            return this.cachedLines;
+
+            if (lines == null || cachedWidth != maxWidth) {
+                cachedWidth = maxWidth;
+                lines = font.split(Component.literal(processedText), maxWidth);
+            }
+            return lines;
         }
 
-        // 强制刷新
+        // 清除 Cache
         public void invalidate() {
-            this.originalText = "";
+            processedText = null;
+            lines = null;
+            cachedWidth = -1;
         }
     }
 

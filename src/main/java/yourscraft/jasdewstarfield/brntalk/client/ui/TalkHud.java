@@ -4,10 +4,13 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
+import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
@@ -70,13 +73,10 @@ public class TalkHud {
     }
 
     private static void addEntryToQueue(TalkMessage msg, long now) {
-        int charDelay = BrntalkConfig.CLIENT.charDelay.get();
         int msgPause = BrntalkConfig.CLIENT.msgPause.get();
 
         // 计算纯文本长度和所需播放时间
-        String processedText = ClientTalkUtils.processText(msg.getText());
-        String cleanText = ClientTalkUtils.stripColor(processedText);
-        long playDuration = (long) cleanText.length() * charDelay;
+        long playDuration = ClientTalkUtils.calculateDuration(msg);
 
         // 计算开始时间：必须等上一条消息播完 + 暂停时间
         long startTime = now;
@@ -90,7 +90,7 @@ public class TalkHud {
         // 插入到队首
         DISPLAY_QUEUE.addFirst(new HudEntry(msg, startTime, endTime));
 
-        // 限制历史数量 (为了渲染性能，太旧的就扔了)
+        // 限制历史数量
         while (DISPLAY_QUEUE.size() > MAX_DISPLAY_COUNT + 2) {
             DISPLAY_QUEUE.removeLast();
         }
@@ -100,25 +100,41 @@ public class TalkHud {
         Minecraft mc = Minecraft.getInstance();
         if (mc.options.hideGui || mc.screen instanceof TalkScreen) return;
 
+        if (BrntalkConfig.CLIENT.notificationMode.get() != BrntalkConfig.NotificationMode.HUD) {
+            if (!DISPLAY_QUEUE.isEmpty()) {
+                DISPLAY_QUEUE.clear();
+            }
+            return;
+        }
+
+        float scale = BrntalkConfig.CLIENT.hudScale.get().floatValue();
+        int offsetY = BrntalkConfig.CLIENT.hudOffsetY.get();
+        int topLimit = BrntalkConfig.CLIENT.hudTopMargin.get();
+
         long now = System.currentTimeMillis();
         int fontHeight = mc.font.lineHeight;
 
+        gfx.pose().pushPose();
+        gfx.pose().scale(scale, scale, 1.0f);
+
+        boolean isFirstMessage = true;
+
         int baseX = 1;
-        int currentBottomY = (mc.getWindow().getGuiScaledHeight() / 2) + 60;
+        int currentBottomY = (int) ((((float) mc.getWindow().getGuiScaledHeight() / 2) + offsetY) / scale);
 
         RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
 
-        // --- 1. 渲染主消息队列 (从新到旧遍历，即从下往上画) ---
+        // --- 1. 渲染主消息队列 ---
         Iterator<HudEntry> it = DISPLAY_QUEUE.iterator();
         while (it.hasNext()) {
             HudEntry entry = it.next();
 
-            // A. 时间检查
             if (now < entry.visualStartTime) {
                 continue;
             }
 
-            // 计算该消息显示了多久 (从打字开始算)
+            // 计算该消息显示了多久
             long fadeOutStart = 5000;
             long fadeDuration = 1000;
             long timeSinceEnd = now - entry.visualEndTime;
@@ -138,8 +154,8 @@ public class TalkHud {
             int alphaInt = (int) (alpha * 255);
 
             // 文本处理
-            String fullText = ClientTalkUtils.processText(entry.msg.getText());
-            List<FormattedCharSequence> allLines = entry.textCache.getLines(mc.font, fullText, HUD_WIDTH - 10);
+            List<FormattedCharSequence> allLines = entry.layout.getLines(mc.font, entry.msg, HUD_WIDTH - 10);
+            String fullText = entry.layout.processedText;
 
             int displayedCharCount = fullText.length();
 
@@ -162,24 +178,44 @@ public class TalkHud {
 
             int drawY = currentBottomY - totalEntryHeight;
 
-            // 绘制
+            // 如果计算出的顶部坐标太靠上（超过了安全线），则停止绘制这条及更早的消息
+            if (drawY < topLimit) {
+                // 如果是最新的那条消息被跳过，说明 HUD 设置有问题或者消息太长
+                if (isFirstMessage) {
+                    if (!entry.loggedOverflow) {
+                        Brntalk.LOGGER.warn("[BRNTalk] HUD Alert: The latest message from '{}' was skipped because it exceeds the top safety limit.", entry.msg.getSpeaker());
+                        Brntalk.LOGGER.warn("Draw Y: {}, Safety Limit: {}. Please adjust 'hudTopMargin', 'hudOffsetY' or 'hudScale' in config.", drawY, topLimit);
+                        entry.loggedOverflow = true; // 锁定，防止刷屏
+                    }
+                }
+                break;
+            }
+            isFirstMessage = false;
+
+            // --- 绘制 ---
+            // 绘制背景
             int bgAlpha = (int) (alpha * 160);
-            int bgColor = (bgAlpha << 24) | (HUD_BG_COLOR);
+            int bgColor = (bgAlpha << 24) | (HUD_BG_COLOR & 0x00FFFFFF);
             gfx.fill(baseX, drawY, baseX + HUD_WIDTH, drawY + totalEntryHeight, bgColor);
 
+            // 绘制侧边条
             boolean isPlayer = entry.msg.getSpeakerType() == TalkMessage.SpeakerType.PLAYER;
-            int barColor = isPlayer ? HUD_BAR_PLAYER : HUD_BAR_NPC;
-            gfx.fill(baseX, drawY, baseX + 2, drawY + totalEntryHeight, (alphaInt << 24) | barColor);
+            int barColorBase = isPlayer ? HUD_BAR_PLAYER : HUD_BAR_NPC;
+            int barColor = (alphaInt << 24) | barColorBase & 0x00FFFFFF;
+            gfx.fill(baseX, drawY, baseX + 2, drawY + totalEntryHeight, barColor);
 
-            int nameColor = (alphaInt << 24) | (isPlayer ? HUD_TEXT_NAME_PLAYER : HUD_TEXT_NAME_NPC);
+            // 绘制名字
+            int nameColorBase = (alphaInt << 24) | (isPlayer ? HUD_TEXT_NAME_PLAYER : HUD_TEXT_NAME_NPC);
+            int nameColor = (alphaInt << 24) | (nameColorBase & 0x00FFFFFF);
             gfx.drawString(mc.font, speaker, baseX + 6, drawY + HUD_PADDING, nameColor, false);
 
             // --- 智能绘制行 ---
             int textY = drawY + HUD_PADDING + fontHeight + 2;
+            int contentColor = (alphaInt << 24) | (HUD_TEXT_CONTENT & 0x00FFFFFF);
 
             for (FormattedCharSequence line : allLines) {
                 if (typeFinished) {
-                    gfx.drawString(mc.font, line, baseX + 6, textY, (alphaInt << 24) | (HUD_TEXT_CONTENT), false);
+                    gfx.drawString(mc.font, line, baseX + 6, textY, contentColor, false);
                 } else {
                     break;
                 }
@@ -193,7 +229,7 @@ public class TalkHud {
                 var dynamicLines = mc.font.split(Component.literal(subText), HUD_WIDTH - 10);
                 int dynamicY = drawY + HUD_PADDING + fontHeight + 2;
                 for (var line : dynamicLines) {
-                    gfx.drawString(mc.font, line, baseX + 6, dynamicY, (alphaInt << 24) | (HUD_TEXT_CONTENT), false);
+                    gfx.drawString(mc.font, line, baseX + 6, dynamicY, contentColor, false);
                     dynamicY += fontHeight;
                 }
             }
@@ -202,8 +238,17 @@ public class TalkHud {
                 long blink = (now / 500) % 2;
                 String suffix = (blink == 0) ? " _" : "";
                 // 确保它画在所有文本下方
+                int waitColor = (alphaInt << 24) | (HUD_TEXT_WAITING & 0x00FFFFFF);
                 int waitY = drawY + HUD_PADDING + fontHeight + 2 + (allLines.size() * fontHeight);
-                gfx.drawString(mc.font, "§e[等待回应]" + suffix, baseX + 6, waitY, (alphaInt << 24) | (HUD_TEXT_WAITING), false);
+                String waitingText = I18n.get("gui.brntalk.hud_awaiting_response") + suffix;
+                gfx.drawString(
+                        mc.font,
+                        waitingText,
+                        baseX + 6,
+                        waitY,
+                        waitColor,
+                        false
+                );
             }
 
             currentBottomY = drawY - 4;
@@ -211,7 +256,7 @@ public class TalkHud {
 
         // --- 2. 渲染 Pending Notifications ---
         if (!PENDING_NOTIFICATIONS.isEmpty()) {
-            int notifY = (mc.getWindow().getGuiScaledHeight() / 2) + 65;
+            int notifY = (int) ((((float) mc.getWindow().getGuiScaledHeight() / 2) + offsetY + 5) / scale);
 
             // 使用迭代器以便在遍历时删除
             Iterator<Map.Entry<String, NotificationState>> notifIt = PENDING_NOTIFICATIONS.entrySet().iterator();
@@ -226,7 +271,7 @@ public class TalkHud {
                     continue;
                 }
 
-                String label = "§e[!] §f已折叠来自 §6" + state.speaker + " §f的消息";
+                String label = I18n.get("gui.brntalk.hud_pending_notification", state.speaker);
                 int labelW = mc.font.width(label) + 8;
 
                 // 简单的淡出效果
@@ -240,20 +285,24 @@ public class TalkHud {
 
                 if (nAlphaInt > 5) {
                     gfx.fill(baseX, notifY, baseX + labelW, notifY + fontHeight + 4, (nBgAlpha << 24));
-                    gfx.drawString(mc.font, label, baseX + 4, notifY + 2, (nAlphaInt << 24) | HUD_TEXT_CONTENT, false);
+                    int nContentColor = (nAlphaInt << 24) | (HUD_TEXT_CONTENT & 0x00FFFFFF);
+                    gfx.drawString(mc.font, label, baseX + 4, notifY + 2, nContentColor, false);
                     notifY += (fontHeight + 6);
                 }
             }
         }
 
         RenderSystem.disableBlend();
+        gfx.pose().popPose();
     }
 
     private static class HudEntry {
         final TalkMessage msg;
         final long visualStartTime;
         final long visualEndTime;
-        final ClientTalkUtils.TextCache textCache = new ClientTalkUtils.TextCache();
+        final ClientTalkUtils.MessageLayoutCache layout = new ClientTalkUtils.MessageLayoutCache();
+
+        boolean loggedOverflow = false;
 
         HudEntry(TalkMessage msg, long startTime, long endTime) {
             this.msg = msg;
@@ -262,6 +311,5 @@ public class TalkHud {
         }
     }
 
-    // 用于记录提示信息的状态
     private record NotificationState(String speaker, long timestamp) {}
 }

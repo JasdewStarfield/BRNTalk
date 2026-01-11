@@ -21,6 +21,7 @@ public class ClothConfigIntegration {
         ConfigCategory visualCategory = builder.getOrCreateCategory(Component.translatable("config.category.brntalk.visual"));
         ConfigCategory scrollingCategory = builder.getOrCreateCategory(Component.translatable("config.category.brntalk.scrolling"));
         ConfigCategory openButtonCategory = builder.getOrCreateCategory(Component.translatable("config.category.brntalk.open_button"));
+        ConfigCategory hudCategory = builder.getOrCreateCategory(Component.translatable("config.category.brntalk.hud"));
 
         // 4. 添加配置项
         visualCategory.addEntry(entryBuilder.startBooleanToggle(
@@ -105,6 +106,50 @@ public class ClothConfigIntegration {
                 .setMax(1000)
                 .setTooltip(Component.translatable("config.option.brntalk.openButtonY.tooltip"))
                 .setSaveConsumer(BrntalkConfig.CLIENT.openButtonY::set)
+                .build());
+
+        hudCategory.addEntry(entryBuilder.startEnumSelector(
+                        Component.translatable("config.option.brntalk.notificationMode"),
+                        BrntalkConfig.NotificationMode.class,
+                        BrntalkConfig.CLIENT.notificationMode.get()
+                )
+                .setDefaultValue(BrntalkConfig.NotificationMode.HUD)
+                .setEnumNameProvider(e -> Component.translatable("config.option.brntalk.notificationMode." + e.name().toLowerCase()))
+                .setTooltip(Component.translatable("config.option.brntalk.notificationMode.tooltip"))
+                .setSaveConsumer(BrntalkConfig.CLIENT.notificationMode::set)
+                .build());
+
+        hudCategory.addEntry(entryBuilder.startDoubleField(
+                        Component.translatable("config.option.brntalk.hudScale"),
+                        BrntalkConfig.CLIENT.hudScale.get()
+                )
+                .setDefaultValue(0.75)
+                .setMin(0.1)
+                .setMax(1.0)
+                .setTooltip(Component.translatable("config.option.brntalk.hudScale.tooltip"))
+                .setSaveConsumer(BrntalkConfig.CLIENT.hudScale::set)
+                .build());
+
+        hudCategory.addEntry(entryBuilder.startIntField(
+                        Component.translatable("config.option.brntalk.hudOffsetY"),
+                        BrntalkConfig.CLIENT.hudOffsetY.get()
+                )
+                .setDefaultValue(60)
+                .setMin(-1000)
+                .setMax(1000)
+                .setTooltip(Component.translatable("config.option.brntalk.hudOffsetY.tooltip"))
+                .setSaveConsumer(BrntalkConfig.CLIENT.hudOffsetY::set)
+                .build());
+
+        hudCategory.addEntry(entryBuilder.startIntField(
+                        Component.translatable("config.option.brntalk.hudTopMargin"),
+                        BrntalkConfig.CLIENT.hudTopMargin.get()
+                )
+                .setDefaultValue(20)
+                .setMin(0)
+                .setMax(1000)
+                .setTooltip(Component.translatable("config.option.brntalk.hudTopMargin.tooltip"))
+                .setSaveConsumer(BrntalkConfig.CLIENT.hudTopMargin::set)
                 .build());
 
         // 5. 保存逻辑

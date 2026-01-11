@@ -1,6 +1,8 @@
 {
   "gui.brntalk.no_conversation": "Currently no message...",
-  "gui.brntalk.new_message_toast": "New Message Received",
+  "gui.brntalk.toast_new_message": "New Message Received",
+  "gui.brntalk.hud_awaiting_response": "[Awaiting Response]",
+  "gui.brntalk.hud_pending_notification": "§e[!] §fFolded messages from §6%s",
   "key.brntalk.open_screen": "Open BRNTalk GUI",
 
   "sidebar_button.brntalk.brntalk_open_ui": "View Messages",
@@ -10,6 +12,7 @@
   "config.category.brntalk.visual": "Visual settings",
   "config.category.brntalk.scrolling": "Scrolling settings",
   "config.category.brntalk.open_button": "Open button settings",
+  "config.category.brntalk.hud": "HUD settings",
   "config.option.brntalk.use_vanilla_style_ui": "Use Vanilla Style GUI and Background",
   "config.option.brntalk.use_vanilla_style_ui.tooltip": "If set to true, the custom GUI and background will be replaced by the standard vanilla dark background.",
   "config.option.brntalk.char_delay": "Typing Speed (ms/char)",
@@ -25,5 +28,16 @@
   "config.option.brntalk.openButtonX": "X position of the 'Open Screen' button (pixel)",
   "config.option.brntalk.openButtonX.tooltip": "The distance between button and the left edge of screen. This won't work if you have installed FTB Library.",
   "config.option.brntalk.openButtonY": "Y position of the 'Open Screen' button (pixel)",
-  "config.option.brntalk.openButtonY.tooltip": "The distance between button and the top edge of screen. This won't work if you have installed FTB Library."
+  "config.option.brntalk.openButtonY.tooltip": "The distance between button and the top edge of screen. This won't work if you have installed FTB Library.",
+  "config.option.brntalk.notificationMode": "Notification Mode",
+  "config.option.brntalk.notificationMode.tooltip": "How new messages are displayed. Other HUD settings are only available when this is set to 'HUD'.",
+  "config.option.brntalk.notificationMode.hud": "HUD (Immersive Overlay)",
+  "config.option.brntalk.notificationMode.toast": "Toast (Vanilla System Popup)",
+  "config.option.brntalk.notificationMode.none": "None",
+  "config.option.brntalk.hudScale": "Scale of the HUD",
+  "config.option.brntalk.hudScale.tooltip": "The total size multiplier of HUD. 1.0 means original size.",
+  "config.option.brntalk.hudOffsetY": "Vertical Offset from screen center (pixel)",
+  "config.option.brntalk.hudOffsetY.tooltip": "Relative to the center. Positive value moves HUD down, negative moves up.",
+  "config.option.brntalk.hudTopMargin": "Top Margin (Safety Line) (pixel)",
+  "config.option.brntalk.hudTopMargin.tooltip": "Messages won't be rendered if they go above this Y position to prevent overlapping."
 }

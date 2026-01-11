@@ -6,6 +6,8 @@ import net.minecraft.sounds.SoundEvents;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkHud;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkScreen;
+import yourscraft.jasdewstarfield.brntalk.client.ui.TalkToast;
+import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.network.PayloadSync;
 import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
@@ -14,8 +16,6 @@ import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import java.util.List;
 
 public class ClientPayloadHandler {
-
-    private static String lastToastUniqueKey = null;
 
     public static void handleOpenTalkScreen(final TalkNetwork.OpenTalkScreenPayload payload,
                                             final IPayloadContext context) {
@@ -82,48 +82,49 @@ public class ClientPayloadHandler {
      * 统一处理接收到的消息列表
      */
     private static void processIncomingMessages(List<TalkMessage> messages, String threadId) {
-        Minecraft mc = Minecraft.getInstance();
+        if (messages.isEmpty()) return;
 
-        // 1. 循环将每一条消息都加入 HUD 队列
-        for (TalkMessage msg : messages) {
-            // 过滤掉太久远的历史消息（防止重进游戏时 HUD 刷屏）
-            if (System.currentTimeMillis() - msg.getTimestamp() < 5000) {
-                TalkHud.addMessage(msg, threadId);
-            }
+        Minecraft mc = Minecraft.getInstance();
+        BrntalkConfig.NotificationMode mode = BrntalkConfig.CLIENT.notificationMode.get();
+        if (mode == BrntalkConfig.NotificationMode.NONE) {
+            return;
+        }
+        if (mode == BrntalkConfig.NotificationMode.TOAST && mc.screen instanceof TalkScreen) {
+            return;
         }
 
-        // 2. 播放一次提示音
-        mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_TOAST_IN, 1.0F));
-    }
-
-    /**
-     * 尝试显示弹窗
-     * @param message 消息对象
-     * @param threadId 线程ID (用于去重)
-     */
-    private static void tryShowToast(TalkMessage message, String threadId) {
-        if (message == null) return;
-
-        Minecraft mc = Minecraft.getInstance();
-
-        // 1. 如果正在看对话界面，就不弹窗
-        if (mc.screen instanceof TalkScreen) return;
-
-        // 2. 检查消息时效性：如果消息产生时间距离现在超过3秒，就不弹了
         long now = System.currentTimeMillis();
-        if ((now - message.getTimestamp()) > 3000) {
+        List<TalkMessage> recentMessages = messages.stream()
+                .filter(msg -> now - msg.getTimestamp() < 5000)
+                .toList();
+
+        if (recentMessages.isEmpty()) {
             return;
         }
 
-        // 3. 去重
-        String currentUniqueKey = threadId + ":" + message.getId();
-        if (currentUniqueKey.equals(lastToastUniqueKey)) {
-            return;
-        }
-        lastToastUniqueKey = currentUniqueKey;
+        boolean shouldPlaySound = false;
 
-        // 4. 显示 Toast 并播放音效
-        TalkHud.addMessage(message, threadId);
-        mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_TOAST_IN, 1.0F));
+        switch (mode) {
+            case HUD:
+                // HUD 模式：将所有新消息都加入队列
+                for (TalkMessage msg : recentMessages) {
+                    TalkHud.addMessage(msg, threadId);
+                }
+                shouldPlaySound = true;
+                break;
+
+            case TOAST:
+                // Toast 模式：只显示最新的一条，防止刷屏
+                TalkMessage latestMsg = recentMessages.getFirst();
+                mc.getToasts().addToast(new TalkToast(latestMsg));
+                break;
+
+            default:
+                break;
+        }
+
+        if (shouldPlaySound) {
+            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.EXPERIENCE_ORB_PICKUP, 1.0F));
+        }
     }
 }

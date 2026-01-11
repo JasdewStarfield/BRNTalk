@@ -29,7 +29,7 @@ public class BrntalkJeiPlugin implements IModPlugin {
             public @NotNull List<Rect2i> getGuiExtraAreas(@NotNull AbstractContainerScreen<?> containerScreen) {
                 // 1. 检查是否安装了 FTB Library
                 // 如果安装了 FTB，我们的按钮会被隐藏，所以不需要通知 JEI 避让
-                if (ModList.get().isLoaded("ftblibrary")) {
+                if (ModList.get().isLoaded("ftblibrary") || !BrntalkConfig.CLIENT.displayOpenButton.get()) {
                     return Collections.emptyList();
                 }
 

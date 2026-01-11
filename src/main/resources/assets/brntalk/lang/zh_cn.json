@@ -1,6 +1,8 @@
 {
   "gui.brntalk.no_conversation": "当前无消息……",
-  "gui.brntalk.new_message_toast": "收到新消息",
+  "gui.brntalk.toast_new_message": "收到新消息",
+  "gui.brntalk.hud_awaiting_response": "[等待回应]",
+  "gui.brntalk.hud_pending_notification": "§e[!] §f已折叠来自 §6%s §f的消息",
   "key.brntalk.open_screen": "打开 BRNTalk GUI",
 
   "title.brntalk.config": "BRNTalk 配置",
@@ -10,6 +12,7 @@
   "config.category.brntalk.visual": "视觉设置",
   "config.category.brntalk.scrolling": "滚轮滚动设置",
   "config.category.brntalk.open_button": "打开按钮设置",
+  "config.category.brntalk.hud": "HUD 设置",
   "config.option.brntalk.use_vanilla_style_ui": "使用原版风格的 GUI 和背景",
   "config.option.brntalk.use_vanilla_style_ui.tooltip": "如果设置为 true，自定义的 GUI 和背景会被替换成标准的原版风格。",
   "config.option.brntalk.char_delay": "打字机速度 (ms/字)",
@@ -25,5 +28,16 @@
   "config.option.brntalk.openButtonX": "“打开屏幕”按钮的 X 位置（像素）",
   "config.option.brntalk.openButtonX.tooltip": "按钮与屏幕左边缘的距离。如果你安装了 FTB Library，则不会起效。",
   "config.option.brntalk.openButtonY": "“打开屏幕”按钮的 Y 位置（像素）",
-  "config.option.brntalk.openButtonY.tooltip": "按钮与屏幕上边缘的距离。如果你安装了 FTB Library，则不会起效。"
+  "config.option.brntalk.openButtonY.tooltip": "按钮与屏幕上边缘的距离。如果你安装了 FTB Library，则不会起效。",
+  "config.option.brntalk.notificationMode": "消息通知模式",
+  "config.option.brntalk.notificationMode.tooltip": "新消息出现时的显示方式。只有此选项设为“HUD”时，其它 HUD 选项才起效。",
+  "config.option.brntalk.notificationMode.hud": "HUD (沉浸式悬浮窗)",
+  "config.option.brntalk.notificationMode.toast": "Toast (原版系统弹窗)",
+  "config.option.brntalk.notificationMode.none": "无 (不提醒)",
+  "config.option.brntalk.hudScale": "HUD 缩放倍率",
+  "config.option.brntalk.hudScale.tooltip": "HUD 的整体大小缩放。1.0 为原始大小。",
+  "config.option.brntalk.hudOffsetY": "垂直偏移（像素）",
+  "config.option.brntalk.hudOffsetY.tooltip": "相对于中心。正数向下移动，负数向上移动。",
+  "config.option.brntalk.hudTopMargin": "顶部限高（安全线）（像素）",
+  "config.option.brntalk.hudTopMargin.tooltip": "如果消息堆叠超过此高度，旧消息将不再渲染，防止遮挡上方内容。"
 }
