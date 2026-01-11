@@ -37,7 +37,7 @@ public class BrntalkJeiPlugin implements IModPlugin {
                 int buttonY = BrntalkConfig.CLIENT.openButtonY.get();
 
                 // 2. 返回按钮的坐标区域
-                return List.of(new Rect2i(buttonX, 0,  50, buttonY+ 20));
+                return List.of(new Rect2i(buttonX, 0,  16, buttonY+ 16));
             }
         });
     }

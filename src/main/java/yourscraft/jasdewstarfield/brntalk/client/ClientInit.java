@@ -12,6 +12,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.*;
 import net.neoforged.neoforge.common.NeoForge;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
+import yourscraft.jasdewstarfield.brntalk.client.ui.OpenButton;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 
 public class ClientInit {
@@ -52,13 +53,18 @@ public class ClientInit {
         if (ModList.get().isLoaded("ftblibrary")) {
             return;
         }
+
         // 检查当前屏幕是否为容器类屏幕
         if (event.getScreen() instanceof AbstractContainerScreen<?>) {
-            // 创建按钮
-            event.addListener(Button.builder(Component.literal("BRNTalk"), button -> ClientPayloadSender.requestOpenTalk())
-                        .bounds(BrntalkConfig.CLIENT.openButtonX.get(), BrntalkConfig.CLIENT.openButtonY.get(), 50, 20)
-                        .build()
+            int btnX = BrntalkConfig.CLIENT.openButtonX.get();
+            int btnY = BrntalkConfig.CLIENT.openButtonY.get();
+
+            OpenButton openButton = new OpenButton(
+                    btnX,
+                    btnY,
+                    button -> ClientPayloadSender.requestOpenTalk()
             );
+            event.addListener(openButton);
         }
     }
 
