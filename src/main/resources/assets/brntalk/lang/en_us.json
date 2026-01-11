@@ -20,6 +20,8 @@
   "config.option.brntalk.scroll_rate.tooltip": "Higher value means faster scrolling.",
   "config.option.brntalk.smooth_factor": "Scrolling Drag",
   "config.option.brntalk.smooth_factor.tooltip": "Smooth factor of scrolling. Lower value means smoother scrolling.",
+  "config.option.brntalk.displayOpenButton": "Whether to display the 'Open Screen' button or not",
+  "config.option.brntalk.displayOpenButton.tooltip": "If true, the button will be displayed on every container screens. This won't work if you have installed FTB Library.",
   "config.option.brntalk.openButtonX": "X position of the 'Open Screen' button (pixel)",
   "config.option.brntalk.openButtonX.tooltip": "The distance between button and the left edge of screen. This won't work if you have installed FTB Library.",
   "config.option.brntalk.openButtonY": "Y position of the 'Open Screen' button (pixel)",

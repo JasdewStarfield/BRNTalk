@@ -4,8 +4,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+import yourscraft.jasdewstarfield.brntalk.client.ui.TalkHud;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkScreen;
-import yourscraft.jasdewstarfield.brntalk.client.ui.TalkToast;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.network.PayloadSync;
 import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
@@ -50,7 +50,7 @@ public class ClientPayloadHandler {
 
             List<TalkMessage> msgs = thread.getMessages();
             if (!msgs.isEmpty()) {
-                tryShowToast(msgs.getFirst(), thread.getId());
+                processIncomingMessages(msgs, thread.getId());
             }
         });
     }
@@ -66,8 +66,7 @@ public class ClientPayloadHandler {
             ClientTalkState.get().appendMessages(payload.threadId(), msgs);
 
             if (!msgs.isEmpty()) {
-                TalkMessage newestMsg = msgs.getFirst();
-                tryShowToast(newestMsg, payload.threadId());
+                processIncomingMessages(msgs, payload.threadId());
             }
         });
     }
@@ -77,6 +76,24 @@ public class ClientPayloadHandler {
         context.enqueueWork(() -> {
             ClientTalkState.get().updateReadTime(payload.threadId(), payload.lastReadTime());
         });
+    }
+
+    /**
+     * 统一处理接收到的消息列表
+     */
+    private static void processIncomingMessages(List<TalkMessage> messages, String threadId) {
+        Minecraft mc = Minecraft.getInstance();
+
+        // 1. 循环将每一条消息都加入 HUD 队列
+        for (TalkMessage msg : messages) {
+            // 过滤掉太久远的历史消息（防止重进游戏时 HUD 刷屏）
+            if (System.currentTimeMillis() - msg.getTimestamp() < 5000) {
+                TalkHud.addMessage(msg, threadId);
+            }
+        }
+
+        // 2. 播放一次提示音
+        mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_TOAST_IN, 1.0F));
     }
 
     /**
@@ -106,7 +123,7 @@ public class ClientPayloadHandler {
         lastToastUniqueKey = currentUniqueKey;
 
         // 4. 显示 Toast 并播放音效
-        mc.getToasts().addToast(new TalkToast(message));
+        TalkHud.addMessage(message, threadId);
         mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_TOAST_IN, 1.0F));
     }
 }

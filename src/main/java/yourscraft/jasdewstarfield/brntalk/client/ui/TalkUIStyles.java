@@ -64,6 +64,10 @@ public class TalkUIStyles {
     // 列表项高度
     public static final int THREAD_LIST_ENTRY_HEIGHT = 28;
 
+    // HUD
+    public static final int HUD_WIDTH = 160;
+    public static final int HUD_PADDING = 4;
+
     // ==========================================================
     // 3. 颜色定义 (Colors) - 格式: 0xAARRGGBB
     // ==========================================================
@@ -95,4 +99,14 @@ public class TalkUIStyles {
     // --- 杂项 ---
     public static final int COLOR_NO_MSG_TEXT         = 0xFFFFFFFF;
     public static final int COLOR_DIVISION            = 0xFFFFFFFF; // 原版风格分割线 (白)
+
+    // --- HUD ---
+    public static final int HUD_BG_COLOR              = 0xA0000000; // 背景：半透黑
+    // 侧边条颜色
+    public static final int HUD_BAR_PLAYER            = 0xFF00AA00; // 绿色
+    public static final int HUD_BAR_NPC               = 0xFFFFAA00; // 金色
+    public static final int HUD_TEXT_NAME_PLAYER      = 0xFFA0FFA0;
+    public static final int HUD_TEXT_NAME_NPC         = 0xFFFFD700;
+    public static final int HUD_TEXT_CONTENT          = 0xFFFFFFFF;
+    public static final int HUD_TEXT_WAITING          = 0xFFFFFF55; // "等待回应"的黄色
 }

@@ -1,13 +1,10 @@
-package yourscraft.jasdewstarfield.brntalk.client.ui;
+package yourscraft.jasdewstarfield.brntalk.client.ui.button;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.sounds.SoundEvents;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 
@@ -33,10 +30,5 @@ public class OpenButton extends Button {
 
         // 重置颜色
         gfx.setColor(1.0f, 1.0f, 1.0f, 1.0f);
-    }
-
-    @Override
-    public void playDownSound(SoundManager handler) {
-        handler.play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
     }
 }

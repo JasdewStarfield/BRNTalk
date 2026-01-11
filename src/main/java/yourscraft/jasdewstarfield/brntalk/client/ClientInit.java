@@ -1,18 +1,18 @@
 package yourscraft.jasdewstarfield.brntalk.client;
 
 import com.mojang.brigadier.Command;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.commands.Commands;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.*;
+import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.common.NeoForge;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
-import yourscraft.jasdewstarfield.brntalk.client.ui.OpenButton;
+import yourscraft.jasdewstarfield.brntalk.client.ui.TalkHud;
+import yourscraft.jasdewstarfield.brntalk.client.ui.button.OpenButton;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 
 public class ClientInit {
@@ -23,6 +23,7 @@ public class ClientInit {
         modEventBus.addListener(ClientInit::onClientSetup);
         modEventBus.addListener(ClientInit::onRegisterKeyMappings);
         modEventBus.addListener(ClientInit::onRegisterClientReloadListeners);
+        modEventBus.addListener(ClientInit::onRegisterGuiLayers);
         NeoForge.EVENT_BUS.addListener(ClientInit::onClientTick);
         NeoForge.EVENT_BUS.addListener(ClientInit::onScreenInit);
         NeoForge.EVENT_BUS.addListener(ClientInit::onRegisterClientCommands);
@@ -34,6 +35,14 @@ public class ClientInit {
 
     private static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         ClientKeyRegistry.registerKeyMappings(event);
+    }
+
+    private static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
+        event.registerAbove(
+                VanillaGuiLayers.CHAT,
+                TalkHud.LAYER_ID,
+                TalkHud::render
+        );
     }
 
     private static void onClientTick(ClientTickEvent.Post event) {
@@ -50,7 +59,7 @@ public class ClientInit {
     private static void onScreenInit(ScreenEvent.Init.Post event) {
         // FTB Library Integration
         // 当 FTB Library 加载时，使用它的 Sidebar Buttons 注册
-        if (ModList.get().isLoaded("ftblibrary")) {
+        if (ModList.get().isLoaded("ftblibrary") || !BrntalkConfig.CLIENT.displayOpenButton.get()) {
             return;
         }
 

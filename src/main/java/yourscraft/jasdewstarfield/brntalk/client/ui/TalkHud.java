@@ -1,0 +1,267 @@
+package yourscraft.jasdewstarfield.brntalk.client.ui;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
+import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
+import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
+import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
+
+import java.util.*;
+
+import static yourscraft.jasdewstarfield.brntalk.client.ui.TalkUIStyles.*;
+
+public class TalkHud {
+
+    public static final ResourceLocation LAYER_ID = ResourceLocation.fromNamespaceAndPath("brntalk", "hud");
+
+    // 配置常量
+    private static final int MAX_DISPLAY_COUNT = 4;
+    private static final long THREAD_TIMEOUT = 10000;
+    private static final long NOTIFICATION_DURATION = 4000;
+
+    // 状态变量
+    private static String activeThreadId = null;        // 当前专注的线程 ID
+    private static long lastActivityTime = 0;           // 最后一次活动时间
+
+    // 主显示队列
+    private static final LinkedList<HudEntry> DISPLAY_QUEUE = new LinkedList<>();
+    // 待处理通知 (ThreadId -> 说话人名字)
+    private static final Map<String, NotificationState> PENDING_NOTIFICATIONS = new LinkedHashMap<>();
+
+    /**
+     * 添加消息的入口
+     * @param message 消息对象
+     * @param threadId 所属线程 ID
+     */
+    public static void addMessage(TalkMessage message, String threadId) {
+        if (message == null || threadId == null) return;
+
+        long now = System.currentTimeMillis();
+
+        // 1. 检查专注权是否过期
+        if (activeThreadId != null && (now - lastActivityTime > THREAD_TIMEOUT) && DISPLAY_QUEUE.isEmpty()) {
+            activeThreadId = null;
+        }
+
+        // 2. 抢占或保持专注
+        if (activeThreadId == null) {
+            activeThreadId = threadId;
+            // 切换了线程，清理旧的显示队列和对应的 Pending 提示
+            DISPLAY_QUEUE.clear();
+            PENDING_NOTIFICATIONS.remove(threadId);
+        }
+
+        // 3. 分流，判断是否属于当前专注的线程
+        if (threadId.equals(activeThreadId)) {
+            // 是当前线程，加入播放队列
+            lastActivityTime = now;
+            addEntryToQueue(message, now);
+        } else {
+            // 是其他线程，加入折叠提示
+            String speaker = ClientTalkUtils.stripColor(ClientTalkUtils.processText(message.getSpeaker()));
+            PENDING_NOTIFICATIONS.put(threadId, new NotificationState(speaker, now));
+        }
+    }
+
+    private static void addEntryToQueue(TalkMessage msg, long now) {
+        int charDelay = BrntalkConfig.CLIENT.charDelay.get();
+        int msgPause = BrntalkConfig.CLIENT.msgPause.get();
+
+        // 计算纯文本长度和所需播放时间
+        String processedText = ClientTalkUtils.processText(msg.getText());
+        String cleanText = ClientTalkUtils.stripColor(processedText);
+        long playDuration = (long) cleanText.length() * charDelay;
+
+        // 计算开始时间：必须等上一条消息播完 + 暂停时间
+        long startTime = now;
+        if (!DISPLAY_QUEUE.isEmpty()) {
+            HudEntry lastAdded = DISPLAY_QUEUE.getFirst();
+            startTime = Math.max(now, lastAdded.visualEndTime + msgPause);
+        }
+
+        long endTime = startTime + playDuration;
+
+        // 插入到队首
+        DISPLAY_QUEUE.addFirst(new HudEntry(msg, startTime, endTime));
+
+        // 限制历史数量 (为了渲染性能，太旧的就扔了)
+        while (DISPLAY_QUEUE.size() > MAX_DISPLAY_COUNT + 2) {
+            DISPLAY_QUEUE.removeLast();
+        }
+    }
+
+    public static void render(GuiGraphics gfx, DeltaTracker deltaTracker) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.options.hideGui || mc.screen instanceof TalkScreen) return;
+
+        long now = System.currentTimeMillis();
+        int fontHeight = mc.font.lineHeight;
+
+        int baseX = 1;
+        int currentBottomY = (mc.getWindow().getGuiScaledHeight() / 2) + 60;
+
+        RenderSystem.enableBlend();
+
+        // --- 1. 渲染主消息队列 (从新到旧遍历，即从下往上画) ---
+        Iterator<HudEntry> it = DISPLAY_QUEUE.iterator();
+        while (it.hasNext()) {
+            HudEntry entry = it.next();
+
+            // A. 时间检查
+            if (now < entry.visualStartTime) {
+                continue;
+            }
+
+            // 计算该消息显示了多久 (从打字开始算)
+            long fadeOutStart = 5000;
+            long fadeDuration = 1000;
+            long timeSinceEnd = now - entry.visualEndTime;
+
+            if (timeSinceEnd > fadeOutStart + fadeDuration) {
+                it.remove();
+                continue;
+            }
+
+            // 透明度
+            float alpha = 1.0f;
+            if (timeSinceEnd > fadeOutStart) {
+                alpha = 1.0f - (float) (timeSinceEnd - fadeOutStart) / fadeDuration;
+            }
+            alpha = Mth.clamp(alpha, 0f, 1f);
+            if (alpha < 0.05f) continue;
+            int alphaInt = (int) (alpha * 255);
+
+            // 文本处理
+            String fullText = ClientTalkUtils.processText(entry.msg.getText());
+            List<FormattedCharSequence> allLines = entry.textCache.getLines(mc.font, fullText, HUD_WIDTH - 10);
+
+            int displayedCharCount = fullText.length();
+
+            boolean typeFinished = (now >= entry.visualEndTime);
+            if (!typeFinished) {
+                long displayedTime = now - entry.visualStartTime;
+                int charDelay = Math.max(1, BrntalkConfig.CLIENT.charDelay.get());
+                displayedCharCount = (int) (displayedTime / charDelay);
+            }
+
+            // 布局
+            String speaker = ClientTalkUtils.trimToWidth(ClientTalkUtils.processText(entry.msg.getSpeaker()), HUD_WIDTH - 10);
+            int contentHeight = allLines.size() * fontHeight;
+            int totalEntryHeight = fontHeight + 2 + contentHeight + (HUD_PADDING * 2);
+
+            boolean showWaiting = (entry.msg.getType() == TalkMessage.Type.CHOICE && typeFinished);
+            if (showWaiting) {
+                totalEntryHeight += fontHeight;
+            }
+
+            int drawY = currentBottomY - totalEntryHeight;
+
+            // 绘制
+            int bgAlpha = (int) (alpha * 160);
+            int bgColor = (bgAlpha << 24) | (HUD_BG_COLOR);
+            gfx.fill(baseX, drawY, baseX + HUD_WIDTH, drawY + totalEntryHeight, bgColor);
+
+            boolean isPlayer = entry.msg.getSpeakerType() == TalkMessage.SpeakerType.PLAYER;
+            int barColor = isPlayer ? HUD_BAR_PLAYER : HUD_BAR_NPC;
+            gfx.fill(baseX, drawY, baseX + 2, drawY + totalEntryHeight, (alphaInt << 24) | barColor);
+
+            int nameColor = (alphaInt << 24) | (isPlayer ? HUD_TEXT_NAME_PLAYER : HUD_TEXT_NAME_NPC);
+            gfx.drawString(mc.font, speaker, baseX + 6, drawY + HUD_PADDING, nameColor, false);
+
+            // --- 智能绘制行 ---
+            int textY = drawY + HUD_PADDING + fontHeight + 2;
+
+            for (FormattedCharSequence line : allLines) {
+                if (typeFinished) {
+                    gfx.drawString(mc.font, line, baseX + 6, textY, (alphaInt << 24) | (HUD_TEXT_CONTENT), false);
+                } else {
+                    break;
+                }
+                textY += fontHeight;
+            }
+
+            // 特殊处理：正在打字的那一条
+            if (!typeFinished) {
+                String subText = fullText.substring(0, Math.min(displayedCharCount, fullText.length()));
+                // 重新 split，但只针对这一条正在变化的消息
+                var dynamicLines = mc.font.split(Component.literal(subText), HUD_WIDTH - 10);
+                int dynamicY = drawY + HUD_PADDING + fontHeight + 2;
+                for (var line : dynamicLines) {
+                    gfx.drawString(mc.font, line, baseX + 6, dynamicY, (alphaInt << 24) | (HUD_TEXT_CONTENT), false);
+                    dynamicY += fontHeight;
+                }
+            }
+
+            if (showWaiting) {
+                long blink = (now / 500) % 2;
+                String suffix = (blink == 0) ? " _" : "";
+                // 确保它画在所有文本下方
+                int waitY = drawY + HUD_PADDING + fontHeight + 2 + (allLines.size() * fontHeight);
+                gfx.drawString(mc.font, "§e[等待回应]" + suffix, baseX + 6, waitY, (alphaInt << 24) | (HUD_TEXT_WAITING), false);
+            }
+
+            currentBottomY = drawY - 4;
+        }
+
+        // --- 2. 渲染 Pending Notifications ---
+        if (!PENDING_NOTIFICATIONS.isEmpty()) {
+            int notifY = (mc.getWindow().getGuiScaledHeight() / 2) + 65;
+
+            // 使用迭代器以便在遍历时删除
+            Iterator<Map.Entry<String, NotificationState>> notifIt = PENDING_NOTIFICATIONS.entrySet().iterator();
+
+            while (notifIt.hasNext()) {
+                Map.Entry<String, NotificationState> mapEntry = notifIt.next();
+                NotificationState state = mapEntry.getValue();
+
+                // 检查超时
+                if (now - state.timestamp > NOTIFICATION_DURATION) {
+                    notifIt.remove();
+                    continue;
+                }
+
+                String label = "§e[!] §f已折叠来自 §6" + state.speaker + " §f的消息";
+                int labelW = mc.font.width(label) + 8;
+
+                // 简单的淡出效果
+                float nAlpha = 1.0f;
+                long nAge = now - state.timestamp;
+                if (nAge > NOTIFICATION_DURATION - 500) {
+                    nAlpha = 1.0f - (float)(nAge - (NOTIFICATION_DURATION - 500)) / 500f;
+                }
+                int nAlphaInt = (int)(nAlpha * 255);
+                int nBgAlpha = (int)(nAlpha * 128);
+
+                if (nAlphaInt > 5) {
+                    gfx.fill(baseX, notifY, baseX + labelW, notifY + fontHeight + 4, (nBgAlpha << 24));
+                    gfx.drawString(mc.font, label, baseX + 4, notifY + 2, (nAlphaInt << 24) | HUD_TEXT_CONTENT, false);
+                    notifY += (fontHeight + 6);
+                }
+            }
+        }
+
+        RenderSystem.disableBlend();
+    }
+
+    private static class HudEntry {
+        final TalkMessage msg;
+        final long visualStartTime;
+        final long visualEndTime;
+        final ClientTalkUtils.TextCache textCache = new ClientTalkUtils.TextCache();
+
+        HudEntry(TalkMessage msg, long startTime, long endTime) {
+            this.msg = msg;
+            this.visualStartTime = startTime;
+            this.visualEndTime = endTime;
+        }
+    }
+
+    // 用于记录提示信息的状态
+    private record NotificationState(String speaker, long timestamp) {}
+}

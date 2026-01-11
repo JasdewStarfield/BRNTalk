@@ -20,6 +20,7 @@ public class BrntalkConfig {
         public final ModConfigSpec.IntValue msgPause;
         public final ModConfigSpec.DoubleValue scrollRate;
         public final ModConfigSpec.DoubleValue smoothFactor;
+        public final ModConfigSpec.BooleanValue displayOpenButton;
         public final ModConfigSpec.IntValue openButtonX;
         public final ModConfigSpec.IntValue openButtonY;
 
@@ -59,14 +60,22 @@ public class BrntalkConfig {
 
             builder.comment("Open button settings").push("button");
 
+            displayOpenButton = builder
+                    .comment("Whether to display the 'Open Screen' button or not")
+                    .comment("If true, the button will be displayed on every container screens.")
+                    .comment("This won't work if you have installed FTB Library.")
+                    .define("displayOpenButton", true);
+
             openButtonX = builder
                     .comment("X position of the 'Open Screen' button (pixel)")
                     .comment("The distance between button and the left edge of screen.")
+                    .comment("This won't work if you have installed FTB Library.")
                     .defineInRange("openButtonX", 5, 0, 1000);
 
             openButtonY = builder
                     .comment("Y position of the 'Open Screen' button")
                     .comment("The distance between button and the top edge of screen.")
+                    .comment("This won't work if you have installed FTB Library.")
                     .defineInRange("openButtonY", 5, 0, 1000);
 
             builder.pop();

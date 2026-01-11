@@ -6,12 +6,16 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ClientTalkUtils {
@@ -265,6 +269,40 @@ public class ClientTalkUtils {
 
         String full = speaker + ": " + text;
         return trimToWidth(full, widthLimit);
+    }
+
+    /**
+     * 简单的文本布局缓存工具
+     * 用于避免在 render 循环中重复调用 font.split
+     */
+    public static class TextCache {
+        private String originalText;
+        private int width;
+        private List<FormattedCharSequence> cachedLines;
+
+        public TextCache() {
+            this.originalText = "";
+            this.width = -1;
+            this.cachedLines = Collections.emptyList();
+        }
+
+        /**
+         * 获取切分好的行。如果文本或宽度发生变化，会重新计算缓存。
+         */
+        public List<FormattedCharSequence> getLines(Font font, String text, int maxWidth) {
+            // 只有当 内容变了 或者 宽度变了 时才重新计算
+            if (!text.equals(originalText) || maxWidth != this.width) {
+                this.originalText = text;
+                this.width = maxWidth;
+                this.cachedLines = font.split(Component.literal(text), maxWidth);
+            }
+            return this.cachedLines;
+        }
+
+        // 强制刷新
+        public void invalidate() {
+            this.originalText = "";
+        }
     }
 
     /**

@@ -20,6 +20,8 @@
   "config.option.brntalk.scroll_rate.tooltip": "数值越大滚动越快。",
   "config.option.brntalk.smooth_factor": "滚动阻力",
   "config.option.brntalk.smooth_factor.tooltip": "滚动的平滑因子。数值越小滚动越平滑。",
+  "config.option.brntalk.displayOpenButton": "是否显示“打开屏幕”按钮",
+  "config.option.brntalk.displayOpenButton.tooltip": "如果为 True ，则按钮会显示在所有容器屏幕中。如果你安装了 FTB Library，则不会起效。",
   "config.option.brntalk.openButtonX": "“打开屏幕”按钮的 X 位置（像素）",
   "config.option.brntalk.openButtonX.tooltip": "按钮与屏幕左边缘的距离。如果你安装了 FTB Library，则不会起效。",
   "config.option.brntalk.openButtonY": "“打开屏幕”按钮的 Y 位置（像素）",

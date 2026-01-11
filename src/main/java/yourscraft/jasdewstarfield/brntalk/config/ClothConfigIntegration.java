@@ -76,6 +76,15 @@ public class ClothConfigIntegration {
                 .setSaveConsumer(BrntalkConfig.CLIENT.smoothFactor::set)
                 .build());
 
+        openButtonCategory.addEntry(entryBuilder.startBooleanToggle(
+                        Component.translatable("config.option.brntalk.displayOpenButton"),
+                        BrntalkConfig.CLIENT.displayOpenButton.get()
+                )
+                .setDefaultValue(true)
+                .setTooltip(Component.translatable("config.option.brntalk.displayOpenButton.tooltip"))
+                .setSaveConsumer(BrntalkConfig.CLIENT.displayOpenButton::set)
+                .build());
+
         openButtonCategory.addEntry(entryBuilder.startIntField(
                         Component.translatable("config.option.brntalk.openButtonX"),
                         BrntalkConfig.CLIENT.openButtonX.get()
