@@ -51,7 +51,6 @@ public class TalkScreen extends Screen {
     private Button closeButton;
 
     private final long openStartTime;
-    public float currentAnimationYOffset = 0;
     private static final long ANIMATION_DURATION = 350L;
 
     public TalkScreen() {
@@ -99,8 +98,6 @@ public class TalkScreen extends Screen {
         this.chatAreaW = innerW - listAreaW - DIVIDER_WIDTH;
 
         this.chatWidget = new ChatWidget(chatAreaX, innerY, chatAreaW, innerH);
-
-
 
         rebuildUI();
     }
@@ -220,7 +217,7 @@ public class TalkScreen extends Screen {
         int choiceWidth = 140;
         int choiceHeight = 20;
         int spacing = 5;
-        int startY = this.height - 10;
+        int startY = this.innerY + this.innerH;
         int centerX = chatAreaX + chatAreaW / 2;
 
 
@@ -248,7 +245,7 @@ public class TalkScreen extends Screen {
             int choiceCount = last.getChoices().size();
             if (ClientTalkUtils.isThreadFinished(selectedThread)) {
                 if (choiceCount > 0) {
-                    int buttonAreaHeight = choiceCount * 25;
+                    int buttonAreaHeight = choiceCount * 25 + 5;
                     return Math.max(10, defaultHeight - buttonAreaHeight);
                 }
             }
@@ -306,32 +303,35 @@ public class TalkScreen extends Screen {
     @Override
     public void renderBackground(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {}
 
-    private void renderWindowBackground(GuiGraphics gfx) {
+    private void renderWindowBackground(GuiGraphics gfx, int yOffset) {
+        int currentInnerY = innerY + yOffset;
+        int currentWinY = winY + yOffset;
+
         if (BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
             // 1. 左侧列表背景（交由 TalkThreadList 自行实现）
 
             // 2. 右侧聊天区域背景
             if (chatAreaW > 0) {
                 // 绘制一个深色矩形作为聊天背景
-                gfx.fill(chatAreaX, innerY, chatAreaX + chatAreaW, innerY + innerH, COLOR_VANILLA_BG);
+                gfx.fill(chatAreaX, currentInnerY, chatAreaX + chatAreaW, innerY + innerH, COLOR_VANILLA_BG);
             }
         } else {
             // 1. 左背景
             if (listAreaW > 0) {
                 ClientTalkUtils.drawRepeatedTexture(gfx, TEX_BG_LEFT,
-                        innerX, innerY, listAreaW, innerH, 16, 16);
+                        innerX, currentInnerY, listAreaW, innerH, 16, 16);
             }
             // 2. 右背景
             if (chatAreaW > 0) {
                 ClientTalkUtils.drawRepeatedTexture(gfx, TEX_BG_RIGHT,
-                        chatAreaX, innerY, chatAreaW, innerH, 16, 16);
+                        chatAreaX, currentInnerY, chatAreaW, innerH, 16, 16);
             }
             // 3. 分割线
             ClientTalkUtils.drawRepeatedTexture(gfx, TEX_DIVIDER,
-                    dividerX, innerY, DIVIDER_WIDTH, innerH, 9, 16);
+                    dividerX, currentInnerY, DIVIDER_WIDTH, innerH, 9, 16);
             // 4. 外框
             ClientTalkUtils.drawTextureFrame(gfx, TEX_FRAME,
-                    winX, winY, winW, winH,
+                    winX, currentWinY, winW, winH,
                     FRAME_BORDER_W, FRAME_BORDER_H,
                     FRAME_W, FRAME_H);
         }
@@ -357,13 +357,8 @@ public class TalkScreen extends Screen {
         // 层级 1: 动态层 (随进场动画移动)
         // ==========================================================
 
-        gfx.pose().pushPose();
-        gfx.pose().translate(0, yOffset, 0);
-
         // 绘制窗口背景
-        renderWindowBackground(gfx);
-
-        gfx.pose().popPose();
+        renderWindowBackground(gfx, yOffset);
 
         // 临时移动
         for (GuiEventListener child : this.children()) {
