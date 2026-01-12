@@ -68,11 +68,7 @@ public class ClientInit {
             int btnX = BrntalkConfig.CLIENT.openButtonX.get();
             int btnY = BrntalkConfig.CLIENT.openButtonY.get();
 
-            OpenButton openButton = new OpenButton(
-                    btnX,
-                    btnY,
-                    button -> ClientPayloadSender.requestOpenTalk()
-            );
+            OpenButton openButton = new OpenButton(btnX, btnY, button -> ClientPayloadSender.requestOpenTalk());
             event.addListener(openButton);
         }
     }

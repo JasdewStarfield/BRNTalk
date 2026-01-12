@@ -4,7 +4,11 @@ import net.minecraft.client.gui.components.AbstractScrollWidget;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
+import yourscraft.jasdewstarfield.brntalk.Brntalk;
+import yourscraft.jasdewstarfield.brntalk.client.ui.button.ChainBoxButton;
+import yourscraft.jasdewstarfield.brntalk.client.ui.button.CloseButton;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadSender;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
@@ -49,6 +53,7 @@ public class TalkScreen extends Screen {
     private int chatAreaX, chatAreaW;
 
     private Button closeButton;
+    private ChainBoxButton chainBoxButton;
 
     private final long openStartTime;
     private static final long ANIMATION_DURATION = 350L;
@@ -108,6 +113,38 @@ public class TalkScreen extends Screen {
         this.clearWidgets();
         this.choiceButtons.clear();
 
+        // 锁链盒，功能待定
+        if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
+            int chainBoxX = this.winX + 1;
+            int chainBoxY = this.winY;
+
+            this.chainBoxButton = new ChainBoxButton(chainBoxX, chainBoxY, button -> {});
+            this.addWidget(this.chainBoxButton);
+        }
+
+        // 退出按钮
+        int closeBtnSize;
+        int closeX;
+        int closeY;
+
+        if (BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
+            closeBtnSize = 16;
+            closeX = this.width - closeBtnSize - 7;
+            closeY = 6;
+
+            this.closeButton = Button.builder(Component.literal("×"), btn -> this.onClose())
+                    .bounds(closeX, closeY, closeBtnSize, closeBtnSize)
+                    .build();
+        } else {
+            closeBtnSize = 28;
+            closeX = this.winX + this.winW - closeBtnSize + 3;
+            closeY = this.winY - 5;
+
+            this.closeButton = new CloseButton(closeX, closeY, button -> this.onClose());
+        }
+
+        this.addWidget(this.closeButton);
+
         // 列表
         int listPadding = 2;
         double listScroll = (this.threadList != null) ? this.threadList.getScrollAmount() : 0;
@@ -151,17 +188,6 @@ public class TalkScreen extends Screen {
         }
 
         this.addRenderableWidget(this.chatWidget);
-
-        // 退出按钮
-        int closeBtnSize = 16;
-        int closeX = this.width - closeBtnSize - 7;
-        int closeY = 6;
-
-        this.closeButton = Button.builder(Component.literal("×"), btn -> this.onClose())
-                .bounds(closeX, closeY, closeBtnSize, closeBtnSize)
-                .build();
-
-        this.addWidget(this.closeButton);
     }
 
     private void reloadThreadList() {
@@ -363,6 +389,7 @@ public class TalkScreen extends Screen {
         // 临时移动
         for (GuiEventListener child : this.children()) {
             if (child instanceof AbstractWidget widget) {
+                if (widget == this.chainBoxButton) continue;
                 widget.setY(widget.getY() + yOffset);
             }
         }
@@ -371,6 +398,7 @@ public class TalkScreen extends Screen {
         // 恢复偏移
         for (GuiEventListener child : this.children()) {
             if (child instanceof AbstractWidget widget) {
+                if (widget == this.chainBoxButton) continue;
                 widget.setY(widget.getY() - yOffset);
             }
         }
@@ -405,7 +433,13 @@ public class TalkScreen extends Screen {
             // 左下角电子管
             int decoX = this.winX + 12;
             int decoY = this.winY + this.winH - 15;
+
+            gfx.pose().pushPose();
+            gfx.pose().translate(0, 0, 10.0f);
+
             gfx.blit(TEX_PARTS, decoX, decoY, DECO_BL_U, DECO_BL_V, DECO_BL_W, DECO_BL_H, texTotalW, texTotalH);
+
+            gfx.pose().popPose();
         }
 
         gfx.pose().popPose();
@@ -415,7 +449,7 @@ public class TalkScreen extends Screen {
         // ==========================================================
 
         if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
-            int topChainY = this.winY - 4;
+            int topChainY = this.winY + 4;
 
             // 横向锁链 1
             ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, 0, topChainY, this.width, CHAIN_H_H,
@@ -443,9 +477,19 @@ public class TalkScreen extends Screen {
         // 手动绘制关闭按钮
         if (this.closeButton != null) {
             gfx.pose().pushPose();
-            gfx.pose().translate(0, yOffset, 110);
+            gfx.pose().translate(0, yOffset, 10.0f);
 
             this.closeButton.render(gfx, mouseX, mouseY, partialTick);
+
+            gfx.pose().popPose();
+        }
+
+        // 手动绘制锁链盒按钮
+        if (this.chainBoxButton != null) {
+            gfx.pose().pushPose();
+            gfx.pose().translate(0, 0, 20.0f);
+
+            this.chainBoxButton.render(gfx, mouseX, mouseY, partialTick);
 
             gfx.pose().popPose();
         }

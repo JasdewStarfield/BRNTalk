@@ -12,7 +12,6 @@ public class TalkUIStyles {
     // ==========================================================
     // 1. 贴图资源 (Textures)
     // ==========================================================
-    public static final ResourceLocation TEX_DECO = loc("textures/gui/ui_deco.png");
     public static final ResourceLocation TEX_FRAME = loc("textures/gui/ui_frame_connected.png");
     public static final ResourceLocation TEX_BG_LEFT = loc("textures/gui/ui_bg_left_tile.png");
     public static final ResourceLocation TEX_BG_RIGHT = loc("textures/gui/ui_bg_right_tile.png");
