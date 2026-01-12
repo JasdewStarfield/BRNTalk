@@ -2,6 +2,7 @@ package yourscraft.jasdewstarfield.brntalk.client.ui;
 
 import net.minecraft.client.gui.components.AbstractScrollWidget;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
@@ -49,7 +50,8 @@ public class TalkScreen extends Screen {
 
     private Button closeButton;
 
-    private long openStartTime;
+    private final long openStartTime;
+    public float currentAnimationYOffset = 0;
     private static final long ANIMATION_DURATION = 350L;
 
     public TalkScreen() {
@@ -62,16 +64,28 @@ public class TalkScreen extends Screen {
         super.init();
         this.renderCacheMap.clear();
 
-        // 1. 初始化布局坐标
-        this.winX = WIN_MARGIN_X;
-        this.winY = WIN_MARGIN_Y;
-        this.winW = this.width - (WIN_MARGIN_X * 2);
-        this.winH = this.height - (WIN_MARGIN_Y * 2);
+        // tile 单元大小
+        int tileUnitX = FRAME_W - FRAME_BORDER_W * 2;
+        int tileUnitY = FRAME_H - FRAME_BORDER_H * 2;
 
-        this.innerX = winX + FRAME_BORDER_W;
-        this.innerY = winY + FRAME_BORDER_H;
-        this.innerW = winW - (FRAME_BORDER_W * 2);
-        this.innerH = winH - (FRAME_BORDER_H * 2);
+        // 最大的范围
+        int maxW = this.width - (WIN_MARGIN_X * 2);
+        int maxH = this.height - (WIN_MARGIN_Y * 2);
+
+        // tile 数量
+        int tilesX = Math.max(1, (maxW - FRAME_BORDER_W * 2) / tileUnitX);
+        int tilesY = Math.max(1, (maxH - FRAME_BORDER_H * 2) / tileUnitY);
+
+        // 初始化布局坐标
+        this.winW = (FRAME_BORDER_W * 2) + (tilesX * tileUnitX);
+        this.winH = (FRAME_BORDER_H * 2) + (tilesY * tileUnitY);
+        this.winX = (this.width - this.winW) / 2;
+        this.winY = (this.height - this.winH) / 2;
+
+        this.innerX = winX + FRAME_BORDER_W - FRAME_INNER_PADDING;
+        this.innerY = winY + FRAME_BORDER_H - FRAME_INNER_PADDING;
+        this.innerW = winW - (FRAME_BORDER_W - FRAME_INNER_PADDING) * 2;
+        this.innerH = winH - (FRAME_BORDER_H - FRAME_INNER_PADDING) * 2;
 
         // 左侧列表区域
         this.listAreaX = innerX;
@@ -332,32 +346,42 @@ public class TalkScreen extends Screen {
         float progress = (float)(now - openStartTime) / (float)ANIMATION_DURATION;
         progress = Mth.clamp(progress, 0f, 1f);
         float ease = 1.0f - (float)Math.pow(1.0f - progress, 4);
-        float startOffset = this.height;
-        float yOffset = startOffset * (1.0f - ease);
 
-        // 开始位移变换
+        // 进场动画的垂直位移量
+        int yOffset = (int) (this.height * (1.0f - ease));
+
+        int texTotalW = TalkUIStyles.DECO_W;
+        int texTotalH = TalkUIStyles.DECO_H;
+
+        // ==========================================================
+        // 层级 1: 动态层 (随进场动画移动)
+        // ==========================================================
+
         gfx.pose().pushPose();
         gfx.pose().translate(0, yOffset, 0);
 
         // 绘制窗口背景
         renderWindowBackground(gfx);
 
-        if (this.selectedThread != null) {
-            boolean isFinished = ClientTalkUtils.isThreadFinished(this.selectedThread);
+        gfx.pose().popPose();
 
-            // 遍历所有选项按钮，设置它们的可见性
-            for (AbstractWidget btn : this.choiceButtons) {
-                btn.visible = isFinished;
+        // 临时移动
+        for (GuiEventListener child : this.children()) {
+            if (child instanceof AbstractWidget widget) {
+                widget.setY(widget.getY() + yOffset);
             }
-
-            if (isFinished && ClientTalkState.get().hasUnread(this.selectedThread)) {
-                ClientPayloadSender.sendMarkRead(this.selectedThread.getId());
-                this.selectedThread.setLastReadTime(System.currentTimeMillis());
+        }
+        // 绘制背景和 Widgets (包含 ChatWidget 和 ThreadList)
+        super.render(gfx, mouseX, mouseY, partialTick);
+        // 恢复偏移
+        for (GuiEventListener child : this.children()) {
+            if (child instanceof AbstractWidget widget) {
+                widget.setY(widget.getY() - yOffset);
             }
         }
 
-        // 绘制背景和 Widgets (包含 ChatWidget 和 ThreadList)
-        super.render(gfx, mouseX, mouseY, partialTick);
+        gfx.pose().pushPose();
+        gfx.pose().translate(0, yOffset, 0);
 
         // 如果有选项，渲染一个分界线
         if (hasChoice()) {
@@ -371,6 +395,7 @@ public class TalkScreen extends Screen {
             );
         }
 
+        // 无消息时显示提示
         if (selectedThread == null) {
             gfx.drawString(
                     this.font,
@@ -381,30 +406,69 @@ public class TalkScreen extends Screen {
             );
         }
 
-        // 5. 装饰层，在所有组件之上
         if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
-            gfx.pose().pushPose();
-            gfx.pose().translate(0, 0, 100);
-
-            ClientTalkUtils.drawTextureFrame(gfx, TEX_DECO,
-                    0, 0, this.width, this.height,
-                    DECO_BORDER_W, DECO_BORDER_H,
-                    DECO_W, DECO_H);
-
-            gfx.pose().popPose();
+            // 左下角电子管
+            int decoX = this.winX + 12;
+            int decoY = this.winY + this.winH - 15;
+            gfx.blit(TEX_PARTS, decoX, decoY, DECO_BL_U, DECO_BL_V, DECO_BL_W, DECO_BL_H, texTotalW, texTotalH);
         }
 
-        // 6. 手动绘制关闭按钮
+        gfx.pose().popPose();
+
+        // ==========================================================
+        // 层级 2: 静态层
+        // ==========================================================
+
+        if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
+            int topChainY = this.winY - 4;
+
+            // 横向锁链 1
+            ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, 0, topChainY, this.width, CHAIN_H_H,
+                    CHAIN_H_U, CHAIN_H_V, CHAIN_H_W, CHAIN_H_H, 0, 0, texTotalW, texTotalH);
+
+            // 横向锁链 2
+            ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, 0, topChainY + 8, this.width, CHAIN_H_H,
+                    CHAIN_H_U, CHAIN_H_V, CHAIN_H_W, CHAIN_H_H, 0, 0, texTotalW, texTotalH);
+
+            // 获取左右滚动条的当前值，用于驱动锁链动画
+            int leftScrollAnim = (int) this.threadList.getScrollAmount();
+            int rightScrollAnim = (int) this.chatWidget.getScrollAmountVal();
+
+            // 左侧竖链
+            int leftChainX = this.winX + 8;
+            ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, leftChainX, 0, CHAIN_V_W, this.height,
+                    CHAIN_V_U, CHAIN_V_V, CHAIN_V_W, CHAIN_V_H, 0, - yOffset - leftScrollAnim, texTotalW, texTotalH);
+
+            // 右侧竖链
+            int rightChainX = this.winX + this.winW - 5;
+            ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, rightChainX, 0, CHAIN_V_W, this.height,
+                    CHAIN_V_U, CHAIN_V_V, CHAIN_V_W, CHAIN_V_H, 0, - yOffset - rightScrollAnim, texTotalW, texTotalH);
+        }
+
+        // 手动绘制关闭按钮
         if (this.closeButton != null) {
             gfx.pose().pushPose();
-            gfx.pose().translate(0, 0, 110);
+            gfx.pose().translate(0, yOffset, 110);
 
             this.closeButton.render(gfx, mouseX, mouseY, partialTick);
 
             gfx.pose().popPose();
         }
 
-        gfx.pose().popPose();
+        if (this.selectedThread != null) {
+            boolean isFinished = ClientTalkUtils.isThreadFinished(this.selectedThread);
+
+            // 遍历所有选项按钮，设置它们的可见性
+            for (AbstractWidget btn : this.choiceButtons) {
+                btn.visible = isFinished;
+            }
+
+            // 标记已读
+            if (isFinished && ClientTalkState.get().hasUnread(this.selectedThread)) {
+                ClientPayloadSender.sendMarkRead(this.selectedThread.getId());
+                this.selectedThread.setLastReadTime(System.currentTimeMillis());
+            }
+        }
     }
 
     public void renderChatContents(GuiGraphics gfx, int x, int yOffset, int width) {

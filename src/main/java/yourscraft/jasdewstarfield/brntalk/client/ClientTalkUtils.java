@@ -313,6 +313,59 @@ public class ClientTalkUtils {
     }
 
     /**
+     * 平铺绘制方法
+     * 支持指定 UV 区域、纹理总尺寸、以及滚动偏移 (使用 Scissor 实现平滑平铺)
+     *
+     * @param gfx           GuiGraphics
+     * @param texture       纹理 ID
+     * @param x             屏幕绘制区域 X
+     * @param y             屏幕绘制区域 Y
+     * @param width         屏幕绘制区域总宽
+     * @param height        屏幕绘制区域总高
+     * @param u             纹理起始 U
+     * @param v             纹理起始 V
+     * @param tileW         单个平铺单元的宽度
+     * @param tileH         单个平铺单元的高度
+     * @param uOffset       横向滚动偏移 (像素)
+     * @param vOffset       纵向滚动偏移 (像素)
+     * @param textureTotalW 纹理文件的总宽度 (用于正确计算 UV)
+     * @param textureTotalH 纹理文件的总高度
+     */
+    public static void drawTiledTexture(GuiGraphics gfx, ResourceLocation texture,
+                                        int x, int y, int width, int height,
+                                        int u, int v, int tileW, int tileH,
+                                        int uOffset, int vOffset,
+                                        int textureTotalW, int textureTotalH) {
+        RenderSystem.setShaderTexture(0, texture);
+
+        // 1. 开启裁剪，防止偏移后画出界
+        gfx.enableScissor(x, y, x + width, y + height);
+
+        // 2. 计算起始绘制位置 (处理负偏移以保证平滑循环)
+        // 目标：让 startX/startY 始终 <= 0，且 > -tileW/H，这样能保证左/上边缘总是被填满的
+        int startX = -(uOffset % tileW);
+        int startY = -(vOffset % tileH);
+
+        if (startX > 0) startX -= tileW;
+        if (startY > 0) startY -= tileH;
+
+        // 3. 循环绘制
+        for (int dx = startX; dx < width; dx += tileW) {
+            for (int dy = startY; dy < height; dy += tileH) {
+                gfx.blit(texture,
+                        x + dx, y + dy,
+                        u, v,
+                        tileW, tileH,
+                        textureTotalW, textureTotalH
+                );
+            }
+        }
+
+        // 4. 关闭裁剪
+        gfx.disableScissor();
+    }
+
+    /**
      * 平铺绘制纹理 (用于背景和分割线)
      * 会自动循环重复贴图来填满指定区域
      *
@@ -328,23 +381,8 @@ public class ClientTalkUtils {
     public static void drawRepeatedTexture(GuiGraphics gfx, ResourceLocation texture,
                                            int x, int y, int width, int height,
                                            int texW, int texH) {
-        RenderSystem.setShaderTexture(0, texture);
-
-        // 双重循环铺满区域
-        for (int dx = 0; dx < width; dx += texW) {
-            for (int dy = 0; dy < height; dy += texH) {
-                // 计算当前这块砖的实际显示大小 (处理边缘裁切)
-                int drawW = Math.min(texW, width - dx);
-                int drawH = Math.min(texH, height - dy);
-
-                gfx.blit(texture,
-                        x + dx, y + dy,     // 屏幕坐标
-                        0, 0,               // UV 起点
-                        drawW, drawH,       // 截取大小
-                        texW, texH          // 纹理总大小
-                );
-            }
-        }
+        // 对于单张小图平铺，Tile 大小 = 纹理总大小，UV 起点 = 0,0，偏移 = 0
+        drawTiledTexture(gfx, texture, x, y, width, height, 0, 0, texW, texH, 0, 0, texW, texH);
     }
 
     /**

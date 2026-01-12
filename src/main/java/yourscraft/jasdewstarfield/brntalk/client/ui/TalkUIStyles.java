@@ -13,10 +13,11 @@ public class TalkUIStyles {
     // 1. 贴图资源 (Textures)
     // ==========================================================
     public static final ResourceLocation TEX_DECO = loc("textures/gui/ui_deco.png");
-    public static final ResourceLocation TEX_FRAME = loc("textures/gui/ui_frame.png");
+    public static final ResourceLocation TEX_FRAME = loc("textures/gui/ui_frame_connected.png");
     public static final ResourceLocation TEX_BG_LEFT = loc("textures/gui/ui_bg_left_tile.png");
     public static final ResourceLocation TEX_BG_RIGHT = loc("textures/gui/ui_bg_right_tile.png");
     public static final ResourceLocation TEX_DIVIDER = loc("textures/gui/ui_bg_middle_tile.png");
+    public static final ResourceLocation TEX_PARTS = loc("textures/gui/ui_deco_parts.png");
 
     private static ResourceLocation loc(String path) {
         return ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, path);
@@ -27,20 +28,43 @@ public class TalkUIStyles {
     // ==========================================================
 
     // 窗口外边距 (屏幕边缘到 UI 边缘的距离)
-    public static final int WIN_MARGIN_X = 4;
-    public static final int WIN_MARGIN_Y = 5;
+    public static final int WIN_MARGIN_X = 20;
+    public static final int WIN_MARGIN_Y = 20;
 
     // 9-Slice 外框的长宽和边框厚度
-    public static final int FRAME_W = 248;
-    public static final int FRAME_H = 118;
-    public static final int FRAME_BORDER_W = 8;
-    public static final int FRAME_BORDER_H = 7;
+    public static final int FRAME_W = 52;
+    public static final int FRAME_H = 50;
+    public static final int FRAME_BORDER_W = 10;
+    public static final int FRAME_BORDER_H = 9;
+    public static final int FRAME_INNER_PADDING = 2;
 
-    // 9-Slice 装饰的长宽和边框厚度
+    // Deco 部件图片大小
     public static final int DECO_W = 256;
     public static final int DECO_H = 128;
-    public static final int DECO_BORDER_W = 56;
-    public static final int DECO_BORDER_H = 28;
+
+    // 竖向锁链
+    public static final int CHAIN_V_W = 3;
+    public static final int CHAIN_V_H = 6;
+    public static final int CHAIN_V_U = 42;
+    public static final int CHAIN_V_V = 0;
+
+    // 横向锁链
+    public static final int CHAIN_H_W = 6;
+    public static final int CHAIN_H_H = 3;
+    public static final int CHAIN_H_U = 46;
+    public static final int CHAIN_H_V = 0;
+
+    // 左下角电子管
+    public static final int DECO_BL_W = 41;
+    public static final int DECO_BL_H = 13;
+    public static final int DECO_BL_U = 0;
+    public static final int DECO_BL_V = 0;
+
+    // 自定义滚动条
+    public static final int DECO_SCROLL_BAR_W = 5;
+    public static final int DECO_SCROLL_BAR_H = 14;
+    public static final int DECO_SCROLL_BAR_U = 53;
+    public static final int DECO_SCROLL_BAR_V = 0;
 
     // 左侧列表区域的宽度
     public static final int LEFT_AREA_WIDTH = 145;
