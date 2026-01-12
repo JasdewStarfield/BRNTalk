@@ -126,9 +126,9 @@ public class TalkHud {
         RenderSystem.defaultBlendFunc();
 
         // --- 1. 渲染主消息队列 ---
-        Iterator<HudEntry> it = DISPLAY_QUEUE.iterator();
-        while (it.hasNext()) {
-            HudEntry entry = it.next();
+        List<HudEntry> entries = new ArrayList<>(DISPLAY_QUEUE);
+        for (int i = 0; i < entries.size(); i++) {
+            HudEntry entry = entries.get(i);
 
             if (now < entry.visualStartTime) {
                 continue;
@@ -140,7 +140,7 @@ public class TalkHud {
             long timeSinceEnd = now - entry.visualEndTime;
 
             if (timeSinceEnd > fadeOutStart + fadeDuration) {
-                it.remove();
+                DISPLAY_QUEUE.remove(entry);
                 continue;
             }
 
@@ -152,6 +152,17 @@ public class TalkHud {
             alpha = Mth.clamp(alpha, 0f, 1f);
             if (alpha < 0.05f) continue;
             int alphaInt = (int) (alpha * 255);
+
+            // 检测是否显示名字
+            boolean showName = true;
+            if (i + 1 < entries.size()) {
+                HudEntry olderEntry = entries.get(i + 1);
+                String currentSpeaker = ClientTalkUtils.processText(entry.msg.getSpeaker());
+                String olderSpeaker = ClientTalkUtils.processText(olderEntry.msg.getSpeaker());
+                if (currentSpeaker.equals(olderSpeaker)) {
+                    showName = false;
+                }
+            }
 
             // 文本处理
             List<FormattedCharSequence> allLines = entry.layout.getLines(mc.font, entry.msg, HUD_WIDTH - 10);
@@ -167,9 +178,9 @@ public class TalkHud {
             }
 
             // 布局
-            String speaker = ClientTalkUtils.trimToWidth(ClientTalkUtils.processText(entry.msg.getSpeaker()), HUD_WIDTH - 10);
             int contentHeight = allLines.size() * fontHeight;
-            int totalEntryHeight = fontHeight + 2 + contentHeight + (HUD_PADDING * 2);
+            int nameHeight = showName ? (fontHeight + 2) : 0;
+            int totalEntryHeight = nameHeight + contentHeight + + (HUD_PADDING * 2);
 
             boolean showWaiting = (entry.msg.getType() == TalkMessage.Type.CHOICE && typeFinished);
             if (showWaiting) {
@@ -205,12 +216,15 @@ public class TalkHud {
             gfx.fill(baseX, drawY, baseX + 2, drawY + totalEntryHeight, barColor);
 
             // 绘制名字
-            int nameColorBase = (alphaInt << 24) | (isPlayer ? HUD_TEXT_NAME_PLAYER : HUD_TEXT_NAME_NPC);
-            int nameColor = (alphaInt << 24) | (nameColorBase & 0x00FFFFFF);
-            gfx.drawString(mc.font, speaker, baseX + 6, drawY + HUD_PADDING, nameColor, false);
+            if (showName) {
+                String speaker = ClientTalkUtils.trimToWidth(ClientTalkUtils.processText(entry.msg.getSpeaker()), HUD_WIDTH - 10);
+                int nameColorBase = (alphaInt << 24) | (isPlayer ? HUD_TEXT_NAME_PLAYER : HUD_TEXT_NAME_NPC);
+                int nameColor = (alphaInt << 24) | (nameColorBase & 0x00FFFFFF);
+                gfx.drawString(mc.font, speaker, baseX + 6, drawY + HUD_PADDING, nameColor, false);
+            }
 
             // --- 智能绘制行 ---
-            int textY = drawY + HUD_PADDING + fontHeight + 2;
+            int textY = drawY + HUD_PADDING + nameHeight;
             int contentColor = (alphaInt << 24) | (HUD_TEXT_CONTENT & 0x00FFFFFF);
 
             for (FormattedCharSequence line : allLines) {
@@ -227,7 +241,7 @@ public class TalkHud {
                 String subText = fullText.substring(0, Math.min(displayedCharCount, fullText.length()));
                 // 重新 split，但只针对这一条正在变化的消息
                 var dynamicLines = mc.font.split(Component.literal(subText), HUD_WIDTH - 10);
-                int dynamicY = drawY + HUD_PADDING + fontHeight + 2;
+                int dynamicY = drawY + HUD_PADDING + nameHeight;
                 for (var line : dynamicLines) {
                     gfx.drawString(mc.font, line, baseX + 6, dynamicY, contentColor, false);
                     dynamicY += fontHeight;

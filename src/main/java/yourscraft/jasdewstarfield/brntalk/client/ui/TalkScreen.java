@@ -49,8 +49,12 @@ public class TalkScreen extends Screen {
 
     private Button closeButton;
 
+    private long openStartTime;
+    private static final long ANIMATION_DURATION = 350L;
+
     public TalkScreen() {
         super(Component.literal("BRNTalk"));
+        this.openStartTime = System.currentTimeMillis();
     }
 
     @Override
@@ -286,10 +290,9 @@ public class TalkScreen extends Screen {
     // ----- 渲染 -----
 
     @Override
-    public void renderBackground(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
-        // 让父类先渲染背景模糊和变暗等
-        super.renderBackground(gfx, mouseX, mouseY, partialTick);
+    public void renderBackground(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {}
 
+    private void renderWindowBackground(GuiGraphics gfx) {
         if (BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
             // 1. 左侧列表背景（交由 TalkThreadList 自行实现）
 
@@ -322,6 +325,23 @@ public class TalkScreen extends Screen {
 
     @Override
     public void render(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(gfx, mouseX, mouseY, partialTick);
+
+        // --- 开屏动效 ---
+        long now = System.currentTimeMillis();
+        float progress = (float)(now - openStartTime) / (float)ANIMATION_DURATION;
+        progress = Mth.clamp(progress, 0f, 1f);
+        float ease = 1.0f - (float)Math.pow(1.0f - progress, 4);
+        float startOffset = this.height;
+        float yOffset = startOffset * (1.0f - ease);
+
+        // 开始位移变换
+        gfx.pose().pushPose();
+        gfx.pose().translate(0, yOffset, 0);
+
+        // 绘制窗口背景
+        renderWindowBackground(gfx);
+
         if (this.selectedThread != null) {
             boolean isFinished = ClientTalkUtils.isThreadFinished(this.selectedThread);
 
@@ -383,6 +403,8 @@ public class TalkScreen extends Screen {
 
             gfx.pose().popPose();
         }
+
+        gfx.pose().popPose();
     }
 
     public void renderChatContents(GuiGraphics gfx, int x, int yOffset, int width) {
@@ -414,6 +436,7 @@ public class TalkScreen extends Screen {
 
         long now = System.currentTimeMillis();
 
+        String lastSpeaker = null;
         long previousVisualEndTime = 0;
         int charDelay = ClientTalkUtils.getCharDelay();
         int msgPause = ClientTalkUtils.getMsgPause();
@@ -437,6 +460,11 @@ public class TalkScreen extends Screen {
                 visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + msgPause);
                 previousVisualEndTime = visualStartTime + cache.duration;
             }
+
+            // 是否显示名字
+            String currentSpeaker = cache.speakerComp.getString();
+            boolean showName = lastSpeaker == null || !lastSpeaker.equals(currentSpeaker);
+            lastSpeaker = currentSpeaker;
 
             // 4. 判断当前消息的打字机进度
             String textToShow;
@@ -474,24 +502,26 @@ public class TalkScreen extends Screen {
             bubbleW += (2 * BUBBLE_PADDING_X);
             int bubbleH = contentH + (2 * BUBBLE_PADDING_Y);
 
-            boolean isPlayer = (msg.getSpeakerType() == TalkMessage.SpeakerType.PLAYER);
-            int bubbleX = x + (isPlayer ? (width - bubbleW - 10) : 10);
-
-            int entryTotalHeight = lineHeight + 2 + bubbleH;
+            int nameHeight = showName ? (lineHeight + 2) : 0;
+            int entryTotalHeight = nameHeight + bubbleH;
 
             // 块级Culling
             // 如果 底部 < 0 或者 顶部 > Widget 高度，则不画
-            if (currentY + entryTotalHeight < currentScroll || currentY > currentScroll + widgetHeight) {
+            if (currentY + entryTotalHeight + MSG_SPACING < currentScroll || currentY > currentScroll + widgetHeight) {
                 currentY += entryTotalHeight + MSG_SPACING;
                 continue;
             }
 
             // --- 渲染说话人 ---
-            int nameX = x + (isPlayer ? (width - cache.speakerNameWidth - 10) : 10);
-            int nameColor = isPlayer ? COLOR_PLAYER_NAME : COLOR_NPC_NAME;
+            boolean isPlayer = (msg.getSpeakerType() == TalkMessage.SpeakerType.PLAYER);
+            int bubbleX = x + (isPlayer ? (width - bubbleW - 10) : 10);
             int drawY = widgetScreenY + currentY;
-            gfx.drawString(this.font, cache.speakerComp, nameX, drawY, nameColor);
-            drawY += lineHeight + 2;
+            if (showName) {
+                int nameX = x + (isPlayer ? (width - cache.speakerNameWidth - 10) : 10);
+                int nameColor = isPlayer ? COLOR_PLAYER_NAME : COLOR_NPC_NAME;
+                gfx.drawString(this.font, cache.speakerComp, nameX, drawY, nameColor);
+                drawY += nameHeight; // 只有绘制了名字才让 Y 下移
+            }
 
             // --- 绘制气泡背景 ---
             int bgColor = isPlayer ? COLOR_PLAYER_BUBBLE_BG : COLOR_NPC_BUBBLE_BG;
@@ -526,6 +556,8 @@ public class TalkScreen extends Screen {
         long now = System.currentTimeMillis();
         int charDelay = ClientTalkUtils.getCharDelay();
 
+        String lastSpeaker = null;
+
         for (TalkMessage msg : msgs) {
             String msgId = msg.getId();
 
@@ -539,12 +571,18 @@ public class TalkScreen extends Screen {
             MessageRenderCache cache = renderCacheMap.computeIfAbsent(msg.getId(), k -> new MessageRenderCache());
             cache.updateLayoutIfNeeded(msg, textMaxWidth, this.font);
 
+            // 判断是否显示名字
+            String currentSpeaker = cache.speakerComp.getString();
+            boolean showName = lastSpeaker == null || !lastSpeaker.equals(currentSpeaker);
+            lastSpeaker = currentSpeaker;
+            int nameHeight = showName ? (lineHeight + 2) : 0;
+
             // 计算时间轴 (同渲染逻辑)
             long timePassed = now - visualStartTime;
 
             // 情况 A: 已播完
             if (timePassed >= cache.duration) {
-                currentTotal += cache.fixedHeight;
+                currentTotal += nameHeight + cache.bubbleHeight + MSG_SPACING;
             } else {    // 情况 B: 正在打字
                 int charCount = (int) (timePassed / charDelay);
                 String fullText = cache.layoutCache.processedText;
@@ -553,9 +591,8 @@ public class TalkScreen extends Screen {
 
                 int lines = this.font.split(Component.literal(textToShow), textMaxWidth).size();
                 int bubbleH = (lines * lineHeight) + (2 * BUBBLE_PADDING_Y);
-                int entryHeight = (lineHeight + 2) + bubbleH + MSG_SPACING;
 
-                currentTotal += entryHeight;
+                currentTotal += nameHeight + bubbleH + MSG_SPACING;
             }
         }
         return currentTotal;
@@ -756,7 +793,7 @@ public class TalkScreen extends Screen {
         // 屏幕特有的缓存数据 (气泡高度、名字渲染)
         Component speakerComp;
         int speakerNameWidth;
-        int fixedHeight = -1;
+        int bubbleHeight = -1;
         long duration = -1;
         private int cachedLayoutWidth = -1;
 
@@ -780,8 +817,7 @@ public class TalkScreen extends Screen {
             }
 
             int lineHeight = font.lineHeight;
-            int bubbleH = (lines.size() * lineHeight) + (2 * BUBBLE_PADDING_Y);
-            this.fixedHeight = (lineHeight + 2) + bubbleH + MSG_SPACING;
+            this.bubbleHeight = (lines.size() * lineHeight) + (2 * BUBBLE_PADDING_Y);
         }
     }
 }
