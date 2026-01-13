@@ -65,8 +65,14 @@ public class TalkUIStyles {
     public static final int DECO_SCROLL_BAR_U = 53;
     public static final int DECO_SCROLL_BAR_V = 0;
 
-    // 左侧列表区域的宽度
-    public static final int LEFT_AREA_WIDTH = 145;
+    // 列表区域占内部总宽度的比例
+    public static final float LIST_WIDTH_RATIO = 0.32f;
+
+    // 列表区域的最小像素宽度
+    public static final int LIST_MIN_WIDTH = 80;
+
+    // 列表区域的最大像素宽度
+    public static final int LIST_MAX_WIDTH = 200;
 
     // 分割线的宽度
     public static final int DIVIDER_WIDTH = 9;

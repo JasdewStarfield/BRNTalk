@@ -1,6 +1,7 @@
 package yourscraft.jasdewstarfield.brntalk.client;
 
 import com.mojang.brigadier.Command;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
@@ -12,6 +13,7 @@ import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.common.NeoForge;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkHud;
+import yourscraft.jasdewstarfield.brntalk.client.ui.TalkScreen;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.OpenButton;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 
@@ -52,6 +54,10 @@ public class ClientInit {
     private static void onRegisterClientReloadListeners(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener((ResourceManagerReloadListener) resourceManager -> {
             ClientTalkUtils.clearCache();
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof TalkScreen talkScreen) {
+                talkScreen.clearRenderCache();
+            }
             Brntalk.LOGGER.debug("[BRNTalk] Text cache cleared due to resource reload.");
         });
     }

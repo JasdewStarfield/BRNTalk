@@ -8,7 +8,6 @@ import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
-import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;

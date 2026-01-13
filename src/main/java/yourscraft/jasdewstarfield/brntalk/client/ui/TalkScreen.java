@@ -4,9 +4,7 @@ import net.minecraft.client.gui.components.AbstractScrollWidget;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
-import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.ChainBoxButton;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.CloseButton;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
@@ -92,8 +90,20 @@ public class TalkScreen extends Screen {
         this.innerH = winH - (FRAME_BORDER_H - FRAME_INNER_PADDING) * 2;
 
         // 左侧列表区域
+        int targetListW = (int) (this.innerW * TalkUIStyles.LIST_WIDTH_RATIO);
+        targetListW = Mth.clamp(targetListW, TalkUIStyles.LIST_MIN_WIDTH, TalkUIStyles.LIST_MAX_WIDTH);
+        // 对齐到 16 的倍数
+        int remainder = targetListW % 16;
+        if (remainder != 0) {
+            if (remainder >= 8) {
+                targetListW += (16 - remainder); // 向上取整
+            } else {
+                targetListW -= remainder;        // 向下取整
+            }
+        }
+
         this.listAreaX = innerX;
-        this.listAreaW = LEFT_AREA_WIDTH; // 使用常量
+        this.listAreaW = targetListW;
 
         // 分割线
         this.dividerX = innerX + listAreaW;
@@ -386,6 +396,42 @@ public class TalkScreen extends Screen {
         // 绘制窗口背景
         renderWindowBackground(gfx, yOffset);
 
+        // 锁链装饰
+        if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
+            // 计算 offset 以驱动锁链动画
+            int leftChainOffset = 0;
+            if (this.threadList != null) {
+                // 对于 ObjectSelectionList，内容高度 ≈ maxScroll + viewHeight
+                int listContentH = this.threadList.getMaxScroll() + this.threadList.getHeight();
+                leftChainOffset = calculatePhysicalOffset(
+                        this.threadList.getHeight(),
+                        listContentH,
+                        this.threadList.getScrollAmount(),
+                        this.threadList.getMaxScroll()
+                );
+            }
+
+            int rightChainOffset = 0;
+            if (this.chatWidget != null) {
+                rightChainOffset = calculatePhysicalOffset(
+                        this.chatWidget.getHeight(),
+                        this.totalContentHeight,
+                        this.chatWidget.getScrollAmountVal(),
+                        this.chatWidget.getMaxScroll()
+                );
+            }
+
+            // 左侧竖链
+            int leftChainX = this.winX + 8;
+            ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, leftChainX, 0, CHAIN_V_W, this.height,
+                    CHAIN_V_U, CHAIN_V_V, CHAIN_V_W, CHAIN_V_H, 0, - yOffset - leftChainOffset, texTotalW, texTotalH);
+
+            // 右侧竖链
+            int rightChainX = this.winX + this.winW - 5;
+            ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, rightChainX, 0, CHAIN_V_W, this.height,
+                    CHAIN_V_U, CHAIN_V_V, CHAIN_V_W, CHAIN_V_H, 0, - yOffset - rightChainOffset, texTotalW, texTotalH);
+        }
+
         // 临时移动
         for (GuiEventListener child : this.children()) {
             if (child instanceof AbstractWidget widget) {
@@ -458,22 +504,7 @@ public class TalkScreen extends Screen {
             // 横向锁链 2
             ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, 0, topChainY + 8, this.width, CHAIN_H_H,
                     CHAIN_H_U, CHAIN_H_V, CHAIN_H_W, CHAIN_H_H, 0, 0, texTotalW, texTotalH);
-
-            // 获取左右滚动条的当前值，用于驱动锁链动画
-            int leftScrollAnim = (int) this.threadList.getScrollAmount();
-            int rightScrollAnim = (int) this.chatWidget.getScrollAmountVal();
-
-            // 左侧竖链
-            int leftChainX = this.winX + 8;
-            ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, leftChainX, 0, CHAIN_V_W, this.height,
-                    CHAIN_V_U, CHAIN_V_V, CHAIN_V_W, CHAIN_V_H, 0, - yOffset - leftScrollAnim, texTotalW, texTotalH);
-
-            // 右侧竖链
-            int rightChainX = this.winX + this.winW - 5;
-            ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, rightChainX, 0, CHAIN_V_W, this.height,
-                    CHAIN_V_U, CHAIN_V_V, CHAIN_V_W, CHAIN_V_H, 0, - yOffset - rightScrollAnim, texTotalW, texTotalH);
         }
-
         // 手动绘制关闭按钮
         if (this.closeButton != null) {
             gfx.pose().pushPose();
@@ -759,6 +790,21 @@ public class TalkScreen extends Screen {
         return false;
     }
 
+    private int calculatePhysicalOffset(int viewHeight, int contentHeight, double scrollAmount, int maxScroll) {
+        if (maxScroll <= 0) return 0;
+
+        // 1. 计算滑块高度 (逻辑同 ClientTalkUtils)
+        int barHeight = (int) ((float) (viewHeight * viewHeight) / (float) contentHeight);
+        barHeight = Mth.clamp(barHeight, 14, viewHeight);
+
+        // 2. 计算轨道可移动的物理长度
+        int trackLength = viewHeight - barHeight;
+        if (trackLength <= 0) return 0;
+
+        // 3. 计算当前物理偏移
+        return (int) ((scrollAmount / (float) maxScroll) * trackLength);
+    }
+
     @Override
     public boolean isPauseScreen() {
         // 返回 false：打开对话 UI 时，游戏不会暂停
@@ -773,6 +819,12 @@ public class TalkScreen extends Screen {
         messageStartTimeCache.clear();
         cachedMessageCount = -1;
         super.onClose();
+    }
+
+    public void clearRenderCache() {
+        this.renderCacheMap.clear();
+        this.messageStartTimeCache.clear();
+        this.cachedMessageCount = -1;
     }
 
     // 内部类：ChatWidget
@@ -864,6 +916,31 @@ public class TalkScreen extends Screen {
         }
 
         @Override
+        protected void renderDecorations(@NotNull GuiGraphics gfx) {
+            // 如果是原版风格，交给父类绘制默认滚动条
+            if (BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
+                super.renderDecorations(gfx);
+                return;
+            }
+
+            // 如果是自定义风格，且需要显示滚动条，则绘制自定义版本
+            if (this.scrollbarVisible()) {
+                int scrollbarX = this.getX() + this.getWidth() + 2;
+                int barY = this.getY();
+                int barH = this.getHeight();
+
+                ClientTalkUtils.drawCustomScrollbar(gfx,
+                        scrollbarX,
+                        barY,
+                        barH,
+                        TalkScreen.this.totalContentHeight,
+                        this.scrollAmount(),
+                        this.getMaxScrollAmount()
+                );
+            }
+        }
+
+        @Override
         protected void renderBackground(@NotNull GuiGraphics guiGraphics) {
         }
 
@@ -886,6 +963,10 @@ public class TalkScreen extends Screen {
 
         public double getTargetScroll() {
             return targetScroll;
+        }
+
+        public int getMaxScroll() {
+            return this.getMaxScrollAmount();
         }
     }
 

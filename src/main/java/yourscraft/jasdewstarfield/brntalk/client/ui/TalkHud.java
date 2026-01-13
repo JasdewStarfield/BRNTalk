@@ -6,7 +6,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
@@ -180,7 +179,7 @@ public class TalkHud {
             // 布局
             int contentHeight = allLines.size() * fontHeight;
             int nameHeight = showName ? (fontHeight + 2) : 0;
-            int totalEntryHeight = nameHeight + contentHeight + + (HUD_PADDING * 2);
+            int totalEntryHeight = nameHeight + contentHeight + (HUD_PADDING * 2);
 
             boolean showWaiting = (entry.msg.getType() == TalkMessage.Type.CHOICE && typeFinished);
             if (showWaiting) {

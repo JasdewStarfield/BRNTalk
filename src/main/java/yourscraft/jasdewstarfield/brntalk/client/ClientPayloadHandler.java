@@ -73,9 +73,7 @@ public class ClientPayloadHandler {
 
     // 处理未读状态更新
     public static void handleUpdateState(final PayloadSync.UpdateStatePayload payload, final IPayloadContext context) {
-        context.enqueueWork(() -> {
-            ClientTalkState.get().updateReadTime(payload.threadId(), payload.lastReadTime());
-        });
+        context.enqueueWork(() -> ClientTalkState.get().updateReadTime(payload.threadId(), payload.lastReadTime()));
     }
 
     /**

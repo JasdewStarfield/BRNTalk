@@ -9,14 +9,16 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static yourscraft.jasdewstarfield.brntalk.client.ui.TalkUIStyles.*;
 
 public class ClientTalkUtils {
 
@@ -151,7 +153,6 @@ public class ClientTalkUtils {
 
         long previousVisualEndTime = 0;
 
-        int charDelay = getCharDelay();
         int msgPause = getMsgPause();
 
         for (TalkMessage msg : thread.getMessages()) {
@@ -303,13 +304,6 @@ public class ClientTalkUtils {
             }
             return lines;
         }
-
-        // 清除 Cache
-        public void invalidate() {
-            processedText = null;
-            lines = null;
-            cachedWidth = -1;
-        }
     }
 
     /**
@@ -428,6 +422,60 @@ public class ClientTalkUtils {
             gfx.blit(texture, x, y + borderH + dy, 0, borderH, borderW, h, texW, texH);
             // Right
             gfx.blit(texture, x + width - borderW, y + borderH + dy, texW - borderW, borderH, borderW, h, texW, texH);
+        }
+    }
+
+    /**
+     * 绘制自定义风格的滚动条 (3-Slice: Top fixed, Middle tiled, Bottom fixed)
+     *
+     * @param gfx          GuiGraphics
+     * @param x            滚动条左上角 X
+     * @param y            滚动区域顶部 Y
+     * @param viewHeight   可视区域高度
+     * @param totalHeight  内容总高度
+     * @param scrollAmount 当前滚动值
+     * @param maxScroll    最大滚动值
+     */
+    public static void drawCustomScrollbar(GuiGraphics gfx, int x, int y, int viewHeight, int totalHeight, double scrollAmount, int maxScroll) {
+        if (maxScroll <= 0) return; // 不需要滚动条
+
+        // 1. 计算滑块高度
+        int barHeight = (int) ((float) (viewHeight * viewHeight) / (float) totalHeight);
+        // 限制高度范围
+        barHeight = Mth.clamp(barHeight, DECO_SCROLL_BAR_H, viewHeight);
+
+        // 2. 计算滑块 Y 坐标 (在轨道内插值)
+        int barY = y + (int) ((scrollAmount / (float) maxScroll) * (viewHeight - barHeight));
+
+        // 3. 准备贴图参数
+        ResourceLocation tex = TEX_PARTS;
+        int u = DECO_SCROLL_BAR_U;
+        int v = DECO_SCROLL_BAR_V;
+        int w = DECO_SCROLL_BAR_W;
+        int texW = DECO_W;
+        int texH = DECO_H;
+
+        // --- 开始绘制 ---
+
+        // A. 顶部 (5px)
+        gfx.blit(tex, x, barY, u, v, w, 5, texW, texH);
+
+        // B. 底部 (5px)
+        gfx.blit(tex, x, barY + barHeight - 5, u, v + 9, w, 5, texW, texH);
+
+        // C. 中间 (平铺 4px)
+        int middleH = barHeight - 10;
+        if (middleH > 0) {
+            int currentY = barY + 5;
+            int remaining = middleH;
+
+            // 循环平铺绘制
+            while (remaining > 0) {
+                int partH = Math.min(remaining, 4);
+                gfx.blit(tex, x, currentY, u, v + 5, w, partH, texW, texH);
+                currentY += partH;
+                remaining -= partH;
+            }
         }
     }
 }

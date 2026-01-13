@@ -52,7 +52,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
     @Override
     public boolean isMouseOver(double mouseX, double mouseY) {
         return mouseY >= this.getY() && mouseY <= this.getY() + this.getHeight() &&
-                mouseX >= this.getX() && mouseX <= this.getX() + this.width + 14;
+                mouseX >= this.getX() - 3 && mouseX <= this.getX() + this.getWidth();
     }
 
     @Override
@@ -94,6 +94,24 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
         }
 
         super.renderWidget(gfx, mouseX, mouseY, partialTick);
+
+        // 手动补画滚动条
+        if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
+            if (this.getMaxScroll() > 0) {
+                int scrollbarX = this.getScrollbarPosition();
+                int listHeight = this.getHeight();
+                int listY = this.getY();
+
+                ClientTalkUtils.drawCustomScrollbar(gfx,
+                        scrollbarX,
+                        listY,
+                        listHeight,
+                        this.getMaxScroll() + listHeight,
+                        this.getScrollAmount(),
+                        this.getMaxScroll()
+                );
+            }
+        }
     }
 
     @Override
@@ -120,8 +138,16 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
     }
 
     @Override
+    protected boolean scrollbarVisible() {
+        if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
+            return false;
+        }
+        return super.scrollbarVisible();
+    }
+
+    @Override
     protected int getScrollbarPosition() {
-        return this.getX() + this.getWidth() + 3;
+        return this.getX() - 3;
     }
 
 
