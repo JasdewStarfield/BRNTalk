@@ -96,6 +96,9 @@ public class TalkUIStyles {
     // HUD
     public static final int HUD_WIDTH = 160;
     public static final int HUD_PADDING = 4;
+    public static final long HUD_FADE_OUT_START = 5000;
+    public static final long HUD_FADE_OUT_DURATION = 1000;
+
 
     // ==========================================================
     // 3. 颜色定义 (Colors) - 格式: 0xAARRGGBB

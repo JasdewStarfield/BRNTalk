@@ -2,9 +2,9 @@ package yourscraft.jasdewstarfield.brntalk.data;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.annotations.SerializedName;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
@@ -12,7 +12,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
-import net.minecraft.util.GsonHelper;
 
 import java.util.*;
 
@@ -21,6 +20,35 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
 
     public ConversationLoader() {
         super(GSON, "brntalk/dialogues");
+    }
+
+    private static class RawMessage {
+        String id;
+        String type = "text";           // 默认值
+        String speakerType = "npc";     // 默认值
+        String speaker = "&c**EMPTY SPEAKER**"; // 默认值
+        String text = "&c**EMPTY TEXT**";
+        String action;
+        String nextId;
+
+        @SerializedName("continue")     // 处理 Java 关键字冲突
+        boolean autoContinue = false;   // 默认值
+
+        @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
+        List<RawChoice> choices = new ArrayList<>();        // 允许为空
+    }
+
+    private static class RawChoice {
+        String id;
+        String text = "&c**EMPTY CHOICE TEXT**";
+        String nextId;
+    }
+
+    private static class RawConversation {
+        String id;
+
+        @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
+        List<RawMessage> messages = new ArrayList<>();
     }
 
     @Override
@@ -38,19 +66,26 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
             JsonElement element = entry.getValue();
 
             try {
-                if (!element.isJsonObject()) continue;
-                JsonObject root = element.getAsJsonObject();
+                // 如果 JSON 根是对象
+                if (element.isJsonObject()) {
+                    JsonObject root = element.getAsJsonObject();
 
-                if (root.has("conversations")) {
-                    JsonArray convArray = GsonHelper.getAsJsonArray(root, "conversations");
-                    for (JsonElement convEl : convArray) {
-                        if (!convEl.isJsonObject()) continue;
-                        loadSingleConversation(manager, convEl.getAsJsonObject(), rl);
+                    // 情况 A: 包含 "conversations" 数组
+                    if (root.has("conversations")) {
+                        RawConversation[] convArray = GSON.fromJson(root.get("conversations"), RawConversation[].class);
+                        if (convArray != null) {
+                            for (RawConversation rawConv : convArray) {
+                                loadSingleConversation(manager, rawConv, rl);
+                                loadedCount++;
+                            }
+                        }
+                    }
+                    // 情况 B: 根本身就是单个 Conversation (兼容旧格式)
+                    else {
+                        RawConversation rawConv = GSON.fromJson(root, RawConversation.class);
+                        loadSingleConversation(manager, rawConv, rl);
                         loadedCount++;
                     }
-                } else {
-                    loadSingleConversation(manager, root, rl);
-                    loadedCount++;
                 }
             } catch (Exception e) {
                 Brntalk.LOGGER.error("[BRNTalk] Failed to load conversation file: {}", rl, e);
@@ -61,60 +96,42 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
     }
 
     private static void loadSingleConversation(TalkManager manager,
-                                               JsonObject convObj,
+                                               RawConversation rawConv,
                                                ResourceLocation fileId) {
-
-        String convId = GsonHelper.getAsString(convObj, "id", fileId.getPath());
+        // 1. 处理 ID
+        String convId = (rawConv.id != null && !rawConv.id.isEmpty()) ? rawConv.id : fileId.getPath();
         TalkConversation conv = new TalkConversation(convId);
 
-        JsonArray messages = GsonHelper.getAsJsonArray(convObj, "messages");
+        if (rawConv.messages == null || rawConv.messages.isEmpty()) {
+            return;
+        }
 
         List<TalkMessage> parsedMessages = new ArrayList<>();
         Map<String, TalkMessage> msgMap = new HashMap<>();
 
+        // 预处理 ID 列表，用于自动生成 id 和 nextId 推断
         List<String> idList = new ArrayList<>();
-        for (int i = 0; i < messages.size(); i++) {
-            if (messages.get(i).isJsonObject()) {
-                JsonObject msgObj = messages.get(i).getAsJsonObject();
-                String id = GsonHelper.getAsString(msgObj, "id", "msg_" + i);
-                idList.add(id);
-            } else {
-                idList.add(null);
-            }
+        for (int i = 0; i < rawConv.messages.size(); i++) {
+            RawMessage rawMsg = rawConv.messages.get(i);
+            // 如果 rawMsg.id 为空，生成默认 id
+            String id = (rawMsg.id != null) ? rawMsg.id : "msg_" + i;
+            idList.add(id);
         }
 
-        int idx = 0;
-        for (JsonElement msgEl : messages) {
-            if (!msgEl.isJsonObject()) continue;
-            JsonObject msgObj = msgEl.getAsJsonObject();
+        // 2. 遍历 POJO 列表，转换为运行时 TalkMessage 对象
+        for (int i = 0; i < rawConv.messages.size(); i++) {
+            RawMessage rawMsg = rawConv.messages.get(i);
+            String msgId = idList.get(i);
 
-            String msgId = idList.get(idx);
-
-            String typeStr = GsonHelper.getAsString(msgObj, "type", "text");
-            TalkMessage.Type type = TalkMessage.Type.fromString(typeStr);
-
-            String speakerTypeStr = GsonHelper.getAsString(msgObj, "speakerType", "npc");
-            TalkMessage.SpeakerType speakerType = TalkMessage.SpeakerType.fromString(speakerTypeStr);
-
-            String speaker = GsonHelper.getAsString(msgObj, "speaker", "&c**EMPTY SPEAKER**");
-            String text = GsonHelper.getAsString(msgObj, "text", "&c**EMPTY TEXT**");
-
-            String action = null;
-            if (msgObj.has("action") && !msgObj.get("action").isJsonNull()) {
-                action = GsonHelper.getAsString(msgObj, "action", null);
-            }
-
-            String nextId = null;
-            if (msgObj.has("nextId") && !msgObj.get("nextId").isJsonNull()) {
-                nextId = GsonHelper.getAsString(msgObj, "nextId", null);
-            }
-
-            boolean autoContinue = GsonHelper.getAsBoolean(msgObj, "continue", false);
+            // 类型转换
+            TalkMessage.Type type = TalkMessage.Type.fromString(rawMsg.type);
+            TalkMessage.SpeakerType speakerType = TalkMessage.SpeakerType.fromString(rawMsg.speakerType);
 
             // 自动推断nextId
-            if (autoContinue && nextId == null) {
-                if (idx + 1 < idList.size()) {
-                    nextId = idList.get(idx + 1);
+            String nextId = rawMsg.nextId;
+            if (rawMsg.autoContinue && (nextId == null || nextId.isEmpty())) {
+                if (i + 1 < idList.size()) {
+                    nextId = idList.get(i + 1);
                 }
             }
 
@@ -122,44 +139,30 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
                     msgId,
                     type,
                     speakerType,
-                    speaker,
-                    text,
-                    action,
+                    rawMsg.speaker,
+                    rawMsg.text,
+                    rawMsg.action,
                     System.currentTimeMillis(),
                     nextId
             );
 
             // 如果是 choice 类型，就读取 choices 数组
-            if (type == TalkMessage.Type.CHOICE && msgObj.has("choices")) {
-                JsonArray choicesArr = msgObj.getAsJsonArray("choices");
+            if (type == TalkMessage.Type.CHOICE && rawMsg.choices != null) {
                 int choiceIdx = 0;
-                for (JsonElement choiceEl : choicesArr) {
-                    if (!choiceEl.isJsonObject()) continue;
-                    JsonObject choiceObj = choiceEl.getAsJsonObject();
+                for (RawChoice rawChoice : rawMsg.choices) {
+                    String cId = (rawChoice.id != null) ? rawChoice.id : (msgId + "_choice_" + choiceIdx);
+                    String cText = (rawChoice.text != null) ? rawChoice.text : "&c**EMPTY CHOICE TEXT**";
+                    String cNext = (rawChoice.nextId != null) ? rawChoice.nextId : "";
 
-                    String choiceId = GsonHelper.getAsString(choiceObj, "id", msgId + "_choice_" + choiceIdx);
-                    String choiceText = GsonHelper.getAsString(choiceObj, "text", "&c**EMPTY CHOICE TEXT**");
-                    String cNextId = "";
-                    if (choiceObj.has("nextId") && !choiceObj.get("nextId").isJsonNull()) {
-                        cNextId = GsonHelper.getAsString(choiceObj, "nextId", "");
-                    }
-
-                    TalkMessage.Choice choice = new TalkMessage.Choice(
-                            choiceId,
-                            choiceText,
-                            cNextId
-                    );
+                    TalkMessage.Choice choice = new TalkMessage.Choice(cId, cText, cNext);
                     msg.addChoice(choice);
                     choiceIdx++;
                 }
             }
 
             conv.addMessage(msg);
-
             parsedMessages.add(msg);
             msgMap.put(msgId, msg);
-
-            idx++;
         }
 
         validateConversation(convId, parsedMessages, msgMap.keySet());

@@ -49,6 +49,9 @@ public class ClientInit {
 
     private static void onClientTick(ClientTickEvent.Post event) {
         ClientKeyRegistry.onClientTick(event);
+        if (Minecraft.getInstance().player != null) {
+            TalkHud.tick();
+        }
     }
 
     private static void onRegisterClientReloadListeners(RegisterClientReloadListenersEvent event) {

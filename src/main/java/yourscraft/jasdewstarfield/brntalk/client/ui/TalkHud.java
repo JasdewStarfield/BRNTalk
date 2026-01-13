@@ -95,6 +95,41 @@ public class TalkHud {
         }
     }
 
+    public static void tick() {
+        long now = System.currentTimeMillis();
+
+        // 1. 清理主消息队列
+        Iterator<HudEntry> it = DISPLAY_QUEUE.iterator();
+        while (it.hasNext()) {
+            HudEntry entry = it.next();
+
+            // 判断是否完全淡出
+            long timeSinceEnd = now - entry.visualEndTime;
+
+            if (timeSinceEnd > HUD_FADE_OUT_START + HUD_FADE_OUT_DURATION) {
+                it.remove();
+            }
+        }
+
+        // 2. 清理折叠消息提示
+        if (!PENDING_NOTIFICATIONS.isEmpty()) {
+            Iterator<Map.Entry<String, NotificationState>> notifIt = PENDING_NOTIFICATIONS.entrySet().iterator();
+            while (notifIt.hasNext()) {
+                Map.Entry<String, NotificationState> mapEntry = notifIt.next();
+                NotificationState state = mapEntry.getValue();
+
+                if (now - state.timestamp > NOTIFICATION_DURATION) {
+                    notifIt.remove();
+                }
+            }
+        }
+
+        // 3. 处理 activeThreadId 的超时逻辑
+        if (activeThreadId != null && (now - lastActivityTime > THREAD_TIMEOUT) && DISPLAY_QUEUE.isEmpty()) {
+            activeThreadId = null;
+        }
+    }
+
     public static void render(GuiGraphics gfx, DeltaTracker deltaTracker) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.options.hideGui || mc.screen instanceof TalkScreen) return;
@@ -137,11 +172,6 @@ public class TalkHud {
             long fadeOutStart = 5000;
             long fadeDuration = 1000;
             long timeSinceEnd = now - entry.visualEndTime;
-
-            if (timeSinceEnd > fadeOutStart + fadeDuration) {
-                DISPLAY_QUEUE.remove(entry);
-                continue;
-            }
 
             // 透明度
             float alpha = 1.0f;
@@ -271,18 +301,8 @@ public class TalkHud {
         if (!PENDING_NOTIFICATIONS.isEmpty()) {
             int notifY = (int) ((((float) mc.getWindow().getGuiScaledHeight() / 2) + offsetY + 5) / scale);
 
-            // 使用迭代器以便在遍历时删除
-            Iterator<Map.Entry<String, NotificationState>> notifIt = PENDING_NOTIFICATIONS.entrySet().iterator();
-
-            while (notifIt.hasNext()) {
-                Map.Entry<String, NotificationState> mapEntry = notifIt.next();
+            for (Map.Entry<String, NotificationState> mapEntry : PENDING_NOTIFICATIONS.entrySet()) {
                 NotificationState state = mapEntry.getValue();
-
-                // 检查超时
-                if (now - state.timestamp > NOTIFICATION_DURATION) {
-                    notifIt.remove();
-                    continue;
-                }
 
                 String label = I18n.get("gui.brntalk.hud_pending_notification", state.speaker);
                 int labelW = mc.font.width(label) + 8;
@@ -291,10 +311,10 @@ public class TalkHud {
                 float nAlpha = 1.0f;
                 long nAge = now - state.timestamp;
                 if (nAge > NOTIFICATION_DURATION - 500) {
-                    nAlpha = 1.0f - (float)(nAge - (NOTIFICATION_DURATION - 500)) / 500f;
+                    nAlpha = 1.0f - (float) (nAge - (NOTIFICATION_DURATION - 500)) / 500f;
                 }
-                int nAlphaInt = (int)(nAlpha * 255);
-                int nBgAlpha = (int)(nAlpha * 128);
+                int nAlphaInt = (int) (nAlpha * 255);
+                int nBgAlpha = (int) (nAlpha * 128);
 
                 if (nAlphaInt > 5) {
                     gfx.fill(baseX, notifY, baseX + labelW, notifY + fontHeight + 4, (nBgAlpha << 24));
