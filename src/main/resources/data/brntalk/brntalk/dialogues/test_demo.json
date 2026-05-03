@@ -24,6 +24,13 @@
           "speakerType": "player",
           "speaker": "{player}",
           "text": "Great, I can see player-style bubbles in the chat-like UI.",
+          "nextId": "i18n"
+        },
+        {
+          "id": "i18n",
+          "type": "text",
+          "speaker": "item.minecraft.iron_sword",
+          "text": "This message tests the auto i18n replacement. The speaker's name uses translation key \"item.minecraft.iron_sword\", which should be \"Iron Sword\" in your language.",
           "nextId": "choice_node"
         },
         {
@@ -48,18 +55,18 @@
           "id": "wait_intro",
           "type": "text",
           "speaker": "Guide NPC",
-          "text": "Next message is a WAIT node. Resume it when ready.",
+          "text": "Next message is a WAIT node, the conversation should stuck. Resume it when ready.",
           "nextId": "wait_node"
         },
         {
           "id": "wait_node",
           "type": "wait",
           "speaker": "System",
-          "text": "Conversation paused. Resume this thread to continue.",
-          "nextId": "resume_ok"
+          "text": "(Conversation paused. Resume this thread with \"/brntalk resume @s test_demo\" to continue.)",
+          "nextId": "resume_success"
         },
         {
-          "id": "resume_ok",
+          "id": "resume_success",
           "type": "text",
           "speaker": "Guide NPC",
           "text": "Nice! The WAIT node resumed correctly.",
@@ -76,15 +83,15 @@
           "id": "reward",
           "type": "text",
           "speaker": "Guide NPC",
-          "text": "Demo complete. You should receive 3 diamonds as a small reward.",
-          "action": "/give @s diamond 3",
+          "text": "Demo complete. You should receive 64 diamonds as a small reward.",
+          "action": "/give @s diamond 64",
           "nextId": "end"
         },
         {
           "id": "end",
           "type": "text",
           "speaker": "System",
-          "text": "Test finished. Close the UI or press ESC.",
+          "text": "Test finished. Close the UI or press ESC to exit.",
           "nextId": null
         }
       ]

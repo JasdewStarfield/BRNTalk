@@ -10,8 +10,7 @@ It helps you deliver story content in a cleaner, more immersive way by unifying 
 - Build **NPC story conversations** and **branching quest guidance**
 - Provide a more consistent **message-center style UI** for players
 - Pause at key nodes and continue later to match quest progression
-- Choose notification style (HUD / Toast / Off) to fit your pack feel
-- Integrate naturally with common client ecosystem mods (Cloth Config, JEI, FTB Library)
+- Run simple command in scripts for feedback, or conduct more complex operations with provided APIs.
 
 > For full technical details (script structure, commands, JSON format, and developer API), please check the repository README.
 
@@ -21,20 +20,21 @@ It helps you deliver story content in a cleaner, more immersive way by unifying 
 
 
 - **IM-style UI approach**: BRNTalk feels closer to a modern messaging app feed, not a Galgame portrait + big textbox layout, and not direct world-entity click interaction.
-- **AI-assisted development**: parts of the architecture design and code implementation were created with AI tooling support to improve iteration speed and consistency.
 - **Multi-thread conversation tracking** per player
-- **Immersive reading UI** with dedicated talk screen + new message notifications
+- **Immersive reading UI** with dedicated talk screen + new message notifications; cogwork-style or vanilla-style is available
 - **Branching + wait nodes** for staged quest and narrative flows
 - **Configurable experience** (typing speed, scrolling feel, UI style, notification placement)
-- **Server-friendly design** for managing story progression in multiplayer worlds
+- **Server-friendly design** for managing story progression in multiplayer worlds, as scripts distribution and progress storage are all server-sided
+- **Hot-reloading** with /reload is available for scripts
+- **Flexible API** that allows integrations with other mods or KubeJS Scripts
 
 ---
 
-## Quick Start (Platform Version)
+## Quick Start
 
 1. Install BRNTalk and launch the game.
 2. Confirm the BRNTalk message/talk UI can be opened on the client.
-3. Load sample dialogue content or your own dialogue resources.
+3. Load sample dialogue content (/brntalk start test_demo) or your own dialogue resources.
 4. Trigger a conversation in-game and verify the full flow:
    - Auto-advanced text
    - Branching choices
@@ -49,7 +49,7 @@ It helps you deliver story content in a cleaner, more immersive way by unifying 
 
 - RPG survival server onboarding
 - Adventure map main/sub quest storytelling
-- Stage-based guidance in tech modpacks
+- Stage-based guidance in modpacks
 - Community event chapters and roleplay dialogue
 
 ---
@@ -64,5 +64,7 @@ It helps you deliver story content in a cleaner, more immersive way by unifying 
 
 ## More Information
 
-- Full usage docs, development notes, and script structure: **see the repository README**
+- For this project, parts of the architecture design and code implementation were created with AI tooling support
+- Licensing: open-sourced with MIT license
+- Full usage docs, development notes, and script structure: **see the repository README and internal demo conversation json**
 - Issues and suggestions: feel free to open an Issue in the project repository

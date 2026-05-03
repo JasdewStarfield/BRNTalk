@@ -1,7 +1,7 @@
 {
   "conversations": [
     {
-      "id": "test_demo",
+      "id": "test_demo_cn",
       "messages": [
         {
           "id": "start",
@@ -40,19 +40,19 @@
           "text": "现在测试分支选项。请选择一条测试路径：",
           "choices": [
             {
-              "id": "opt_a",
+              "id": "opt_wait",
               "text": "测试 WAIT 和 Resume 功能",
-              "nextId": "branch_wait_1"
+              "nextId": "wait_intro"
             },
             {
-              "id": "opt_b",
+              "id": "opt_scroll",
               "text": "测试长文本和 UI 滚动",
-              "nextId": "branch_long_text"
+              "nextId": "long_text"
             }
           ]
         },
         {
-          "id": "branch_wait_1",
+          "id": "wait_intro",
           "type": "text",
           "speaker": "Guide NPC",
           "text": "你选择了测试暂停功能。下一条消息将进入 WAIT 状态，对话会卡住。",
@@ -62,7 +62,7 @@
           "id": "wait_node",
           "type": "wait",
           "speaker": "System",
-          "text": "（对话已暂停... 请使用 /brntalk resume @s test_demo 继续）",
+          "text": "（对话已暂停... 请使用 “/brntalk resume @s test_demo_cn” 继续）",
           "nextId": "resume_success"
         },
         {
@@ -73,10 +73,10 @@
           "nextId": "reward"
         },
         {
-          "id": "branch_long_text",
+          "id": "long_text",
           "type": "text",
           "speaker": "Guide NPC",
-          "text": "这是一段非常非常长的文本，用来测试自动换行、气泡高度计算以及滚动条功能是否正常。为了凑字数，我需要多说一点废话。不仅仅是换行，还要确保气泡不会超出屏幕边缘，并且玩家名字和 NPC 名字的颜色区分正确。如果你的 UI 渲染没有问题，这段话应该能完整显示。",
+          "text": "这是一段非常非常长的文本，用来测试自动换行、气泡高度计算以及滚动条功能是否正常。不仅仅是换行，还要确保气泡不会超出屏幕边缘，并且玩家名字和 NPC 名字的颜色区分正确。如果你的 UI 渲染没有问题，这段话应该能完整显示。",
           "nextId": "reward"
         },
         {
