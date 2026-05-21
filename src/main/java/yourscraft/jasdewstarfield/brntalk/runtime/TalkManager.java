@@ -120,6 +120,7 @@ public class TalkManager {
         // 1. 添加目标消息
         TalkMessage msgWithTime = nextMsg.withTimestamp(System.currentTimeMillis());
         thread.appendMessage(msgWithTime);
+        executeAction(player, msgWithTime);
 
         // 2. 尝试自动推进
         autoAdvance(player, thread, conv);

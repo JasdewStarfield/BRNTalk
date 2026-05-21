@@ -18,6 +18,7 @@ public class BrntalkCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("brntalk")
+                        .requires(source -> source.hasPermission(2))
                         // --- start 命令分支 ---
                         .then(Commands.literal("start")
                                 // 用法 1: /brntalk start <id> (为自己开启某条指定对话)
