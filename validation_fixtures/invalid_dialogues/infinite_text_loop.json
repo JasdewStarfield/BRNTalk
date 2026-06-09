@@ -1,0 +1,19 @@
+{
+  "id": "fixture_infinite_text_loop",
+  "messages": [
+    {
+      "id": "a",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "Loop A.",
+      "nextId": "b"
+    },
+    {
+      "id": "b",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "Loop B.",
+      "nextId": "a"
+    }
+  ]
+}

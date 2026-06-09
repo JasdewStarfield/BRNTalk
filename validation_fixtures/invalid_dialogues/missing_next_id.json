@@ -1,0 +1,12 @@
+{
+  "id": "fixture_missing_next_id",
+  "messages": [
+    {
+      "id": "start",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "This message points to nowhere.",
+      "nextId": "missing_node"
+    }
+  ]
+}

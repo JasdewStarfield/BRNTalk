@@ -6,12 +6,18 @@ import org.apache.commons.lang3.tuple.Pair;
 public class BrntalkConfig {
     public static final ClientConfig CLIENT;
     public static final ModConfigSpec CLIENT_SPEC;
+    public static final ServerConfig SERVER;
+    public static final ModConfigSpec SERVER_SPEC;
 
     static {
         // 构建配置规格
-        final Pair<ClientConfig, ModConfigSpec> specPair = new ModConfigSpec.Builder().configure(ClientConfig::new);
-        CLIENT_SPEC = specPair.getRight();
-        CLIENT = specPair.getLeft();
+        final Pair<ClientConfig, ModConfigSpec> clientSpecPair = new ModConfigSpec.Builder().configure(ClientConfig::new);
+        CLIENT_SPEC = clientSpecPair.getRight();
+        CLIENT = clientSpecPair.getLeft();
+
+        final Pair<ServerConfig, ModConfigSpec> serverSpecPair = new ModConfigSpec.Builder().configure(ServerConfig::new);
+        SERVER_SPEC = serverSpecPair.getRight();
+        SERVER = serverSpecPair.getLeft();
     }
 
     public enum NotificationMode {
@@ -112,6 +118,26 @@ public class BrntalkConfig {
                     .comment("Top Margin (Safety Line) (pixel)")
                     .comment("Messages won't be rendered if they go above this Y position to prevent overlapping.")
                     .defineInRange("hudTopMargin", 20, 0, 1000);
+
+            builder.pop();
+        }
+    }
+
+    public static class ServerConfig {
+        public final ModConfigSpec.BooleanValue sendValidationReportInGame;
+        public final ModConfigSpec.IntValue validationReportMaxDetailLines;
+
+        public ServerConfig(ModConfigSpec.Builder builder) {
+            builder.comment("Server-side validation reporting").push("validation_report");
+
+            sendValidationReportInGame = builder
+                    .comment("Whether BRNTalk should send in-game validation summaries to online permission-level-2 players after /reload.")
+                    .define("sendValidationReportInGame", true);
+
+            validationReportMaxDetailLines = builder
+                    .comment("Maximum number of validation detail lines sent in chat after the summary.")
+                    .comment("Set to 0 to only send the summary line and keep full details in latest.log.")
+                    .defineInRange("validationReportMaxDetailLines", 5, 0, 50);
 
             builder.pop();
         }

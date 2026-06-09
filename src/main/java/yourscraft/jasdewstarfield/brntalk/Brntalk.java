@@ -28,6 +28,7 @@ public class Brntalk {
 
     public Brntalk(IEventBus modEventBus, ModContainer modContainer) {
         modContainer.registerConfig(ModConfig.Type.CLIENT, BrntalkConfig.CLIENT_SPEC);
+        modContainer.registerConfig(ModConfig.Type.SERVER, BrntalkConfig.SERVER_SPEC);
 
         // Common (Client + Server)
         modEventBus.addListener(this::onCommonSetup);

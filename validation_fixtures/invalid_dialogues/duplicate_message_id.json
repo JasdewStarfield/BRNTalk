@@ -1,0 +1,17 @@
+{
+  "id": "fixture_duplicate_message_id",
+  "messages": [
+    {
+      "id": "start",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "First start message."
+    },
+    {
+      "id": "start",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "Second start message with the same id."
+    }
+  ]
+}

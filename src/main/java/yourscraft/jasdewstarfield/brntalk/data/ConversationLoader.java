@@ -17,6 +17,9 @@ import java.util.*;
 
 public class ConversationLoader extends SimpleJsonResourceReloadListener {
     private static final Gson GSON = new GsonBuilder().create();
+    // The latest reload report is shared with the datapack sync listener so
+    // admins can be notified after /reload finishes.
+    private static volatile ConversationLoadReport lastLoadReport = ConversationLoadReport.empty();
 
     public ConversationLoader() {
         super(GSON, "brntalk/dialogues");
@@ -58,8 +61,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
 
         TalkManager manager = TalkManager.getInstance();
         manager.clear();
-
-        int loadedCount = 0;
+        ConversationLoadReport.Builder reportBuilder = new ConversationLoadReport.Builder();
 
         for (Map.Entry<ResourceLocation, JsonElement> entry : jsons.entrySet()) {
             ResourceLocation rl = entry.getKey();
@@ -75,50 +77,77 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
                         RawConversation[] convArray = GSON.fromJson(root.get("conversations"), RawConversation[].class);
                         if (convArray != null) {
                             for (RawConversation rawConv : convArray) {
-                                loadSingleConversation(manager, rawConv, rl);
-                                loadedCount++;
+                                LoadSingleResult result = loadSingleConversation(manager, rawConv, rl);
+                                if (result.isLoaded()) {
+                                    reportBuilder.incrementLoaded();
+                                } else {
+                                    reportBuilder.addInvalidConversation(result.report());
+                                }
                             }
                         }
                     }
                     // 情况 B: 根本身就是单个 Conversation (兼容旧格式)
                     else {
                         RawConversation rawConv = GSON.fromJson(root, RawConversation.class);
-                        loadSingleConversation(manager, rawConv, rl);
-                        loadedCount++;
+                        LoadSingleResult result = loadSingleConversation(manager, rawConv, rl);
+                        if (result.isLoaded()) {
+                            reportBuilder.incrementLoaded();
+                        } else {
+                            reportBuilder.addInvalidConversation(result.report());
+                        }
                     }
                 }
             } catch (Exception e) {
                 Brntalk.LOGGER.error("[BRNTalk] Failed to load conversation file: {}", rl, e);
+                reportBuilder.addFileLoadFailure(rl, e);
             }
         }
 
-        Brntalk.LOGGER.info("[BRNTalk] Loaded {} conversations.", loadedCount);
+        lastLoadReport = reportBuilder.build();
+        Brntalk.LOGGER.info("[BRNTalk] Loaded {} conversations, skipped {} invalid conversations, {} file load failures.",
+                lastLoadReport.loadedConversations(),
+                lastLoadReport.skippedConversations(),
+                lastLoadReport.failedFileCount());
     }
 
-    private static void loadSingleConversation(TalkManager manager,
-                                               RawConversation rawConv,
-                                               ResourceLocation fileId) {
+    public static ConversationLoadReport getLastLoadReport() {
+        return lastLoadReport;
+    }
+
+    private static LoadSingleResult loadSingleConversation(TalkManager manager,
+                                                           RawConversation rawConv,
+                                                           ResourceLocation fileId) {
         // 1. 处理 ID
-        String convId = (rawConv.id != null && !rawConv.id.isEmpty()) ? rawConv.id : fileId.getPath();
+        String convId = normalizedOrDefault(rawConv.id, fileId.getPath());
         TalkConversation conv = new TalkConversation(convId);
 
         if (rawConv.messages == null || rawConv.messages.isEmpty()) {
-            return;
+            ConversationValidator.ValidationReport report = new ConversationValidator.ValidationReport(convId);
+            report.error("Script contains no messages.");
+            report.logProblems();
+            Brntalk.LOGGER.error("[BRNTalk] Skipping script '{}' due to {} validation error(s).", convId, report.errorCount());
+            return LoadSingleResult.invalid(report);
         }
 
         List<TalkMessage> parsedMessages = new ArrayList<>();
-        Map<String, TalkMessage> msgMap = new HashMap<>();
+        Set<String> duplicateMessageIds = new LinkedHashSet<>();
 
-        // 预处理 ID 列表，用于自动生成 id 和 nextId 推断
+        // Build the message id list up front so validation and auto-continue
+        // inference both see the same effective IDs.
         List<String> idList = new ArrayList<>();
+        Set<String> seenMessageIds = new HashSet<>();
         for (int i = 0; i < rawConv.messages.size(); i++) {
             RawMessage rawMsg = rawConv.messages.get(i);
             // 如果 rawMsg.id 为空，生成默认 id
-            String id = (rawMsg.id != null) ? rawMsg.id : "msg_" + i;
+            String id = normalizedOrDefault(rawMsg.id, "msg_" + i);
             idList.add(id);
+            if (!seenMessageIds.add(id)) {
+                duplicateMessageIds.add(id);
+            }
         }
 
-        // 2. 遍历 POJO 列表，转换为运行时 TalkMessage 对象
+        // Convert raw JSON data into runtime messages only after we know the
+        // final effective IDs for this script.
         for (int i = 0; i < rawConv.messages.size(); i++) {
             RawMessage rawMsg = rawConv.messages.get(i);
             String msgId = idList.get(i);
@@ -128,8 +157,8 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
             TalkMessage.SpeakerType speakerType = TalkMessage.SpeakerType.fromString(rawMsg.speakerType);
 
             // 自动推断nextId
-            String nextId = rawMsg.nextId;
-            if (rawMsg.autoContinue && (nextId == null || nextId.isEmpty())) {
+            String nextId = normalizedOptional(rawMsg.nextId);
+            if (rawMsg.autoContinue && nextId == null) {
                 if (i + 1 < idList.size()) {
                     nextId = idList.get(i + 1);
                 }
@@ -141,7 +170,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
                     speakerType,
                     rawMsg.speaker,
                     rawMsg.text,
-                    rawMsg.action,
+                    normalizedOptional(rawMsg.action),
                     System.currentTimeMillis(),
                     nextId
             );
@@ -150,9 +179,12 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
             if (type == TalkMessage.Type.CHOICE && rawMsg.choices != null) {
                 int choiceIdx = 0;
                 for (RawChoice rawChoice : rawMsg.choices) {
-                    String cId = (rawChoice.id != null) ? rawChoice.id : (msgId + "_choice_" + choiceIdx);
+                    String cId = normalizedOrDefault(rawChoice.id, msgId + "_choice_" + choiceIdx);
                     String cText = (rawChoice.text != null) ? rawChoice.text : "&c**EMPTY CHOICE TEXT**";
-                    String cNext = (rawChoice.nextId != null) ? rawChoice.nextId : "";
+                    String cNext = normalizedOptional(rawChoice.nextId);
+                    if (cNext == null) {
+                        cNext = "";
+                    }
 
                     TalkMessage.Choice choice = new TalkMessage.Choice(cId, cText, cNext);
                     msg.addChoice(choice);
@@ -162,91 +194,56 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
 
             conv.addMessage(msg);
             parsedMessages.add(msg);
-            msgMap.put(msgId, msg);
         }
 
-        validateConversation(convId, parsedMessages, msgMap.keySet());
-
-        validateTextLoops(convId, parsedMessages, msgMap);
+        ConversationValidator.ValidationReport report = ConversationValidator.validate(convId, parsedMessages, duplicateMessageIds);
+        report.logProblems();
+        if (report.hasErrors()) {
+            Brntalk.LOGGER.error("[BRNTalk] Skipping script '{}' due to {} validation error(s).", convId, report.errorCount());
+            return LoadSingleResult.invalid(report);
+        }
 
         manager.registerConversation(conv);
+        return LoadSingleResult.loaded();
     }
 
-    private static void validateConversation(String convId, List<TalkMessage> messages, Set<String> validIds) {
-        for (TalkMessage msg : messages) {
-            // A. 检查消息本身的 nextId 跳转
-            String next = msg.getNextId();
-            if (next != null && !next.isEmpty() && !validIds.contains(next)) {
-                Brntalk.LOGGER.warn("[BRNTalk] Validation: Broken Link in Script '{}': Message '{}' points to missing nextId '{}'",
-                        convId, msg.getId(), next);
-            }
-
-            // B. 检查选项 (Choice) 的跳转
-            if (msg.getType() == TalkMessage.Type.CHOICE) {
-                for (TalkMessage.Choice c : msg.getChoices()) {
-                    String cNext = c.getNextId();
-                    if (cNext != null && !cNext.isEmpty() && !validIds.contains(cNext)) {
-                        Brntalk.LOGGER.warn("[BRNTalk] Validation: Broken Link in Script '{}': Choice '{}' (in msg '{}') points to missing nextId '{}'",
-                                convId, c.getId(), msg.getId(), cNext);
-                    }
-                }
-            }
+    private static String normalizedOptional(String value) {
+        if (value == null) {
+            return null;
         }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private static void validateTextLoops(String convId, List<TalkMessage> messages, Map<String, TalkMessage> msgMap) {
-        Map<String, Integer> visitState = new HashMap<>();
-        // 初始化状态 0
-        for (TalkMessage msg : messages) {
-            visitState.put(msg.getId(), 0);
-        }
-
-        for (TalkMessage msg : messages) {
-            // 只从 TEXT 节点开始检查，且只检查未访问过的
-            if (msg.getType() == TalkMessage.Type.TEXT && visitState.get(msg.getId()) == 0) {
-                detectLoopDFS(convId, msg.getId(), msgMap, visitState);
-            }
-        }
+    private static String normalizedOrDefault(String value, String fallback) {
+        String normalized = normalizedOptional(value);
+        return normalized != null ? normalized : fallback;
     }
 
-    private static boolean detectLoopDFS(String convId, String currId, Map<String, TalkMessage> msgMap, Map<String, Integer> visitState) {
-        visitState.put(currId, 1); // 标记为灰色
+    private static final class LoadSingleResult {
+        private final boolean loaded;
+        private final ConversationValidator.ValidationReport report;
 
-        TalkMessage currMsg = msgMap.get(currId);
-        if (currMsg == null) {
-            visitState.put(currId, 2);
-            return false; // 节点不存在，这里算无环
+        private LoadSingleResult(boolean loaded, ConversationValidator.ValidationReport report) {
+            this.loaded = loaded;
+            this.report = report;
         }
 
-        // 如果当前节点不是 TEXT，说明它会阻断自动推进，因此对于"自动推进死循环"来说，它是安全的终点。
-        if (currMsg.getType() != TalkMessage.Type.TEXT) {
-            visitState.put(currId, 2); // 标记为黑色
-            return false;
+        static LoadSingleResult loaded() {
+            return new LoadSingleResult(true, null);
         }
 
-        String nextId = currMsg.getNextId();
-
-        // 如果没有后续，或者为空，那就是终点，安全
-        if (nextId != null && !nextId.isEmpty()) {
-            Integer nextState = visitState.getOrDefault(nextId, 0);
-
-            if (nextState == 1) {
-                // 撞到了正在访问的节点 -> 发现环！
-                Brntalk.LOGGER.error("[BRNTalk] Validation: **INFINITE LOOP** Detected in Script '{}'! The loop closes at message '{}'.",
-                        convId, currId);
-                return true;
-            }
-
-            if (nextState == 0) {
-                // 继续递归
-                if (detectLoopDFS(convId, nextId, msgMap, visitState)) {
-                    return true;
-                }
-            }
-            // 如果是 2，说明已经检查过且安全，跳过
+        static LoadSingleResult invalid(ConversationValidator.ValidationReport report) {
+            return new LoadSingleResult(false, report);
         }
 
-        visitState.put(currId, 2); // 标记为黑色
-        return false;
+        boolean isLoaded() {
+            return loaded;
+        }
+
+        // Present only when the conversation was rejected by validation.
+        ConversationValidator.ValidationReport report() {
+            return report;
+        }
     }
 }

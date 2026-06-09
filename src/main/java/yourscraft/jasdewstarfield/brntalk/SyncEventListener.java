@@ -8,6 +8,9 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
+import yourscraft.jasdewstarfield.brntalk.data.ConversationLoadReport;
+import yourscraft.jasdewstarfield.brntalk.data.ConversationLoader;
 import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
@@ -16,11 +19,11 @@ import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
 import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @EventBusSubscriber(modid = Brntalk.MODID)
 public class SyncEventListener {
-
     public static void rebuildThreadsForPlayer(ServerPlayer player) {
         PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
 
@@ -62,11 +65,15 @@ public class SyncEventListener {
         if (event.getPlayer() == null) {
             // 情况 1：/reload，给所有玩家同步
             manager.clearAllThreads();
+            List<ServerPlayer> relevantPlayers = new ArrayList<>();
+            event.getRelevantPlayers().forEach(relevantPlayers::add);
             // 通过 getRelevantPlayers() 拿到要同步的玩家（/reload 时是所有在线玩家）
-            event.getRelevantPlayers().forEach(player -> {
+            relevantPlayers.forEach(player -> {
                 SyncEventListener.rebuildThreadsForPlayer(player);
                 TalkNetwork.syncThreadsTo(player);
             });
+            // Only the global /reload path should surface validation results.
+            notifyPrivilegedPlayersAboutValidationReport(relevantPlayers);
 
         } else {
             // 情况 2：某个玩家加入服务器时（OnDatapackSync 也会触发）
@@ -106,5 +113,62 @@ public class SyncEventListener {
         // 5. 同步
         SyncEventListener.rebuildThreadsForPlayer(player);
         TalkNetwork.syncThreadsTo(player);
+    }
+
+    private static void notifyPrivilegedPlayersAboutValidationReport(List<ServerPlayer> players) {
+        if (!BrntalkConfig.SERVER.sendValidationReportInGame.get()) {
+            return;
+        }
+
+        ConversationLoadReport report = ConversationLoader.getLastLoadReport();
+        if (!report.hasProblems()) {
+            return;
+        }
+
+        String summary = "[BRNTalk] Reload completed with validation issues: loaded "
+                + report.loadedConversations()
+                + " conversation(s), skipped "
+                + report.skippedConversations()
+                + " invalid conversation(s)";
+        if (report.failedFileCount() > 0) {
+            summary = summary + ", " + report.failedFileCount() + " file load failure(s)";
+        }
+        summary = summary + ".";
+
+        List<String> detailLines = new ArrayList<>();
+        for (ConversationLoadReport.InvalidConversation invalidConversation : report.invalidConversations()) {
+            for (String error : invalidConversation.errors()) {
+                detailLines.add("Script '" + invalidConversation.scriptId() + "': " + error);
+            }
+        }
+        for (ConversationLoadReport.FileLoadFailure fileLoadFailure : report.fileLoadFailures()) {
+            detailLines.add("File '" + fileLoadFailure.resourceId() + "': " + fileLoadFailure.summary());
+        }
+
+        // The full report is still in latest.log; chat only gets the first few
+        // detail lines plus a pointer to the log when needed.
+        int maxDetailLines = BrntalkConfig.SERVER.validationReportMaxDetailLines.get();
+        int remainingLines = Math.max(0, detailLines.size() - maxDetailLines);
+        int detailLinesToSend = Math.min(detailLines.size(), maxDetailLines);
+
+        for (ServerPlayer player : players) {
+            if (!player.hasPermissions(2)) {
+                continue;
+            }
+
+            player.sendSystemMessage(Component.literal(summary).withStyle(ChatFormatting.YELLOW));
+
+            for (int i = 0; i < detailLinesToSend; i++) {
+                player.sendSystemMessage(Component.literal("[BRNTalk] " + detailLines.get(i)).withStyle(ChatFormatting.RED));
+            }
+
+            if (remainingLines > 0) {
+                player.sendSystemMessage(Component.literal("[BRNTalk] ...and " + remainingLines + " more issue(s). Check latest.log for full details.")
+                        .withStyle(ChatFormatting.RED));
+            } else {
+                player.sendSystemMessage(Component.literal("[BRNTalk] Full validation details were written to latest.log.")
+                        .withStyle(ChatFormatting.GOLD));
+            }
+        }
     }
 }

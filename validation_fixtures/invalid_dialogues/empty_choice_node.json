@@ -1,0 +1,12 @@
+{
+  "id": "fixture_empty_choice_node",
+  "messages": [
+    {
+      "id": "start",
+      "type": "choice",
+      "speaker": "Guide",
+      "text": "This choice node has no options.",
+      "choices": []
+    }
+  ]
+}

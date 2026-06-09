@@ -1,0 +1,35 @@
+{
+  "id": "fixture_duplicate_choice_id",
+  "messages": [
+    {
+      "id": "start",
+      "type": "choice",
+      "speaker": "Guide",
+      "text": "Two options reuse the same id.",
+      "choices": [
+        {
+          "id": "option_a",
+          "text": "First option",
+          "nextId": "end_a"
+        },
+        {
+          "id": "option_a",
+          "text": "Second option with duplicate id",
+          "nextId": "end_b"
+        }
+      ]
+    },
+    {
+      "id": "end_a",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "End A."
+    },
+    {
+      "id": "end_b",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "End B."
+    }
+  ]
+}

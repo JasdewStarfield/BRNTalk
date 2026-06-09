@@ -6,6 +6,7 @@
 ## 功能概览
 
 - **JSON 对话脚本热重载**：脚本放在 `data/<namespace>/brntalk/dialogues/*.json`，支持 `/reload` 后重载。  
+- **严格脚本校验**：断链、重复 ID、空 choice、TEXT 自动推进死循环等严重错误会阻止该脚本被加载，并在 `/reload` 后向在线 OP 推送摘要。  
 - **对话线程系统**：每名玩家可维护多个会话线程，支持持久化和同步到客户端。  
 - **三种消息类型**：
   - `text`：普通文本消息
@@ -48,6 +49,8 @@
 /brntalk start test_demo
 ```
 
+该命令需要 2 级权限（通常为 OP）。
+
 ### 2) 打开 UI
 
 - 默认按键：`G`
@@ -69,6 +72,8 @@
 ---
 
 ## 指令说明（服务端）
+
+以下 `/brntalk` 服务端命令需要 2 级权限（通常为 OP）。
 
 ### 开启对话
 
@@ -141,6 +146,17 @@ data/<namespace>/brntalk/dialogues/*.json
   - `text`
   - `nextId`
 
+### 加载校验规则
+
+以下问题会被视为严重错误，并在 `/reload` 或服务器启动时阻止该对话脚本加载：
+
+- 消息 ID 重复
+- `choice` 消息没有任何选项
+- `nextId` 或选项 `nextId` 指向不存在的消息
+- `text` 节点之间形成无限自动推进循环
+
+如果 `/reload` 时存在这类错误，BRNTalk 会向在线的 2 级权限玩家发送游戏内摘要提示；完整错误仍会写入 `latest.log`。
+
 ### 示例
 
 ```json
@@ -201,6 +217,20 @@ BRNTalk 提供客户端配置，包含：
   - HUD 缩放、垂直偏移、安全上边距
 
 安装 Cloth Config 后，模组菜单会自动提供可视化配置页。
+
+---
+
+## 配置项（服务端）
+
+BRNTalk 还提供服务端配置，用于控制 `/reload` 后的校验提示行为：
+
+- `sendValidationReportInGame`
+  - 是否向在线的 2 级权限玩家发送校验摘要
+  - 默认值：`true`
+- `validationReportMaxDetailLines`
+  - 摘要之后最多额外发送多少条详情
+  - 设为 `0` 时只发送摘要，完整内容仅写入 `latest.log`
+  - 默认值：`5`
 
 ---
 
