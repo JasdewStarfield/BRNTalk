@@ -28,6 +28,8 @@ import static yourscraft.jasdewstarfield.brntalk.client.ui.TalkUIStyles.*;
 
 public class TalkScreen extends Screen {
 
+    private static final int LIST_PADDING = 2;
+
     private TalkThreadList threadList;
     private TalkThread selectedThread;
     private ChatWidget chatWidget;
@@ -47,6 +49,7 @@ public class TalkScreen extends Screen {
     private int winX, winY, winW, winH;
     private int innerX, innerY, innerW, innerH;
     private int listAreaX, listAreaW;
+    private int threadListX, threadListY, threadListW, threadListH;
     private int dividerX;
     private int chatAreaX, chatAreaW;
 
@@ -156,15 +159,18 @@ public class TalkScreen extends Screen {
         this.addWidget(this.closeButton);
 
         // 列表
-        int listPadding = 2;
         double listScroll = (this.threadList != null) ? this.threadList.getScrollAmount() : 0;
+        this.threadListX = listAreaX + LIST_PADDING;
+        this.threadListY = innerY + LIST_PADDING;
+        this.threadListW = listAreaW - (LIST_PADDING * 2);
+        this.threadListH = innerH - (LIST_PADDING * 2);
         this.threadList = new TalkThreadList(
                 this,
                 Minecraft.getInstance(),
-                listAreaX + listPadding,
-                innerY + listPadding,
-                listAreaW - (listPadding * 2),
-                innerH - (listPadding * 2)
+                threadListX,
+                threadListY,
+                threadListW,
+                threadListH
         );
         this.addRenderableWidget(this.threadList);
         // 更新左侧列表内容
@@ -334,6 +340,13 @@ public class TalkScreen extends Screen {
         rebuildUI();
     }
 
+    private void applyThreadListYOffset(int yOffset) {
+        if (this.threadList == null) {
+            return;
+        }
+        this.threadList.setListArea(threadListX, threadListY + yOffset, threadListW, threadListH);
+    }
+
     // ----- 渲染 -----
 
     @Override
@@ -432,21 +445,28 @@ public class TalkScreen extends Screen {
                     CHAIN_V_U, CHAIN_V_V, CHAIN_V_W, CHAIN_V_H, 0, - yOffset - rightChainOffset, texTotalW, texTotalH);
         }
 
-        // 临时移动
-        for (GuiEventListener child : this.children()) {
-            if (child instanceof AbstractWidget widget) {
-                if (widget == this.chainBoxButton) continue;
-                widget.setY(widget.getY() + yOffset);
+        /*
+         * 临时移动动态控件。TalkThreadList 不是 AbstractWidget，需要显式更新
+         * 自己的列表边界，否则左侧文字和滚动条不会参与开屏动画。
+         */
+        applyThreadListYOffset(yOffset);
+        try {
+            for (GuiEventListener child : this.children()) {
+                if (child instanceof AbstractWidget widget) {
+                    if (widget == this.chainBoxButton) continue;
+                    widget.setY(widget.getY() + yOffset);
+                }
             }
-        }
-        // 绘制背景和 Widgets (包含 ChatWidget 和 ThreadList)
-        super.render(gfx, mouseX, mouseY, partialTick);
-        // 恢复偏移
-        for (GuiEventListener child : this.children()) {
-            if (child instanceof AbstractWidget widget) {
-                if (widget == this.chainBoxButton) continue;
-                widget.setY(widget.getY() - yOffset);
+            // 绘制背景和 Widgets (包含 ChatWidget 和 ThreadList)
+            super.render(gfx, mouseX, mouseY, partialTick);
+        } finally {
+            for (GuiEventListener child : this.children()) {
+                if (child instanceof AbstractWidget widget) {
+                    if (widget == this.chainBoxButton) continue;
+                    widget.setY(widget.getY() - yOffset);
+                }
             }
+            applyThreadListYOffset(0);
         }
 
         gfx.pose().pushPose();

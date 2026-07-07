@@ -18,6 +18,11 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
     private final TalkScreen parent;
 
     private double targetScrollAmount = 0.0;
+    private boolean draggingCustomScrollbar = false;
+    private boolean draggingCustomScrollbarThumb = false;
+    private double customScrollbarGrabOffsetY = 0.0;
+    private double customScrollbarDragStartY = 0.0;
+    private double customScrollbarDragStartScroll = 0.0;
 
     /**
      * @param parent      TalkScreen
@@ -41,12 +46,29 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
 
         this.x0 = x;
         this.x1 = x + width;
+
+        /*
+         * AbstractSelectionList 的默认背景/遮罩会按原版列表假设盖住外层 UI。
+         * BRNTalk 在 TalkScreen 或本列表中自行绘制背景和选中态，因此统一关闭父类层。
+         */
+        this.setRenderBackground(false);
+        this.setRenderTopAndBottom(false);
+        this.setRenderSelection(false);
     }
 
     // 用于在重建 UI 时恢复滚动位置
     public void restoreScroll(double scroll) {
         this.setScrollAmount(scroll);
         this.targetScrollAmount = scroll;
+    }
+
+    public void setListArea(int x, int top, int width, int height) {
+        /*
+         * ObjectSelectionList 不是 AbstractWidget，开屏动画不能通过 setY 移动。
+         * 这里显式更新列表边界，让文字、滚动条、裁剪区域和鼠标命中一起移动。
+         */
+        this.updateSize(width, height, top, top + height);
+        this.setLeftPos(x);
     }
 
     // 重写鼠标判定区域，让滚动条能被选中
@@ -68,6 +90,77 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
         this.targetScrollAmount = Mth.clamp(this.targetScrollAmount, 0, maxScroll);
 
         return true;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
+        if (button != 0 || !this.isMouseOver(mouseX, mouseY)) {
+            return false;
+        }
+
+        if (isMouseOverCustomScrollbarThumb(mouseX, mouseY)) {
+            /*
+             * 原版列表只支持右侧滚动条命中。自定义 UI 把滚动条放在左侧，
+             * 因此点击/拖拽要由这里维护。按下时只记录抓取点，不立即
+             * 改变滚动位置；真正的滚动等鼠标拖动时再发生。
+             */
+            ScrollbarThumb thumb = getCustomScrollbarThumb();
+            this.draggingCustomScrollbar = true;
+            this.draggingCustomScrollbarThumb = true;
+            this.customScrollbarGrabOffsetY = mouseY - thumb.y();
+            return true;
+        }
+        if (isMouseOverCustomScrollbarTrack(mouseX, mouseY)) {
+            /*
+             * 槽位空白处也允许开始拖动，但单击本身不跳转。
+             * 这里记录按下点和当前滚动值，后续按鼠标位移增量滚动。
+             */
+            ScrollbarThumb thumb = getCustomScrollbarThumb();
+            if (thumb != null) {
+                this.draggingCustomScrollbar = true;
+                this.draggingCustomScrollbarThumb = false;
+                this.customScrollbarDragStartY = mouseY;
+                this.customScrollbarDragStartScroll = this.getScrollAmount();
+            }
+            return true;
+        }
+
+        Entry entry = this.getEntryAtPosition(mouseX, mouseY);
+        if (entry != null && entry.mouseClicked(mouseX, mouseY, button)) {
+            this.setFocused(entry);
+            this.setDragging(true);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get() && this.draggingCustomScrollbar && button == 0) {
+            if (this.draggingCustomScrollbarThumb) {
+                updateCustomScrollbarScroll(mouseY - this.customScrollbarGrabOffsetY);
+            } else {
+                updateCustomScrollbarScrollByDelta(mouseY - this.customScrollbarDragStartY);
+            }
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get() && this.draggingCustomScrollbar) {
+            this.draggingCustomScrollbar = false;
+            this.draggingCustomScrollbarThumb = false;
+            this.customScrollbarGrabOffsetY = 0.0;
+            this.customScrollbarDragStartY = 0.0;
+            this.customScrollbarDragStartScroll = 0.0;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
@@ -99,7 +192,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
         // 手动补画滚动条
         if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
             if (this.getMaxScroll() > 0) {
-                int scrollbarX = this.getScrollbarPosition();
+                int scrollbarX = this.getCustomScrollbarPosition();
                 int listHeight = this.getHeight();
                 int listY = this.y0;
 
@@ -124,16 +217,108 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
 
     @Override
     protected void renderBackground(@NotNull GuiGraphics guiGraphics) {
-        // 开启配置时才渲染
         if (BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
-            super.renderBackground(guiGraphics);
+            // 原版风格仍使用 BRNTalk 自己的半透明底色，避免父类 dirt 背景遮挡聊天 UI。
+            guiGraphics.fill(this.x0, this.y0, this.x1, this.y1, COLOR_VANILLA_BG);
         }
     }
 
     @Override
     protected int getScrollbarPosition() {
+        if (BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
+            /*
+             * 1.20.1 的默认实现只根据列表宽度计算位置，没有加上 x0。
+             * 这里把原版风格滚动条放回当前列表右边界内侧。
+             */
+            return this.x1 - 6;
+        }
+        /*
+         * 父类会无条件绘制一条黑白默认滚动条，而且命中测试假定条目在滚动条左边。
+         * 自定义 UI 使用左侧贴图滚动条，所以把父类滚动条移出屏幕，只保留自绘版本。
+         */
+        return this.x1 + 1000;
+    }
+
+    private int getCustomScrollbarPosition() {
         return this.x0 - 3;
     }
+
+    private boolean isMouseOverCustomScrollbarTrack(double mouseX, double mouseY) {
+        if (this.getMaxScroll() <= 0) {
+            return false;
+        }
+        int scrollbarX = getCustomScrollbarPosition();
+        return mouseX >= scrollbarX
+                && mouseX < scrollbarX + DECO_SCROLL_BAR_W
+                && mouseY >= this.y0
+                && mouseY <= this.y1;
+    }
+
+    private boolean isMouseOverCustomScrollbarThumb(double mouseX, double mouseY) {
+        ScrollbarThumb thumb = getCustomScrollbarThumb();
+        return thumb != null
+                && mouseX >= thumb.x()
+                && mouseX < thumb.x() + thumb.width()
+                && mouseY >= thumb.y()
+                && mouseY < thumb.y() + thumb.height();
+    }
+
+    private ScrollbarThumb getCustomScrollbarThumb() {
+        int maxScroll = this.getMaxScroll();
+        if (maxScroll <= 0) {
+            return null;
+        }
+
+        int listHeight = this.getHeight();
+        int totalHeight = maxScroll + listHeight;
+        int barHeight = (int) ((float) (listHeight * listHeight) / (float) totalHeight);
+        barHeight = Mth.clamp(barHeight, DECO_SCROLL_BAR_H, listHeight);
+
+        int barY = this.y0 + (int) ((this.getScrollAmount() / (float) maxScroll) * (listHeight - barHeight));
+        return new ScrollbarThumb(getCustomScrollbarPosition(), barY, DECO_SCROLL_BAR_W, barHeight);
+    }
+
+    private void updateCustomScrollbarScroll(double targetThumbY) {
+        int maxScroll = this.getMaxScroll();
+        if (maxScroll <= 0) {
+            return;
+        }
+
+        ScrollbarThumb thumb = getCustomScrollbarThumb();
+        if (thumb == null) {
+            return;
+        }
+
+        int listHeight = this.getHeight();
+        int barHeight = thumb.height();
+        double movableHeight = Math.max(1, listHeight - barHeight);
+        double ratio = (targetThumbY - this.y0) / movableHeight;
+        ratio = Mth.clamp(ratio, 0.0, 1.0);
+
+        this.targetScrollAmount = ratio * maxScroll;
+        super.setScrollAmount(this.targetScrollAmount);
+    }
+
+    private void updateCustomScrollbarScrollByDelta(double dragDeltaY) {
+        int maxScroll = this.getMaxScroll();
+        if (maxScroll <= 0) {
+            return;
+        }
+
+        ScrollbarThumb thumb = getCustomScrollbarThumb();
+        if (thumb == null) {
+            return;
+        }
+
+        int listHeight = this.getHeight();
+        double movableHeight = Math.max(1, listHeight - thumb.height());
+        double scrollDelta = (dragDeltaY / movableHeight) * maxScroll;
+
+        this.targetScrollAmount = Mth.clamp(this.customScrollbarDragStartScroll + scrollDelta, 0.0, maxScroll);
+        super.setScrollAmount(this.targetScrollAmount);
+    }
+
+    private record ScrollbarThumb(int x, int y, int width, int height) {}
 
 
     @Override

@@ -219,3 +219,33 @@ Target:
 - Rejoin restores dialogue history and unread state.
 - HUD, Toast, and full talk screen all receive network updates.
 - Optional open button behavior stays compatible with JEI and FTB Library.
+
+## Backport Patch Ledger
+
+Use this section to mark fixes discovered while testing the Forge 1.20.1 branch. Keep the entries small enough that future sync work can decide whether to cherry-pick, reimplement, or leave branch-local.
+
+### Portable Boundary Changes
+
+These are good candidates for a separate commit that can be cherry-picked to `mc/1.21.1-neoforge` before branch-specific implementations diverge.
+
+- `SyncEventListener` should not directly know how legacy player data is migrated. Route login-time migration through `BrntalkPlatform.migrateLegacyTalkStateOnLogin(player)`.
+- The Forge 1.20.1 implementation of that platform method is intentionally a no-op because this branch already uses `SavedData` as the live backend. The NeoForge 1.21.1 branch can keep the real SavedData-to-attachment migration behind the same method.
+
+### Forge 1.20.1 Local Fixes
+
+These should not be blindly cherry-picked. Re-check the target branch's Minecraft/loader behavior first.
+
+- `src/main/resources/pack.mcmeta` uses `pack_format: 15`, which is specific to Minecraft 1.20.1 resources.
+- `tools/debug/DebugTools.Common.ps1` writes a debug datapack with `pack_format: 15`; the NeoForge 1.21.1 branch should keep its own matching value.
+- `TalkThreadList` works around Minecraft 1.20.1 `AbstractSelectionList` behavior:
+  - default background/top-bottom overlays cover BRNTalk's own UI layers;
+  - default scrollbar positioning does not include this list's `x0`;
+  - default row hit testing assumes the scrollbar is on the right side of the row area;
+  - `ObjectSelectionList` is not an `AbstractWidget`, so the opening animation must update its list bounds explicitly.
+- The left custom scrollbar interaction is branch-local UI glue unless the same visual bug appears in the newer branch. If it is ported, verify drag/click behavior in-game instead of relying on API similarity.
+
+### Suggested Commit Split For Current Test Fixes
+
+1. Portable platform boundary: `SyncEventListener` migration call plus `BrntalkPlatform.migrateLegacyTalkStateOnLogin`.
+2. Forge resource metadata: `pack.mcmeta` and debug datapack `pack_format`.
+3. Forge/MC 1.20.1 UI compatibility: `TalkThreadList` and `TalkScreen` list-animation fixes.
