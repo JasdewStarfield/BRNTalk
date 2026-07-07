@@ -1,4 +1,4 @@
-package yourscraft.jasdewstarfield.brntalk.client;
+package yourscraft.jasdewstarfield.brntalk.platform;
 
 import com.mojang.brigadier.Command;
 import net.minecraft.client.Minecraft;
@@ -8,35 +8,46 @@ import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.neoforge.client.event.*;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
+import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.common.NeoForge;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
+import yourscraft.jasdewstarfield.brntalk.client.ClientKeyRegistry;
+import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkHud;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkScreen;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.OpenButton;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 
-public class ClientInit {
-
-    private ClientInit() {}
-
-    public static void init(IEventBus modEventBus) {
-        modEventBus.addListener(ClientInit::onClientSetup);
-        modEventBus.addListener(ClientInit::onRegisterKeyMappings);
-        modEventBus.addListener(ClientInit::onRegisterClientReloadListeners);
-        modEventBus.addListener(ClientInit::onRegisterGuiLayers);
-        NeoForge.EVENT_BUS.addListener(ClientInit::onClientTick);
-        NeoForge.EVENT_BUS.addListener(ClientInit::onScreenInit);
-        NeoForge.EVENT_BUS.addListener(ClientInit::onRegisterClientCommands);
+public final class PlatformClientHooks {
+    private PlatformClientHooks() {
     }
 
-    public static void onClientSetup(FMLClientSetupEvent event) {
+    public static void register(IEventBus modEventBus) {
+        /*
+         * 集中注册 NeoForge 客户端事件
+         * Forge 分支替换这个类即可保留 UI 逻辑
+         */
+        modEventBus.addListener(PlatformClientHooks::onClientSetup);
+        modEventBus.addListener(PlatformClientHooks::onRegisterKeyMappings);
+        modEventBus.addListener(PlatformClientHooks::onRegisterClientReloadListeners);
+        modEventBus.addListener(PlatformClientHooks::onRegisterGuiLayers);
+        NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onClientTick);
+        NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onScreenInit);
+        NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onRegisterClientCommands);
+    }
+
+    private static void onClientSetup(FMLClientSetupEvent event) {
         Brntalk.LOGGER.info("[BRNTalk] HELLO FROM CLIENT SETUP");
     }
 
     private static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
-        ClientKeyRegistry.registerKeyMappings(event);
+        event.register(ClientKeyRegistry.createOpenScreenKeyMapping());
     }
 
     private static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
@@ -48,7 +59,7 @@ public class ClientInit {
     }
 
     private static void onClientTick(ClientTickEvent.Post event) {
-        ClientKeyRegistry.onClientTick(event);
+        ClientKeyRegistry.onClientTick();
         if (Minecraft.getInstance().player != null) {
             TalkHud.tick();
         }
@@ -66,18 +77,19 @@ public class ClientInit {
     }
 
     private static void onScreenInit(ScreenEvent.Init.Post event) {
-        // FTB Library Integration
-        // 当 FTB Library 加载时，使用它的 Sidebar Buttons 注册
         if (ModList.get().isLoaded("ftblibrary") || !BrntalkConfig.CLIENT.displayOpenButton.get()) {
             return;
         }
 
-        // 检查当前屏幕是否为容器类屏幕
+        /*
+         * 只在容器界面添加按钮
+         * 避免普通菜单和全屏 UI 被额外按钮干扰
+         */
         if (event.getScreen() instanceof AbstractContainerScreen<?>) {
             int btnX = BrntalkConfig.CLIENT.openButtonX.get();
             int btnY = BrntalkConfig.CLIENT.openButtonY.get();
 
-            OpenButton openButton = new OpenButton(btnX, btnY, button -> ClientPayloadSender.requestOpenTalk());
+            OpenButton openButton = new OpenButton(btnX, btnY, button -> TalkNetworking.requestOpenTalk());
             event.addListener(openButton);
         }
     }
@@ -86,10 +98,10 @@ public class ClientInit {
         event.getDispatcher().register(
                 Commands.literal("brntalk")
                         .then(Commands.literal("open_ui")
-                            .executes(context -> {
-                                ClientPayloadSender.requestOpenTalk();
-                                return Command.SINGLE_SUCCESS;
-                            })
+                                .executes(context -> {
+                                    TalkNetworking.requestOpenTalk();
+                                    return Command.SINGLE_SUCCESS;
+                                })
                         )
         );
     }

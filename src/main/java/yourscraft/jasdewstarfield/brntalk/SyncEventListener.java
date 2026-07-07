@@ -13,7 +13,8 @@ import yourscraft.jasdewstarfield.brntalk.data.ConversationLoadReport;
 import yourscraft.jasdewstarfield.brntalk.data.ConversationLoader;
 import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
-import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
+import yourscraft.jasdewstarfield.brntalk.platform.BrntalkPlatform;
+import yourscraft.jasdewstarfield.brntalk.platform.TalkNetworking;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
@@ -25,7 +26,7 @@ import java.util.List;
 @EventBusSubscriber(modid = Brntalk.MODID)
 public class SyncEventListener {
     public static void rebuildThreadsForPlayer(ServerPlayer player) {
-        PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
+        PlayerTalkState state = BrntalkPlatform.getTalkState(player);
 
         if (state.getThreadIds().isEmpty()) {
             return;
@@ -70,7 +71,7 @@ public class SyncEventListener {
             // 通过 getRelevantPlayers() 拿到要同步的玩家（/reload 时是所有在线玩家）
             relevantPlayers.forEach(player -> {
                 SyncEventListener.rebuildThreadsForPlayer(player);
-                TalkNetwork.syncThreadsTo(player);
+                TalkNetworking.syncThreadsTo(player);
             });
             // Only the global /reload path should surface validation results.
             notifyPrivilegedPlayersAboutValidationReport(relevantPlayers);
@@ -80,7 +81,7 @@ public class SyncEventListener {
             ServerPlayer player = event.getPlayer();
             manager.clearThreadsForPlayer(player.getUUID());
             SyncEventListener.rebuildThreadsForPlayer(player);
-            TalkNetwork.syncThreadsTo(player);
+            TalkNetworking.syncThreadsTo(player);
         }
     }
 
@@ -101,7 +102,7 @@ public class SyncEventListener {
         if (oldState != null) {
             // 3. 将旧数据覆盖到新的 Attachment 中
             // Data Attachments 的 setData 会直接替换对象
-            player.setData(BrntalkRegistries.PLAYER_TALK_STATE, oldState);
+            BrntalkPlatform.setTalkState(player, oldState);
 
             // 4. 从旧的全局数据中移除该玩家，防止重复迁移
             oldGlobalData.removeAllThread(player.getUUID());
@@ -112,7 +113,7 @@ public class SyncEventListener {
 
         // 5. 同步
         SyncEventListener.rebuildThreadsForPlayer(player);
-        TalkNetwork.syncThreadsTo(player);
+        TalkNetworking.syncThreadsTo(player);
     }
 
     private static void notifyPrivilegedPlayersAboutValidationReport(List<ServerPlayer> players) {
