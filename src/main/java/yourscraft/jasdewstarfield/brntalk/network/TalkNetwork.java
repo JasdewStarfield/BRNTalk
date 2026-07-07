@@ -10,18 +10,16 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.handling.IPayloadHandler;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
-import yourscraft.jasdewstarfield.brntalk.BrntalkRegistries;
 import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadHandler;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
-import yourscraft.jasdewstarfield.brntalk.event.PlayerSeenMessageEvent;
+import yourscraft.jasdewstarfield.brntalk.platform.BrntalkPlatform;
+import yourscraft.jasdewstarfield.brntalk.platform.TalkNetworking;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
@@ -154,8 +152,8 @@ public class TalkNetwork {
         if (!(context.player() instanceof ServerPlayer serverPlayer)) {
             return;
         }
-        TalkNetwork.syncThreadsTo(serverPlayer);
-        PacketDistributor.sendToPlayer(serverPlayer, new OpenTalkScreenPayload());
+        TalkNetworking.syncThreadsTo(serverPlayer);
+        TalkNetworking.sendOpenTalkScreen(serverPlayer);
     }
 
     public static void handleSelectChoice(final SelectChoicePayload payload,
@@ -198,17 +196,17 @@ public class TalkNetwork {
         if (!newMsgs.isEmpty()) {
             List<String> newIds = newMsgs.stream().map(TalkMessage::getId).toList();
             // 4. 保存到存档 (批量追加)
-            PlayerTalkState state = serverPlayer.getData(BrntalkRegistries.PLAYER_TALK_STATE);
+            PlayerTalkState state = BrntalkPlatform.getTalkState(serverPlayer);
             state.appendMessages(threadId, newIds);
 
             // 5. 触发 PlayerSeenMessageEvent 事件
             String scriptId = thread.getScriptId();
             for (String msgId : newIds) {
-                NeoForge.EVENT_BUS.post(new PlayerSeenMessageEvent(serverPlayer, scriptId, msgId));
+                BrntalkPlatform.postPlayerSeenMessage(serverPlayer, scriptId, msgId);
             }
 
             // 6. 同步给客户端
-            TalkNetwork.sendAppendMessages(serverPlayer, threadId, newMsgs);
+            TalkNetworking.sendAppendMessages(serverPlayer, threadId, newMsgs);
         }
     }
 
@@ -219,7 +217,7 @@ public class TalkNetwork {
             String threadId = payload.threadId();
             long now = System.currentTimeMillis();
 
-            PlayerTalkState state = serverPlayer.getData(BrntalkRegistries.PLAYER_TALK_STATE);
+            PlayerTalkState state = BrntalkPlatform.getTalkState(serverPlayer);
             state.updateLastReadTime(threadId, now);
 
             TalkManager manager = TalkManager.getInstance();
@@ -229,40 +227,25 @@ public class TalkNetwork {
             }
 
             // 更新完 NBT 后，同步回客户端
-            TalkNetwork.sendUpdateState(serverPlayer, threadId, now);
+            TalkNetworking.sendUpdateState(serverPlayer, threadId, now);
         });
     }
 
-    // 全量同步
+    // 保留旧入口，避免外部调用方在迁移期间立刻断裂。
     public static void syncThreadsTo(ServerPlayer player) {
-        var threads = TalkManager.getInstance().getActiveThreads(player.getUUID());
-
-        List<PayloadSync.NetThread> netThreads = threads.stream()
-                .map(PayloadSync.NetThread::fromThread)
-                .toList();
-
-        PacketDistributor.sendToPlayer(player, new PayloadSync.SyncThreadsPayload(netThreads));
+        TalkNetworking.syncThreadsTo(player);
     }
 
-    // 新线程同步
     public static void sendAddThread(ServerPlayer player, TalkThread thread) {
-        PayloadSync.NetThread netThread = PayloadSync.NetThread.fromThread(thread);
-        PacketDistributor.sendToPlayer(player, new PayloadSync.AddThreadPayload(netThread));
+        TalkNetworking.sendAddThread(player, thread);
     }
 
-    // 增量消息同步
     public static void sendAppendMessages(ServerPlayer player, String threadId, List<TalkMessage> newMessages) {
-        if (newMessages.isEmpty()) return;
-
-        List<PayloadSync.NetMessage> netMsgs = newMessages.stream()
-                .map(PayloadSync.NetMessage::fromMessage)
-                .toList();
-
-        PacketDistributor.sendToPlayer(player, new PayloadSync.AppendMessagesPayload(threadId, netMsgs));
+        TalkNetworking.sendAppendMessages(player, threadId, newMessages);
     }
 
     public static void sendUpdateState(ServerPlayer player, String threadId, long lastReadTime) {
-        PacketDistributor.sendToPlayer(player, new PayloadSync.UpdateStatePayload(threadId, lastReadTime));
+        TalkNetworking.sendUpdateState(player, threadId, lastReadTime);
     }
 
     /**

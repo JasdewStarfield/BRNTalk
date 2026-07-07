@@ -1,10 +1,9 @@
 package yourscraft.jasdewstarfield.brntalk;
 
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.common.NeoForge;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
-import yourscraft.jasdewstarfield.brntalk.event.PlayerSeenMessageEvent;
-import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
+import yourscraft.jasdewstarfield.brntalk.platform.BrntalkPlatform;
+import yourscraft.jasdewstarfield.brntalk.platform.TalkNetworking;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
@@ -41,7 +40,7 @@ public class BrntalkAPI {
         }
 
         // 2. 写入玩家数据 (NBT)
-        PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
+        PlayerTalkState state = BrntalkPlatform.getTalkState(player);
 
         List<String> allMsgIds = thread.getMessages().stream()
                 .map(TalkMessage::getId)
@@ -59,12 +58,12 @@ public class BrntalkAPI {
 
             // 3. 触发事件
             for (String msgId : allMsgIds) {
-                NeoForge.EVENT_BUS.post(new PlayerSeenMessageEvent(player, scriptId, msgId));
+                BrntalkPlatform.postPlayerSeenMessage(player, scriptId, msgId);
             }
         }
 
         // 4. 同步网络包给客户端
-        TalkNetwork.sendAddThread(player, thread);
+        TalkNetworking.sendAddThread(player, thread);
 
         return true;
     }
@@ -81,21 +80,21 @@ public class BrntalkAPI {
         }
 
         // 1. 清除存档
-        PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
+        PlayerTalkState state = BrntalkPlatform.getTalkState(player);
 
         if (state.getThreadIds().isEmpty()) {
             return false;
         }
 
         // 直接设置一个新的空状态对象来清除所有数据
-        player.setData(BrntalkRegistries.PLAYER_TALK_STATE, new PlayerTalkState());
+        BrntalkPlatform.setTalkState(player, new PlayerTalkState());
 
         // 2. 清除运行时内存
         TalkManager manager = TalkManager.getInstance();
         manager.clearThreadsForPlayer(player.getUUID());
 
         // 3. 同步状态
-        TalkNetwork.syncThreadsTo(player);
+        TalkNetworking.syncThreadsTo(player);
 
         return true;
     }
@@ -113,7 +112,7 @@ public class BrntalkAPI {
         }
 
         // 1. 查找所有属于该 scriptId 的 threadId
-        PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
+        PlayerTalkState state = BrntalkPlatform.getTalkState(player);
 
         if (state.getThreadIds().isEmpty()) return false;
 
@@ -137,7 +136,7 @@ public class BrntalkAPI {
         }
 
         // 3. 同步状态
-        TalkNetwork.syncThreadsTo(player);
+        TalkNetworking.syncThreadsTo(player);
 
         return true;
     }
@@ -156,7 +155,7 @@ public class BrntalkAPI {
             return false;
         }
 
-        PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
+        PlayerTalkState state = BrntalkPlatform.getTalkState(player);
         return state.hasSeenMessage(scriptId, messageId);
     }
 
@@ -174,7 +173,7 @@ public class BrntalkAPI {
         TalkManager manager = TalkManager.getInstance();
 
         // 获取玩家存档数据
-        PlayerTalkState state = player.getData(BrntalkRegistries.PLAYER_TALK_STATE);
+        PlayerTalkState state = BrntalkPlatform.getTalkState(player);
         if (state.getThreadIds().isEmpty()) return 0;
 
         List<String> targetThreadIds = new ArrayList<>();
@@ -221,10 +220,10 @@ public class BrntalkAPI {
 
                 // 触发事件
                 for (String msgId : newIds) {
-                    NeoForge.EVENT_BUS.post(new PlayerSeenMessageEvent(player, scriptId, msgId));
+                    BrntalkPlatform.postPlayerSeenMessage(player, scriptId, msgId);
                 }
 
-                TalkNetwork.sendAppendMessages(player, tid, newMsgs);
+                TalkNetworking.sendAppendMessages(player, tid, newMsgs);
                 successCount++;
             }
         }

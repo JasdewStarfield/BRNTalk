@@ -8,10 +8,10 @@ import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.ChainBoxButton;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.CloseButton;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
-import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadSender;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
+import yourscraft.jasdewstarfield.brntalk.platform.TalkNetworking;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -315,7 +315,7 @@ public class TalkScreen extends Screen {
         String threadId = this.selectedThread.getId();
         String choiceId = choice.getId();
 
-        ClientPayloadSender.sendSelectChoice(threadId, choiceId);
+        TalkNetworking.sendSelectChoice(threadId, choiceId);
     }
 
     public void onThreadsSynced() {
@@ -535,7 +535,7 @@ public class TalkScreen extends Screen {
 
             // 标记已读
             if (isFinished && ClientTalkState.get().hasUnread(this.selectedThread)) {
-                ClientPayloadSender.sendMarkRead(this.selectedThread.getId());
+                TalkNetworking.sendMarkRead(this.selectedThread.getId());
                 this.selectedThread.setLastReadTime(System.currentTimeMillis());
             }
         }
