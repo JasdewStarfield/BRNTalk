@@ -40,16 +40,12 @@ function Ensure-BrntalkDirectory {
 }
 
 function Get-BrntalkDebugPackMetaJson {
-    # This pack metadata matches the current NeoForge/Minecraft 1.21.1 runtime.
+    # This pack metadata matches the Forge/Minecraft 1.20.1 runtime used by this worktree.
     return @'
 {
   "pack": {
     "description": "BRNTalk debug datapack",
-    "pack_format": 48,
-    "supported_formats": [
-      0,
-      2147483647
-    ]
+    "pack_format": 15
   }
 }
 '@
