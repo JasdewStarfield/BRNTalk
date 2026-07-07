@@ -59,7 +59,7 @@ public class TalkThread {
 
     public TalkMessage getCurrentMessage() {
         if (messages.isEmpty()) return null;
-        return messages.getLast();
+        return messages.get(messages.size() - 1);
     }
 
     public String getLastMessagePreview() {
@@ -73,7 +73,7 @@ public class TalkThread {
             return this.startTime;
         }
 
-        TalkMessage last = messages.getLast();
+        TalkMessage last = messages.get(messages.size() - 1);
 
         // 核心逻辑：
         // 1. 如果是实时新消息，last.getTimestamp() 是当前时间，肯定比 startTime 大 -> 返回新时间（顶到最前）

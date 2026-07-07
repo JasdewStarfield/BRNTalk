@@ -48,7 +48,7 @@ public class BrntalkAPI {
 
         if (!allMsgIds.isEmpty()) {
             // 1. 存第一条 (创建线程结构)
-            state.startThread(thread.getId(), scriptId, allMsgIds.getFirst());
+            state.startThread(thread.getId(), scriptId, allMsgIds.get(0));
 
             // 2. 如果还有后续，批量追加
             if (allMsgIds.size() > 1) {
