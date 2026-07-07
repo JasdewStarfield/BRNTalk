@@ -1,7 +1,9 @@
 package yourscraft.jasdewstarfield.brntalk.platform;
 
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
+import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
 
 public final class BrntalkPlatform {
     private BrntalkPlatform() {
@@ -13,8 +15,27 @@ public final class BrntalkPlatform {
     }
 
     public static void setTalkState(ServerPlayer player, PlayerTalkState state) {
-        // Forge 1.20.1 can replace this backend without touching dialogue logic.
+        // Replace the concrete player-state backend without touching dialogue logic.
         TalkStateStorage.set(player, state);
+    }
+
+    @SuppressWarnings("deprecation")
+    public static boolean migrateLegacyTalkStateOnLogin(ServerPlayer player) {
+        /*
+         * NeoForge stores live player state in data attachments. Older worlds may still
+         * contain the pre-attachment SavedData, so migrate it once on login.
+         */
+        ServerLevel level = player.serverLevel();
+        TalkWorldData oldGlobalData = TalkWorldData.get(level);
+        PlayerTalkState oldState = oldGlobalData.get(player.getUUID());
+
+        if (oldState == null) {
+            return false;
+        }
+
+        setTalkState(player, oldState);
+        oldGlobalData.removeAllThread(player.getUUID());
+        return true;
     }
 
     public static void postPlayerSeenMessage(ServerPlayer player, String scriptId, String messageId) {
