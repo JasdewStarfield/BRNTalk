@@ -5,17 +5,17 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
-import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
-import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
-import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
-import net.neoforged.neoforge.common.NeoForge;
+import net.minecraftforge.client.event.RegisterClientCommandsEvent;
+import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
+import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
+import net.minecraftforge.client.event.ScreenEvent;
+import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.client.ClientKeyRegistry;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
@@ -30,16 +30,16 @@ public final class PlatformClientHooks {
 
     public static void register(IEventBus modEventBus) {
         /*
-         * 集中注册 NeoForge 客户端事件
-         * Forge 分支替换这个类即可保留 UI 逻辑
+         * 集中注册 Forge 客户端事件。
+         * UI 类只暴露渲染和状态方法，具体事件签名留在平台层适配。
          */
         modEventBus.addListener(PlatformClientHooks::onClientSetup);
         modEventBus.addListener(PlatformClientHooks::onRegisterKeyMappings);
         modEventBus.addListener(PlatformClientHooks::onRegisterClientReloadListeners);
-        modEventBus.addListener(PlatformClientHooks::onRegisterGuiLayers);
-        NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onClientTick);
-        NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onScreenInit);
-        NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onRegisterClientCommands);
+        modEventBus.addListener(PlatformClientHooks::onRegisterGuiOverlays);
+        MinecraftForge.EVENT_BUS.addListener(PlatformClientHooks::onClientTick);
+        MinecraftForge.EVENT_BUS.addListener(PlatformClientHooks::onScreenInit);
+        MinecraftForge.EVENT_BUS.addListener(PlatformClientHooks::onRegisterClientCommands);
     }
 
     private static void onClientSetup(FMLClientSetupEvent event) {
@@ -50,15 +50,18 @@ public final class PlatformClientHooks {
         event.register(ClientKeyRegistry.createOpenScreenKeyMapping());
     }
 
-    private static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
+    private static void onRegisterGuiOverlays(RegisterGuiOverlaysEvent event) {
         event.registerAbove(
-                VanillaGuiLayers.CHAT,
-                TalkHud.LAYER_ID,
-                TalkHud::render
+                VanillaGuiOverlay.CHAT_PANEL.id(),
+                "brntalk_hud",
+                (gui, gfx, partialTick, screenWidth, screenHeight) -> TalkHud.render(gfx, partialTick)
         );
     }
 
-    private static void onClientTick(ClientTickEvent.Post event) {
+    private static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         ClientKeyRegistry.onClientTick();
         if (Minecraft.getInstance().player != null) {
             TalkHud.tick();

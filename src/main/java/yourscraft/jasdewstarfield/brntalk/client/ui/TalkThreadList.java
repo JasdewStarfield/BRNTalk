@@ -35,11 +35,12 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
                           int width,
                           int height
     ) {
-        super(mc, width, height, top, THREAD_LIST_ENTRY_HEIGHT);
+        super(mc, width, height, top, top + height, THREAD_LIST_ENTRY_HEIGHT);
 
         this.parent = parent;
 
-        this.setX(x);
+        this.x0 = x;
+        this.x1 = x + width;
     }
 
     // 用于在重建 UI 时恢复滚动位置
@@ -51,12 +52,12 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
     // 重写鼠标判定区域，让滚动条能被选中
     @Override
     public boolean isMouseOver(double mouseX, double mouseY) {
-        return mouseY >= this.getY() && mouseY <= this.getY() + this.getHeight() &&
-                mouseX >= this.getX() - 3 && mouseX <= this.getX() + this.getWidth();
+        return mouseY >= this.y0 && mouseY <= this.y1 &&
+                mouseX >= this.x0 - 3 && mouseX <= this.x1;
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
         // 获取列表最大滚动范围
         double maxScroll = Math.max(0, this.getMaxScroll());
 
@@ -78,7 +79,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
 
     // 在渲染时进行平滑插值
     @Override
-    public void renderWidget(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
+    public void render(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
         double currentScroll = this.getScrollAmount();
         double maxScroll = Math.max(0, this.getMaxScroll());
 
@@ -93,14 +94,14 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
             super.setScrollAmount(this.targetScrollAmount);
         }
 
-        super.renderWidget(gfx, mouseX, mouseY, partialTick);
+        super.render(gfx, mouseX, mouseY, partialTick);
 
         // 手动补画滚动条
         if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
             if (this.getMaxScroll() > 0) {
                 int scrollbarX = this.getScrollbarPosition();
                 int listHeight = this.getHeight();
-                int listY = this.getY();
+                int listY = this.y0;
 
                 ClientTalkUtils.drawCustomScrollbar(gfx,
                         scrollbarX,
@@ -122,32 +123,16 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
     }
 
     @Override
-    protected void renderListBackground(@NotNull GuiGraphics guiGraphics) {
+    protected void renderBackground(@NotNull GuiGraphics guiGraphics) {
         // 开启配置时才渲染
         if (BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
-            super.renderListBackground(guiGraphics);
+            super.renderBackground(guiGraphics);
         }
-    }
-
-    @Override
-    protected void renderListSeparators(@NotNull GuiGraphics guiGraphics) {
-        // 开启配置时才渲染
-        if (BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
-            super.renderListSeparators(guiGraphics);
-        }
-    }
-
-    @Override
-    protected boolean scrollbarVisible() {
-        if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
-            return false;
-        }
-        return super.scrollbarVisible();
     }
 
     @Override
     protected int getScrollbarPosition() {
-        return this.getX() - 3;
+        return this.x0 - 3;
     }
 
 

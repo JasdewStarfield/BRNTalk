@@ -9,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 
 public class OpenButton extends Button {
-    private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "textures/gui/button/button_open.png");
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Brntalk.MODID, "textures/gui/button/button_open.png");
 
     private static final int BUTTON_SIZE = 16;
 

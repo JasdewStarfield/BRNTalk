@@ -1,9 +1,9 @@
 package yourscraft.jasdewstarfield.brntalk;
 
 import com.mojang.logging.LogUtils;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 import yourscraft.jasdewstarfield.brntalk.platform.PlatformModHooks;
 
@@ -13,12 +13,13 @@ public class Brntalk {
     public static final String MODID = "brntalk";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public Brntalk(IEventBus modEventBus, ModContainer modContainer) {
+    public Brntalk() {
         /*
-         * 主类只保留 loader 入口
-         * 实际注册逻辑放在平台层
+         * 主类只保留 Forge loader 入口。
+         * 实际注册逻辑放在平台层，方便和新版本分支保持共享逻辑一致。
          */
-        PlatformModHooks.register(modEventBus, modContainer);
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+        PlatformModHooks.register(modEventBus);
         LOGGER.info("[BRNTalk] Mod constructed");
     }
 }

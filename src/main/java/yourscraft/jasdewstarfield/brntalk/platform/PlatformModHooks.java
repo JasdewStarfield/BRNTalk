@@ -1,49 +1,52 @@
 package yourscraft.jasdewstarfield.brntalk.platform;
 
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.AddReloadListenerEvent;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
-import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.ConfigScreenHandler;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.AddReloadListenerEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.BrntalkCommands;
 import yourscraft.jasdewstarfield.brntalk.BrntalkRegistries;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.config.ClothConfigIntegration;
 import yourscraft.jasdewstarfield.brntalk.data.ConversationLoader;
+import yourscraft.jasdewstarfield.brntalk.network.TalkNetwork;
 
 public final class PlatformModHooks {
     private PlatformModHooks() {
     }
 
-    public static void register(IEventBus modEventBus, ModContainer modContainer) {
+    public static void register(IEventBus modEventBus) {
         /*
-         * 集中注册 NeoForge 启动 配置和通用事件
-         * Forge 分支替换这个类即可保留共享逻辑
+         * 集中注册 Forge 启动、配置和通用事件。
+         * 共享逻辑只调用 platform 包，不直接依赖 Forge API。
          */
-        modContainer.registerConfig(ModConfig.Type.CLIENT, BrntalkConfig.CLIENT_SPEC);
-        modContainer.registerConfig(ModConfig.Type.SERVER, BrntalkConfig.SERVER_SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, BrntalkConfig.CLIENT_SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, BrntalkConfig.SERVER_SPEC);
 
         modEventBus.addListener(PlatformModHooks::onCommonSetup);
         BrntalkRegistries.register(modEventBus);
-        NeoForge.EVENT_BUS.addListener(PlatformModHooks::onAddReloadListeners);
-        NeoForge.EVENT_BUS.addListener(PlatformModHooks::onServerStarting);
-        NeoForge.EVENT_BUS.addListener(PlatformModHooks::onRegisterCommands);
+        MinecraftForge.EVENT_BUS.addListener(PlatformModHooks::onAddReloadListeners);
+        MinecraftForge.EVENT_BUS.addListener(PlatformModHooks::onServerStarting);
+        MinecraftForge.EVENT_BUS.addListener(PlatformModHooks::onRegisterCommands);
 
         if (FMLEnvironment.dist == Dist.CLIENT) {
             PlatformClientHooks.register(modEventBus);
-            registerOptionalConfigScreen(modContainer);
+            registerOptionalConfigScreen();
         }
     }
 
     private static void onCommonSetup(final FMLCommonSetupEvent event) {
+        // Forge SimpleChannel 注册必须在通用启动阶段完成，避免客户端/服务端协议表不一致。
+        TalkNetwork.register();
         Brntalk.LOGGER.info("[BRNTalk] HELLO FROM COMMON SETUP");
     }
 
@@ -61,7 +64,7 @@ public final class PlatformModHooks {
         Brntalk.LOGGER.info("[BRNTalk] Reloading completed");
     }
 
-    private static void registerOptionalConfigScreen(ModContainer modContainer) {
+    private static void registerOptionalConfigScreen() {
         if (!ModList.get().isLoaded("cloth_config")) {
             return;
         }
@@ -70,9 +73,11 @@ public final class PlatformModHooks {
          * Cloth Config 是可选客户端集成
          * 未安装时不影响服务端和基础功能
          */
-        modContainer.registerExtensionPoint(
-                IConfigScreenFactory.class,
-                (container, parent) -> ClothConfigIntegration.createScreen(parent)
+        ModLoadingContext.get().registerExtensionPoint(
+                ConfigScreenHandler.ConfigScreenFactory.class,
+                () -> new ConfigScreenHandler.ConfigScreenFactory(
+                        (minecraft, parent) -> ClothConfigIntegration.createScreen(parent)
+                )
         );
         Brntalk.LOGGER.info("[BRNTalk] Cloth Config integration active");
     }

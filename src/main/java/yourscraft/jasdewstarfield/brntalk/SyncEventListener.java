@@ -4,10 +4,10 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.OnDatapackSyncEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.OnDatapackSyncEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.data.ConversationLoadReport;
 import yourscraft.jasdewstarfield.brntalk.data.ConversationLoader;
@@ -23,7 +23,7 @@ import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
 import java.util.ArrayList;
 import java.util.List;
 
-@EventBusSubscriber(modid = Brntalk.MODID)
+@Mod.EventBusSubscriber(modid = Brntalk.MODID)
 public class SyncEventListener {
     public static void rebuildThreadsForPlayer(ServerPlayer player) {
         PlayerTalkState state = BrntalkPlatform.getTalkState(player);
@@ -67,8 +67,8 @@ public class SyncEventListener {
             // 情况 1：/reload，给所有玩家同步
             manager.clearAllThreads();
             List<ServerPlayer> relevantPlayers = new ArrayList<>();
-            event.getRelevantPlayers().forEach(relevantPlayers::add);
-            // 通过 getRelevantPlayers() 拿到要同步的玩家（/reload 时是所有在线玩家）
+            event.getPlayerList().getPlayers().forEach(relevantPlayers::add);
+            // Forge 1.20.1 通过 PlayerList 拿到 /reload 后要同步的在线玩家。
             relevantPlayers.forEach(player -> {
                 SyncEventListener.rebuildThreadsForPlayer(player);
                 TalkNetworking.syncThreadsTo(player);
@@ -100,8 +100,8 @@ public class SyncEventListener {
         PlayerTalkState oldState = oldGlobalData.get(player.getUUID());
 
         if (oldState != null) {
-            // 3. 将旧数据覆盖到新的 Attachment 中
-            // Data Attachments 的 setData 会直接替换对象
+            // 3. 将旧数据覆盖到 Forge 分支的玩家状态后端中。
+            // 平台层负责决定具体存到 Capability 还是 SavedData。
             BrntalkPlatform.setTalkState(player, oldState);
 
             // 4. 从旧的全局数据中移除该玩家，防止重复迁移

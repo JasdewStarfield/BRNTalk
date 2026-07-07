@@ -1,7 +1,6 @@
 package yourscraft.jasdewstarfield.brntalk.client.ui;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
@@ -20,7 +19,7 @@ import static yourscraft.jasdewstarfield.brntalk.client.ui.TalkUIStyles.*;
 
 public class TalkHud {
 
-    public static final ResourceLocation LAYER_ID = ResourceLocation.fromNamespaceAndPath("brntalk", "hud");
+    public static final ResourceLocation LAYER_ID = new ResourceLocation("brntalk", "hud");
 
     // 配置常量
     private static final int MAX_DISPLAY_COUNT = 4;
@@ -80,7 +79,7 @@ public class TalkHud {
         // 计算开始时间：必须等上一条消息播完 + 暂停时间
         long startTime = now;
         if (!DISPLAY_QUEUE.isEmpty()) {
-            HudEntry lastAdded = DISPLAY_QUEUE.getFirst();
+            HudEntry lastAdded = DISPLAY_QUEUE.get(0);
             startTime = Math.max(now, lastAdded.visualEndTime + msgPause);
         }
 
@@ -130,7 +129,7 @@ public class TalkHud {
         }
     }
 
-    public static void render(GuiGraphics gfx, DeltaTracker deltaTracker) {
+    public static void render(GuiGraphics gfx, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.options.hideGui || mc.screen instanceof TalkScreen) return;
 

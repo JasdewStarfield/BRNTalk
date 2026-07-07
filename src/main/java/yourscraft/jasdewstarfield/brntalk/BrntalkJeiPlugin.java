@@ -6,7 +6,7 @@ import mezz.jei.api.registration.IGuiHandlerRegistration;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 
@@ -18,7 +18,7 @@ public class BrntalkJeiPlugin implements IModPlugin {
 
     @Override
     public @NotNull ResourceLocation getPluginUid() {
-        return ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "jei_plugin");
+        return new ResourceLocation(Brntalk.MODID, "jei_plugin");
     }
 
     @Override

@@ -1,20 +1,12 @@
 package yourscraft.jasdewstarfield.brntalk.network;
 
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
-import net.neoforged.neoforge.network.handling.IPayloadHandler;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
-import org.jetbrains.annotations.NotNull;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.simple.SimpleChannel;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadHandler;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
@@ -25,131 +17,87 @@ import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
 
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 
-@EventBusSubscriber(modid = Brntalk.MODID)
 public class TalkNetwork {
+    private static final String PROTOCOL_VERSION = "1";
 
-    public record RequestOpenTalkPayload() implements CustomPacketPayload {
-        public static final Type<RequestOpenTalkPayload> TYPE =
-                new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "request_open"));
+    public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
+            new ResourceLocation(Brntalk.MODID, "main"),
+            () -> PROTOCOL_VERSION,
+            PROTOCOL_VERSION::equals,
+            PROTOCOL_VERSION::equals
+    );
 
-        public static final StreamCodec<ByteBuf, RequestOpenTalkPayload> STREAM_CODEC =
-                StreamCodec.unit(new RequestOpenTalkPayload());
+    private static int packetId = 0;
 
-        @Override
-        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
-            return TYPE;
+    public record RequestOpenTalkPayload() {
+        public static void encode(RequestOpenTalkPayload payload, FriendlyByteBuf buf) {
+            // 空包：只表达客户端想打开对话界面的意图。
+        }
+
+        public static RequestOpenTalkPayload decode(FriendlyByteBuf buf) {
+            return new RequestOpenTalkPayload();
         }
     }
 
-    public record OpenTalkScreenPayload() implements CustomPacketPayload {
-        public static final Type<OpenTalkScreenPayload> TYPE =
-                new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "open_screen"));
+    public record OpenTalkScreenPayload() {
+        public static void encode(OpenTalkScreenPayload payload, FriendlyByteBuf buf) {
+            // 空包：服务端只通知客户端打开界面。
+        }
 
-        public static final StreamCodec<ByteBuf, OpenTalkScreenPayload> STREAM_CODEC =
-                StreamCodec.unit(new OpenTalkScreenPayload());
-
-        @Override
-        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
-            return TYPE;
+        public static OpenTalkScreenPayload decode(FriendlyByteBuf buf) {
+            return new OpenTalkScreenPayload();
         }
     }
 
-    public record SelectChoicePayload(String threadId, String choiceId) implements CustomPacketPayload {
-        public static final Type<SelectChoicePayload> TYPE =
-                new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "select_choice"));
+    public record SelectChoicePayload(String threadId, String choiceId) {
+        public static void encode(SelectChoicePayload payload, FriendlyByteBuf buf) {
+            buf.writeUtf(payload.threadId());
+            buf.writeUtf(payload.choiceId());
+        }
 
-        public static final StreamCodec<ByteBuf, SelectChoicePayload> STREAM_CODEC =
-                StreamCodec.composite(
-                        ByteBufCodecs.STRING_UTF8, SelectChoicePayload::threadId,
-                        ByteBufCodecs.STRING_UTF8, SelectChoicePayload::choiceId,
-                        SelectChoicePayload::new
-                );
-
-        @Override
-        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
-            return TYPE;
+        public static SelectChoicePayload decode(FriendlyByteBuf buf) {
+            return new SelectChoicePayload(buf.readUtf(), buf.readUtf());
         }
     }
 
-    public record MarkThreadReadPayload(String threadId) implements CustomPacketPayload {
+    public record MarkThreadReadPayload(String threadId) {
+        public static void encode(MarkThreadReadPayload payload, FriendlyByteBuf buf) {
+            buf.writeUtf(payload.threadId());
+        }
 
-        public static final Type<MarkThreadReadPayload> TYPE =
-                new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "mark_read"));
-
-        public static final StreamCodec<ByteBuf, MarkThreadReadPayload> STREAM_CODEC =
-                StreamCodec.composite(
-                        ByteBufCodecs.STRING_UTF8, MarkThreadReadPayload::threadId,
-                        MarkThreadReadPayload::new
-                );
-
-        @Override
-        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() { return TYPE; }
+        public static MarkThreadReadPayload decode(FriendlyByteBuf buf) {
+            return new MarkThreadReadPayload(buf.readUtf());
+        }
     }
 
-    @SubscribeEvent
-    public static void register(final RegisterPayloadHandlersEvent event) {
-        final PayloadRegistrar registrar = event.registrar("1");
+    public static void register() {
+        registerServerPacket(RequestOpenTalkPayload.class, RequestOpenTalkPayload::encode,
+                RequestOpenTalkPayload::decode, TalkNetwork::handleRequestOpenTalk);
+        registerServerPacket(SelectChoicePayload.class, SelectChoicePayload::encode,
+                SelectChoicePayload::decode, TalkNetwork::handleSelectChoice);
+        registerServerPacket(MarkThreadReadPayload.class, MarkThreadReadPayload::encode,
+                MarkThreadReadPayload::decode, TalkNetwork::handleMarkRead);
 
-        // 客户端 -> 服务端 的包
-        registrar.playToServer(
-                RequestOpenTalkPayload.TYPE,
-                RequestOpenTalkPayload.STREAM_CODEC,
-                TalkNetwork::handleRequestOpenTalk
-        );
-
-        registrar.playToServer(
-                SelectChoicePayload.TYPE,
-                SelectChoicePayload.STREAM_CODEC,
-                TalkNetwork::handleSelectChoice
-        );
-
-        registrar.playToServer(
-                MarkThreadReadPayload.TYPE,
-                MarkThreadReadPayload.STREAM_CODEC,
-                TalkNetwork::handleMarkRead
-        );
-
-        // 服务端 -> 客户端 的包
-        registerClientPacket(
-                registrar,
-                PayloadSync.SyncThreadsPayload.TYPE,
-                PayloadSync.SyncThreadsPayload.STREAM_CODEC,
-                ClientPacketDelegate::handleSyncThreads
-        );
-
-        registerClientPacket(
-                registrar,
-                PayloadSync.AddThreadPayload.TYPE,
-                PayloadSync.AddThreadPayload.STREAM_CODEC,
-                ClientPacketDelegate::handleAddThread
-        );
-
-        registerClientPacket(
-                registrar,
-                PayloadSync.AppendMessagesPayload.TYPE,
-                PayloadSync.AppendMessagesPayload.STREAM_CODEC,
-                ClientPacketDelegate::handleAppendMessages
-        );
-
-        registerClientPacket(
-                registrar,
-                PayloadSync.UpdateStatePayload.TYPE,
-                PayloadSync.UpdateStatePayload.STREAM_CODEC,
-                ClientPacketDelegate::handleUpdateState
-        );
-
-        registerClientPacket(
-                registrar,
-                OpenTalkScreenPayload.TYPE,
-                OpenTalkScreenPayload.STREAM_CODEC,
-                ClientPacketDelegate::handleOpenTalkScreen
-        );
+        registerClientPacket(PayloadSync.SyncThreadsPayload.class, PayloadSync.SyncThreadsPayload::encode,
+                PayloadSync.SyncThreadsPayload::decode, ClientPayloadHandler::handleSyncThreads);
+        registerClientPacket(PayloadSync.AddThreadPayload.class, PayloadSync.AddThreadPayload::encode,
+                PayloadSync.AddThreadPayload::decode, ClientPayloadHandler::handleAddThread);
+        registerClientPacket(PayloadSync.AppendMessagesPayload.class, PayloadSync.AppendMessagesPayload::encode,
+                PayloadSync.AppendMessagesPayload::decode, ClientPayloadHandler::handleAppendMessages);
+        registerClientPacket(PayloadSync.UpdateStatePayload.class, PayloadSync.UpdateStatePayload::encode,
+                PayloadSync.UpdateStatePayload::decode, ClientPayloadHandler::handleUpdateState);
+        registerClientPacket(OpenTalkScreenPayload.class, OpenTalkScreenPayload::encode,
+                OpenTalkScreenPayload::decode, ClientPayloadHandler::handleOpenTalkScreen);
     }
 
-    public static void handleRequestOpenTalk(final RequestOpenTalkPayload payload, final IPayloadContext context) {
-        // 这个 handler 只会在服务端逻辑侧被调用
-        if (!(context.player() instanceof ServerPlayer serverPlayer)) {
+    public static void handleRequestOpenTalk(final RequestOpenTalkPayload payload,
+                                             final Supplier<NetworkEvent.Context> contextSupplier) {
+        NetworkEvent.Context context = contextSupplier.get();
+        ServerPlayer serverPlayer = context.getSender();
+        if (serverPlayer == null) {
             return;
         }
         TalkNetworking.syncThreadsTo(serverPlayer);
@@ -157,9 +105,10 @@ public class TalkNetwork {
     }
 
     public static void handleSelectChoice(final SelectChoicePayload payload,
-                                          final IPayloadContext context) {
-        // 这个 handler 在服务端逻辑线程上调用
-        if (!(context.player() instanceof ServerPlayer serverPlayer)) {
+                                          final Supplier<NetworkEvent.Context> contextSupplier) {
+        NetworkEvent.Context context = contextSupplier.get();
+        ServerPlayer serverPlayer = context.getSender();
+        if (serverPlayer == null) {
             return;
         }
 
@@ -210,25 +159,26 @@ public class TalkNetwork {
         }
     }
 
-    public static void handleMarkRead(final MarkThreadReadPayload payload, final IPayloadContext context) {
-        if (!(context.player() instanceof ServerPlayer serverPlayer)) return;
+    public static void handleMarkRead(final MarkThreadReadPayload payload,
+                                      final Supplier<NetworkEvent.Context> contextSupplier) {
+        NetworkEvent.Context context = contextSupplier.get();
+        ServerPlayer serverPlayer = context.getSender();
+        if (serverPlayer == null) return;
 
-        context.enqueueWork(() -> {
-            String threadId = payload.threadId();
-            long now = System.currentTimeMillis();
+        String threadId = payload.threadId();
+        long now = System.currentTimeMillis();
 
-            PlayerTalkState state = BrntalkPlatform.getTalkState(serverPlayer);
-            state.updateLastReadTime(threadId, now);
+        PlayerTalkState state = BrntalkPlatform.getTalkState(serverPlayer);
+        state.updateLastReadTime(threadId, now);
 
-            TalkManager manager = TalkManager.getInstance();
-            TalkThread activeThread = manager.getActiveThread(serverPlayer.getUUID(), threadId);
-            if (activeThread != null) {
-                activeThread.setLastReadTime(now);
-            }
+        TalkManager manager = TalkManager.getInstance();
+        TalkThread activeThread = manager.getActiveThread(serverPlayer.getUUID(), threadId);
+        if (activeThread != null) {
+            activeThread.setLastReadTime(now);
+        }
 
-            // 更新完 NBT 后，同步回客户端
-            TalkNetworking.sendUpdateState(serverPlayer, threadId, now);
-        });
+        // 更新完 NBT 后，同步回客户端
+        TalkNetworking.sendUpdateState(serverPlayer, threadId, now);
     }
 
     // 保留旧入口，避免外部调用方在迁移期间立刻断裂。
@@ -248,41 +198,43 @@ public class TalkNetwork {
         TalkNetworking.sendUpdateState(player, threadId, lastReadTime);
     }
 
-    /**
-     * 辅助方法：安全地注册客户端包
-     * 如果是客户端，使用提供的 realHandler；
-     * 如果是服务端，注册一个空 Handler (No-op)。
-     */
-    private static <T extends CustomPacketPayload> void registerClientPacket(
-            PayloadRegistrar registrar,
-            CustomPacketPayload.Type<T> type,
-            StreamCodec<? super ByteBuf, T> codec,
-            IPayloadHandler<T> clientHandlerProvider
+    private static <T> void registerServerPacket(
+            Class<T> packetClass,
+            BiConsumer<T, FriendlyByteBuf> encoder,
+            FriendlyByteBuf.Reader<T> decoder,
+            MessageHandler<T> handler
     ) {
-        if (FMLEnvironment.dist == Dist.CLIENT) {
-            // 在客户端：注册真正的处理逻辑
-            registrar.playToClient(type, codec, clientHandlerProvider);
-        } else {
-            // 在服务端：注册占位符，仅为了握手同步
-            registrar.playToClient(type, codec, (payload, context) -> {});
-        }
+        CHANNEL.messageBuilder(packetClass, nextPacketId(), NetworkDirection.PLAY_TO_SERVER)
+                .encoder(encoder)
+                .decoder(decoder)
+                .consumerMainThread(handler::handle)
+                .add();
     }
 
-    private static class ClientPacketDelegate {
-        public static void handleSyncThreads(PayloadSync.SyncThreadsPayload p, IPayloadContext c) {
-            ClientPayloadHandler.handleSyncThreads(p, c);
-        }
-        public static void handleAddThread(PayloadSync.AddThreadPayload p, IPayloadContext c) {
-            ClientPayloadHandler.handleAddThread(p, c);
-        }
-        public static void handleAppendMessages(PayloadSync.AppendMessagesPayload p, IPayloadContext c) {
-            ClientPayloadHandler.handleAppendMessages(p, c);
-        }
-        public static void handleUpdateState(PayloadSync.UpdateStatePayload p, IPayloadContext c) {
-            ClientPayloadHandler.handleUpdateState(p, c);
-        }
-        public static void handleOpenTalkScreen(TalkNetwork.OpenTalkScreenPayload p, IPayloadContext c) {
-            ClientPayloadHandler.handleOpenTalkScreen(p, c);
-        }
+    private static <T> void registerClientPacket(
+            Class<T> packetClass,
+            BiConsumer<T, FriendlyByteBuf> encoder,
+            FriendlyByteBuf.Reader<T> decoder,
+            ClientMessageHandler<T> handler
+    ) {
+        CHANNEL.messageBuilder(packetClass, nextPacketId(), NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(encoder)
+                .decoder(decoder)
+                .consumerMainThread((payload, contextSupplier) -> handler.handle(payload))
+                .add();
+    }
+
+    private static int nextPacketId() {
+        return packetId++;
+    }
+
+    @FunctionalInterface
+    private interface MessageHandler<T> {
+        void handle(T payload, Supplier<NetworkEvent.Context> contextSupplier);
+    }
+
+    @FunctionalInterface
+    private interface ClientMessageHandler<T> {
+        void handle(T payload);
     }
 }

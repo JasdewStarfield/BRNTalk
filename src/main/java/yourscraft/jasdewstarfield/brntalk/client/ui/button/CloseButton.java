@@ -8,7 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 
 public class CloseButton extends Button {
-    private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "textures/gui/button/button_close.png");
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Brntalk.MODID, "textures/gui/button/button_close.png");
 
     private static final int BUTTON_SIZE = 28;
 

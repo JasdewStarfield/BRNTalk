@@ -220,7 +220,7 @@ public class TalkScreen extends Screen {
 
         // 如果还没有选中的聊天串，默认选第一个
         if (newSelected == null && !threads.isEmpty()) {
-            newSelected = threads.getFirst();
+            newSelected = threads.get(0);
         }
 
         if (this.selectedThread != newSelected) {
@@ -337,7 +337,7 @@ public class TalkScreen extends Screen {
     // ----- 渲染 -----
 
     @Override
-    public void renderBackground(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {}
+    public void renderBackground(@NotNull GuiGraphics gfx) {}
 
     private void renderWindowBackground(GuiGraphics gfx, int yOffset) {
         int currentInnerY = innerY + yOffset;
@@ -375,7 +375,7 @@ public class TalkScreen extends Screen {
 
     @Override
     public void render(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(gfx, mouseX, mouseY, partialTick);
+        this.renderBackground(gfx);
 
         // --- 开屏动效 ---
         long now = System.currentTimeMillis();
@@ -840,7 +840,7 @@ public class TalkScreen extends Screen {
         // --- 平滑滚动逻辑 ---
 
         @Override
-        public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
             // 滚轮事件：只更新目标值，不直接修改 scrollAmount
             if (!this.visible) return false;
 

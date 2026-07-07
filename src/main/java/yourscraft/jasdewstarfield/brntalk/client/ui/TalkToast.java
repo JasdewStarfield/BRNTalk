@@ -5,7 +5,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.toasts.Toast;
 import net.minecraft.client.gui.components.toasts.ToastComponent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -18,8 +17,6 @@ import java.util.List;
 
 
 public class TalkToast implements Toast{
-    private static final ResourceLocation BACKGROUND_SPRITE = ResourceLocation.withDefaultNamespace("toast/advancement");
-
     private final Component title;
     private final Component subtitle;
 
@@ -32,7 +29,9 @@ public class TalkToast implements Toast{
     @Override
     public @NotNull Visibility render(GuiGraphics gfx, ToastComponent toastComponent, long timeSinceLastVisible) {
         // 1. 绘制背景
-        gfx.blitSprite(BACKGROUND_SPRITE, 0, 0, 160, 32);
+        gfx.fill(0, 0, 160, 32, 0xF0101010);
+        gfx.fill(0, 0, 160, 1, 0xFF555555);
+        gfx.fill(0, 31, 160, 32, 0xFF555555);
 
         // 2. 绘制文字
         Font font = toastComponent.getMinecraft().font;
@@ -41,7 +40,7 @@ public class TalkToast implements Toast{
         // 副标题 (截断过长的文本)
         List<FormattedCharSequence> lines = font.split(this.subtitle, 125); // 125 是文字最大宽度
         if (!lines.isEmpty()) {
-            gfx.drawString(font, lines.getFirst(), 30, 18, 0xFFFFFFFF, false);
+            gfx.drawString(font, lines.get(0), 30, 18, 0xFFFFFFFF, false);
         }
 
         gfx.renderFakeItem(new ItemStack(Items.PAPER), 8, 8);

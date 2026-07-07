@@ -1,29 +1,47 @@
 package yourscraft.jasdewstarfield.brntalk.network;
 
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import org.jetbrains.annotations.NotNull;
-import yourscraft.jasdewstarfield.brntalk.Brntalk;
+import net.minecraft.network.FriendlyByteBuf;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 public class PayloadSync {
 
+    private PayloadSync() {
+    }
+
+    private static <T> void writeList(FriendlyByteBuf buf, List<T> values, BiConsumer<T, FriendlyByteBuf> writer) {
+        buf.writeVarInt(values.size());
+        for (T value : values) {
+            writer.accept(value, buf);
+        }
+    }
+
+    private static <T> List<T> readList(FriendlyByteBuf buf, Function<FriendlyByteBuf, T> reader) {
+        int size = buf.readVarInt();
+        List<T> values = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            values.add(reader.apply(buf));
+        }
+        return values;
+    }
+
     /* ------------- 单个选项的快照 ------------- */
     public record NetChoice(String id, String text, String nextConversationId) {
-        public static final StreamCodec<ByteBuf, NetChoice> STREAM_CODEC =
-                StreamCodec.composite(
-                        ByteBufCodecs.STRING_UTF8, NetChoice::id,
-                        ByteBufCodecs.STRING_UTF8, NetChoice::text,
-                        ByteBufCodecs.STRING_UTF8, NetChoice::nextConversationId,
-                        NetChoice::new
-                );
+        public static void encode(NetChoice value, FriendlyByteBuf buf) {
+            buf.writeUtf(value.id());
+            buf.writeUtf(value.text());
+            buf.writeUtf(value.nextConversationId() == null ? "" : value.nextConversationId());
+        }
+
+        public static NetChoice decode(FriendlyByteBuf buf) {
+            return new NetChoice(buf.readUtf(), buf.readUtf(), buf.readUtf());
+        }
 
         public static NetChoice fromChoice(TalkMessage.Choice c) {
             return new NetChoice(c.getId(), c.getText(), c.getNextId());
@@ -45,43 +63,29 @@ public class PayloadSync {
             Optional<String> nextId, // 可能为空
             List<NetChoice> choices
     ) {
-        // 把 enum Type 编成 int，再反解回来
-        public static final StreamCodec<ByteBuf, TalkMessage.Type> TYPE_STREAM_CODEC =
-                ByteBufCodecs.VAR_INT.map(
-                        i -> TalkMessage.Type.values()[i],
-                        TalkMessage.Type::ordinal
-                );
+        public static void encode(NetMessage value, FriendlyByteBuf buf) {
+            buf.writeUtf(value.id());
+            buf.writeEnum(value.type());
+            buf.writeEnum(value.speakerType());
+            buf.writeUtf(value.speaker());
+            buf.writeUtf(value.text());
+            buf.writeLong(value.timestamp());
+            buf.writeOptional(value.nextId(), FriendlyByteBuf::writeUtf);
+            writeList(buf, value.choices(), NetChoice::encode);
+        }
 
-        public static final StreamCodec<ByteBuf, TalkMessage.SpeakerType> SPEAKER_TYPE_STREAM_CODEC =
-                ByteBufCodecs.VAR_INT.map(
-                        i -> TalkMessage.SpeakerType.values()[i],
-                        TalkMessage.SpeakerType::ordinal
-                );
-
-        public static final StreamCodec<ByteBuf, NetMessage> STREAM_CODEC = StreamCodec.of(
-                // 1. 编码器 (Encoder): 把对象写入 Buffer
-                (buf, val) -> {
-                    ByteBufCodecs.STRING_UTF8.encode(buf, val.id());
-                    TYPE_STREAM_CODEC.encode(buf, val.type());
-                    SPEAKER_TYPE_STREAM_CODEC.encode(buf, val.speakerType());
-                    ByteBufCodecs.STRING_UTF8.encode(buf, val.speaker());
-                    ByteBufCodecs.STRING_UTF8.encode(buf, val.text());
-                    ByteBufCodecs.VAR_LONG.encode(buf, val.timestamp());
-                    ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8).encode(buf, val.nextId());
-                    NetChoice.STREAM_CODEC.apply(ByteBufCodecs.list()).encode(buf, val.choices());
-                },
-                // 2. 解码器 (Decoder): 从 Buffer 读取并生成对象
-                (buf) -> new NetMessage(
-                        ByteBufCodecs.STRING_UTF8.decode(buf),
-                        TYPE_STREAM_CODEC.decode(buf),
-                        SPEAKER_TYPE_STREAM_CODEC.decode(buf),
-                        ByteBufCodecs.STRING_UTF8.decode(buf),
-                        ByteBufCodecs.STRING_UTF8.decode(buf),
-                        ByteBufCodecs.VAR_LONG.decode(buf),
-                        ByteBufCodecs.optional(ByteBufCodecs.STRING_UTF8).decode(buf),
-                        NetChoice.STREAM_CODEC.apply(ByteBufCodecs.list()).decode(buf)
-                )
-        );
+        public static NetMessage decode(FriendlyByteBuf buf) {
+            return new NetMessage(
+                    buf.readUtf(),
+                    buf.readEnum(TalkMessage.Type.class),
+                    buf.readEnum(TalkMessage.SpeakerType.class),
+                    buf.readUtf(),
+                    buf.readUtf(),
+                    buf.readLong(),
+                    buf.readOptional(FriendlyByteBuf::readUtf),
+                    readList(buf, NetChoice::decode)
+            );
+        }
 
         public static NetMessage fromMessage(TalkMessage msg) {
             List<NetChoice> choices = msg.getChoices()
@@ -127,15 +131,23 @@ public class PayloadSync {
             long lastReadTime,
             List<NetMessage> messages
     ) {
-        public static final StreamCodec<ByteBuf, NetThread> STREAM_CODEC =
-                StreamCodec.composite(
-                        ByteBufCodecs.STRING_UTF8, NetThread::id,
-                        ByteBufCodecs.STRING_UTF8, NetThread::scriptId,
-                        ByteBufCodecs.VAR_LONG, NetThread::startedAt,
-                        ByteBufCodecs.VAR_LONG, NetThread::lastReadTime,
-                        NetMessage.STREAM_CODEC.apply(ByteBufCodecs.list()), NetThread::messages,
-                        NetThread::new
-                );
+        public static void encode(NetThread value, FriendlyByteBuf buf) {
+            buf.writeUtf(value.id());
+            buf.writeUtf(value.scriptId());
+            buf.writeLong(value.startedAt());
+            buf.writeLong(value.lastReadTime());
+            writeList(buf, value.messages(), NetMessage::encode);
+        }
+
+        public static NetThread decode(FriendlyByteBuf buf) {
+            return new NetThread(
+                    buf.readUtf(),
+                    buf.readUtf(),
+                    buf.readLong(),
+                    buf.readLong(),
+                    readList(buf, NetMessage::decode)
+            );
+        }
 
         public static NetThread fromThread(TalkThread thread) {
             List<NetMessage> msgs = thread.getMessages()
@@ -159,75 +171,51 @@ public class PayloadSync {
 
     /* ------------- 1. 全量同步包 ------------- */
     // 场景：玩家加入或服务器 /reload
-    public record SyncThreadsPayload(List<NetThread> threads) implements CustomPacketPayload {
+    public record SyncThreadsPayload(List<NetThread> threads) {
+        public static void encode(SyncThreadsPayload payload, FriendlyByteBuf buf) {
+            writeList(buf, payload.threads(), NetThread::encode);
+        }
 
-        public static final Type<SyncThreadsPayload> TYPE =
-                new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "sync_threads"));
-
-        public static final StreamCodec<ByteBuf, SyncThreadsPayload> STREAM_CODEC =
-                NetThread.STREAM_CODEC.apply(ByteBufCodecs.list())
-                        .map(SyncThreadsPayload::new, SyncThreadsPayload::threads);
-
-        @Override
-        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
-            return TYPE;
+        public static SyncThreadsPayload decode(FriendlyByteBuf buf) {
+            return new SyncThreadsPayload(readList(buf, NetThread::decode));
         }
     }
-
 
     /* ------------- 2. 追加新对话包 ------------- */
-    // 场景：使用startConversation
-    public record AddThreadPayload(PayloadSync.NetThread thread) implements CustomPacketPayload {
-        public static final Type<AddThreadPayload> TYPE =
-                new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "add_thread"));
+    // 场景：使用 startConversation
+    public record AddThreadPayload(PayloadSync.NetThread thread) {
+        public static void encode(AddThreadPayload payload, FriendlyByteBuf buf) {
+            NetThread.encode(payload.thread(), buf);
+        }
 
-        public static final StreamCodec<ByteBuf, AddThreadPayload> STREAM_CODEC =
-                StreamCodec.composite(
-                        PayloadSync.NetThread.STREAM_CODEC, AddThreadPayload::thread,
-                        AddThreadPayload::new
-                );
-
-        @Override
-        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
-            return TYPE;
+        public static AddThreadPayload decode(FriendlyByteBuf buf) {
+            return new AddThreadPayload(NetThread.decode(buf));
         }
     }
 
-    /* ------------- 2. 追加消息包 ------------- */
+    /* ------------- 3. 追加消息包 ------------- */
     // 场景：对话进行中，发送新生成的文本
-    public record AppendMessagesPayload(String threadId, List<NetMessage> newMessages) implements CustomPacketPayload {
-        public static final Type<AppendMessagesPayload> TYPE =
-                new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "append_msgs"));
+    public record AppendMessagesPayload(String threadId, List<NetMessage> newMessages) {
+        public static void encode(AppendMessagesPayload payload, FriendlyByteBuf buf) {
+            buf.writeUtf(payload.threadId());
+            writeList(buf, payload.newMessages(), NetMessage::encode);
+        }
 
-        public static final StreamCodec<ByteBuf, AppendMessagesPayload> STREAM_CODEC =
-                StreamCodec.composite(
-                        ByteBufCodecs.STRING_UTF8, AppendMessagesPayload::threadId,
-                        NetMessage.STREAM_CODEC.apply(ByteBufCodecs.list()), AppendMessagesPayload::newMessages,
-                        AppendMessagesPayload::new
-                );
-
-        @Override
-        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
-            return TYPE;
+        public static AppendMessagesPayload decode(FriendlyByteBuf buf) {
+            return new AppendMessagesPayload(buf.readUtf(), readList(buf, NetMessage::decode));
         }
     }
 
-    /* ------------- 3. 状态更新包 ------------- */
+    /* ------------- 4. 状态更新包 ------------- */
     // 场景：更新已读时间 (消除红点)
-    public record UpdateStatePayload(String threadId, long lastReadTime) implements CustomPacketPayload {
-        public static final Type<UpdateStatePayload> TYPE =
-                new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "update_state"));
+    public record UpdateStatePayload(String threadId, long lastReadTime) {
+        public static void encode(UpdateStatePayload payload, FriendlyByteBuf buf) {
+            buf.writeUtf(payload.threadId());
+            buf.writeLong(payload.lastReadTime());
+        }
 
-        public static final StreamCodec<ByteBuf, UpdateStatePayload> STREAM_CODEC =
-                StreamCodec.composite(
-                        ByteBufCodecs.STRING_UTF8, UpdateStatePayload::threadId,
-                        ByteBufCodecs.VAR_LONG, UpdateStatePayload::lastReadTime,
-                        UpdateStatePayload::new
-                );
-
-        @Override
-        public CustomPacketPayload.@NotNull Type<? extends CustomPacketPayload> type() {
-            return TYPE;
+        public static UpdateStatePayload decode(FriendlyByteBuf buf) {
+            return new UpdateStatePayload(buf.readUtf(), buf.readLong());
         }
     }
 }

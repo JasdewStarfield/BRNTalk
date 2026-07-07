@@ -1,6 +1,5 @@
 package yourscraft.jasdewstarfield.brntalk.save;
 
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -22,6 +21,26 @@ public class TalkWorldData extends SavedData {
         return players.get(uuid.toString());
     }
 
+    public PlayerTalkState getOrCreate(UUID uuid) {
+        /*
+         * Forge 分支用 SavedData 承载每个玩家的状态。
+         * 调用方会直接修改返回对象，因此创建新状态时要立即标记脏数据。
+         */
+        String key = uuid.toString();
+        PlayerTalkState state = players.get(key);
+        if (state == null) {
+            state = new PlayerTalkState();
+            players.put(key, state);
+            setDirty();
+        }
+        return state;
+    }
+
+    public void set(UUID uuid, PlayerTalkState state) {
+        players.put(uuid.toString(), state);
+        setDirty();
+    }
+
     // ------------ SavedData -------------
 
     /** 新建一个空实例 */
@@ -30,7 +49,7 @@ public class TalkWorldData extends SavedData {
     }
 
     /** 从 NBT 读取一个实例 */
-    public static TalkWorldData load(CompoundTag tag, HolderLookup.Provider lookup) {
+    public static TalkWorldData load(CompoundTag tag) {
         TalkWorldData data = new TalkWorldData();
         if (tag.contains("players")) {
             CompoundTag playersTag = tag.getCompound("players");
@@ -45,7 +64,7 @@ public class TalkWorldData extends SavedData {
 
     /** 把当前实例写入 NBT */
     @Override
-    public @NotNull CompoundTag save(@NotNull CompoundTag tag, HolderLookup.@NotNull Provider registries) {
+    public @NotNull CompoundTag save(@NotNull CompoundTag tag) {
         CompoundTag playersTag = new CompoundTag();
         for (Map.Entry<String, PlayerTalkState> entry : players.entrySet()) {
             CompoundTag playerTag = new CompoundTag();
@@ -56,13 +75,9 @@ public class TalkWorldData extends SavedData {
         return tag;
     }
 
-    /** SavedData.Factory */
-    public static final SavedData.Factory<TalkWorldData> FACTORY =
-            new SavedData.Factory<>(TalkWorldData::create, TalkWorldData::load);
-
     /** 从某个维度的 dataStorage 获取/创建数据 */
     public static TalkWorldData get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(FACTORY, "brntalk_talk_data");
+        return level.getDataStorage().computeIfAbsent(TalkWorldData::load, TalkWorldData::create, "brntalk_talk_data");
     }
 
     /** 清除玩家全部的对话数据 */

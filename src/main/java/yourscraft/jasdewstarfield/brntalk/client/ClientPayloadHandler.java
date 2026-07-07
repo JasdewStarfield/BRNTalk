@@ -3,7 +3,6 @@ package yourscraft.jasdewstarfield.brntalk.client;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkHud;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkScreen;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkToast;
@@ -17,23 +16,17 @@ import java.util.List;
 
 public class ClientPayloadHandler {
 
-    public static void handleOpenTalkScreen(final TalkNetwork.OpenTalkScreenPayload payload,
-                                            final IPayloadContext context) {
-        context.enqueueWork(() -> {
-            Minecraft mc = Minecraft.getInstance();
-            mc.setScreen(new TalkScreen());
-        });
+    public static void handleOpenTalkScreen(final TalkNetwork.OpenTalkScreenPayload payload) {
+        Minecraft mc = Minecraft.getInstance();
+        mc.setScreen(new TalkScreen());
     }
 
     // 处理全量同步
-    public static void handleSyncThreads(PayloadSync.SyncThreadsPayload payload,
-                                         IPayloadContext context) {
-        context.enqueueWork(() -> {
-            List<TalkThread> threads = payload.threads().stream()
-                    .map(PayloadSync.NetThread::toThread)
-                    .toList();
-            ClientTalkState.get().setThreads(threads);
-        });
+    public static void handleSyncThreads(PayloadSync.SyncThreadsPayload payload) {
+        List<TalkThread> threads = payload.threads().stream()
+                .map(PayloadSync.NetThread::toThread)
+                .toList();
+        ClientTalkState.get().setThreads(threads);
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof TalkScreen screen) {
@@ -42,38 +35,34 @@ public class ClientPayloadHandler {
     }
 
     // 处理新增线程
-    public static void handleAddThread(final PayloadSync.AddThreadPayload payload, final IPayloadContext context) {
-        context.enqueueWork(() -> {
-            TalkThread thread = payload.thread().toThread();
-            // 将 NetThread 还原为 TalkThread 并加入状态管理器
-            ClientTalkState.get().addThread(payload.thread().toThread());
+    public static void handleAddThread(final PayloadSync.AddThreadPayload payload) {
+        TalkThread thread = payload.thread().toThread();
+        // 将 NetThread 还原为 TalkThread 并加入状态管理器
+        ClientTalkState.get().addThread(payload.thread().toThread());
 
-            List<TalkMessage> msgs = thread.getMessages();
-            if (!msgs.isEmpty()) {
-                processIncomingMessages(msgs, thread.getId());
-            }
-        });
+        List<TalkMessage> msgs = thread.getMessages();
+        if (!msgs.isEmpty()) {
+            processIncomingMessages(msgs, thread.getId());
+        }
     }
 
     // 处理附加消息
-    public static void handleAppendMessages(final PayloadSync.AppendMessagesPayload payload, final IPayloadContext context) {
-        context.enqueueWork(() -> {
-            // 将 NetMessage 转回 TalkMessage
-            List<TalkMessage> msgs = payload.newMessages().stream()
-                    .map(PayloadSync.NetMessage::toMessage)
-                    .toList();
-            // 更新客户端状态
-            ClientTalkState.get().appendMessages(payload.threadId(), msgs);
+    public static void handleAppendMessages(final PayloadSync.AppendMessagesPayload payload) {
+        // 将 NetMessage 转回 TalkMessage
+        List<TalkMessage> msgs = payload.newMessages().stream()
+                .map(PayloadSync.NetMessage::toMessage)
+                .toList();
+        // 更新客户端状态
+        ClientTalkState.get().appendMessages(payload.threadId(), msgs);
 
-            if (!msgs.isEmpty()) {
-                processIncomingMessages(msgs, payload.threadId());
-            }
-        });
+        if (!msgs.isEmpty()) {
+            processIncomingMessages(msgs, payload.threadId());
+        }
     }
 
     // 处理未读状态更新
-    public static void handleUpdateState(final PayloadSync.UpdateStatePayload payload, final IPayloadContext context) {
-        context.enqueueWork(() -> ClientTalkState.get().updateReadTime(payload.threadId(), payload.lastReadTime()));
+    public static void handleUpdateState(final PayloadSync.UpdateStatePayload payload) {
+        ClientTalkState.get().updateReadTime(payload.threadId(), payload.lastReadTime());
     }
 
     /**
@@ -113,7 +102,7 @@ public class ClientPayloadHandler {
 
             case TOAST:
                 // Toast 模式：只显示最新的一条，防止刷屏
-                TalkMessage latestMsg = recentMessages.getFirst();
+                TalkMessage latestMsg = recentMessages.get(0);
                 mc.getToasts().addToast(new TalkToast(latestMsg));
                 break;
 

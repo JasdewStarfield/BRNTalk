@@ -1,7 +1,7 @@
 package yourscraft.jasdewstarfield.brntalk.event;
 
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 
 public class PlayerSeenMessageEvent extends PlayerEvent {
     private final String scriptId;

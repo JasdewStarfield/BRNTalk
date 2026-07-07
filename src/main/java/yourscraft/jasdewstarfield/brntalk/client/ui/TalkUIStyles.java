@@ -19,7 +19,7 @@ public class TalkUIStyles {
     public static final ResourceLocation TEX_PARTS = loc("textures/gui/ui_deco_parts.png");
 
     private static ResourceLocation loc(String path) {
-        return ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, path);
+        return new ResourceLocation(Brntalk.MODID, path);
     }
 
     // ==========================================================

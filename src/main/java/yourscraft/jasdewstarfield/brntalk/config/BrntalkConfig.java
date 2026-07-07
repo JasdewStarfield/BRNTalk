@@ -1,21 +1,21 @@
 package yourscraft.jasdewstarfield.brntalk.config;
 
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
 
 public class BrntalkConfig {
     public static final ClientConfig CLIENT;
-    public static final ModConfigSpec CLIENT_SPEC;
+    public static final ForgeConfigSpec CLIENT_SPEC;
     public static final ServerConfig SERVER;
-    public static final ModConfigSpec SERVER_SPEC;
+    public static final ForgeConfigSpec SERVER_SPEC;
 
     static {
         // 构建配置规格
-        final Pair<ClientConfig, ModConfigSpec> clientSpecPair = new ModConfigSpec.Builder().configure(ClientConfig::new);
+        final Pair<ClientConfig, ForgeConfigSpec> clientSpecPair = new ForgeConfigSpec.Builder().configure(ClientConfig::new);
         CLIENT_SPEC = clientSpecPair.getRight();
         CLIENT = clientSpecPair.getLeft();
 
-        final Pair<ServerConfig, ModConfigSpec> serverSpecPair = new ModConfigSpec.Builder().configure(ServerConfig::new);
+        final Pair<ServerConfig, ForgeConfigSpec> serverSpecPair = new ForgeConfigSpec.Builder().configure(ServerConfig::new);
         SERVER_SPEC = serverSpecPair.getRight();
         SERVER = serverSpecPair.getLeft();
     }
@@ -27,20 +27,20 @@ public class BrntalkConfig {
     }
 
     public static class ClientConfig {
-        public final ModConfigSpec.BooleanValue useVanillaStyleUI;
-        public final ModConfigSpec.IntValue charDelay;
-        public final ModConfigSpec.IntValue msgPause;
-        public final ModConfigSpec.DoubleValue scrollRate;
-        public final ModConfigSpec.DoubleValue smoothFactor;
-        public final ModConfigSpec.BooleanValue displayOpenButton;
-        public final ModConfigSpec.IntValue openButtonX;
-        public final ModConfigSpec.IntValue openButtonY;
-        public final ModConfigSpec.EnumValue<NotificationMode> notificationMode;
-        public final ModConfigSpec.DoubleValue hudScale;
-        public final ModConfigSpec.IntValue hudOffsetY;
-        public final ModConfigSpec.IntValue hudTopMargin;
+        public final ForgeConfigSpec.BooleanValue useVanillaStyleUI;
+        public final ForgeConfigSpec.IntValue charDelay;
+        public final ForgeConfigSpec.IntValue msgPause;
+        public final ForgeConfigSpec.DoubleValue scrollRate;
+        public final ForgeConfigSpec.DoubleValue smoothFactor;
+        public final ForgeConfigSpec.BooleanValue displayOpenButton;
+        public final ForgeConfigSpec.IntValue openButtonX;
+        public final ForgeConfigSpec.IntValue openButtonY;
+        public final ForgeConfigSpec.EnumValue<NotificationMode> notificationMode;
+        public final ForgeConfigSpec.DoubleValue hudScale;
+        public final ForgeConfigSpec.IntValue hudOffsetY;
+        public final ForgeConfigSpec.IntValue hudTopMargin;
 
-        public ClientConfig(ModConfigSpec.Builder builder) {
+        public ClientConfig(ForgeConfigSpec.Builder builder) {
             builder.comment("Visual settings").push("visual");
 
             useVanillaStyleUI = builder
@@ -124,10 +124,10 @@ public class BrntalkConfig {
     }
 
     public static class ServerConfig {
-        public final ModConfigSpec.BooleanValue sendValidationReportInGame;
-        public final ModConfigSpec.IntValue validationReportMaxDetailLines;
+        public final ForgeConfigSpec.BooleanValue sendValidationReportInGame;
+        public final ForgeConfigSpec.IntValue validationReportMaxDetailLines;
 
-        public ServerConfig(ModConfigSpec.Builder builder) {
+        public ServerConfig(ForgeConfigSpec.Builder builder) {
             builder.comment("Server-side validation reporting").push("validation_report");
 
             sendValidationReportInGame = builder
