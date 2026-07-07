@@ -17,6 +17,15 @@ public final class BrntalkPlatform {
         TalkStateStorage.set(player, state);
     }
 
+    public static boolean migrateLegacyTalkStateOnLogin(ServerPlayer player) {
+        /*
+         * The NeoForge attachment branch migrates old SavedData into player attachments.
+         * This Forge branch already uses SavedData as its live backend, so running that
+         * migration here would only copy data back into the same store.
+         */
+        return false;
+    }
+
     public static void postPlayerSeenMessage(ServerPlayer player, String scriptId, String messageId) {
         // Hide the concrete event bus so the public gameplay API stays portable.
         PlatformEvents.postPlayerSeenMessage(player, scriptId, messageId);

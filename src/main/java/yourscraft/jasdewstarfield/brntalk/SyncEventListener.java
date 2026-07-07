@@ -2,7 +2,6 @@ package yourscraft.jasdewstarfield.brntalk;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.OnDatapackSyncEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -18,7 +17,6 @@ import yourscraft.jasdewstarfield.brntalk.platform.TalkNetworking;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
-import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -91,27 +89,12 @@ public class SyncEventListener {
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
-        ServerLevel level = player.serverLevel();
-
-        // 1. 获取老的全局数据
-        TalkWorldData oldGlobalData = TalkWorldData.get(level);
-
-        // 2. 检查该玩家是否有旧数据
-        PlayerTalkState oldState = oldGlobalData.get(player.getUUID());
-
-        if (oldState != null) {
-            // 3. 将旧数据覆盖到 Forge 分支的玩家状态后端中。
-            // 平台层负责决定具体存到 Capability 还是 SavedData。
-            BrntalkPlatform.setTalkState(player, oldState);
-
-            // 4. 从旧的全局数据中移除该玩家，防止重复迁移
-            oldGlobalData.removeAllThread(player.getUUID());
-
+        if (BrntalkPlatform.migrateLegacyTalkStateOnLogin(player)) {
             player.sendSystemMessage(Component.literal("[BRNTalk] Migrated talk data for you! Your data is now an attachment!").withStyle(ChatFormatting.GREEN));
             Brntalk.LOGGER.info("[BRNTalk] Migrated talk data for player {}", player.getName().getString());
         }
 
-        // 5. 同步
+        // 登录后总是从平台状态后端重建并同步一次，确保客户端 UI 拿到最新线程。
         SyncEventListener.rebuildThreadsForPlayer(player);
         TalkNetworking.syncThreadsTo(player);
     }
