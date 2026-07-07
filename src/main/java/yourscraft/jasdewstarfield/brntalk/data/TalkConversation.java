@@ -35,6 +35,6 @@ public class TalkConversation {
 
     public TalkMessage getFirstMessage() {
         if (messages.isEmpty()) return null;
-        return messages.getFirst();
+        return messages.get(0);
     }
 }
