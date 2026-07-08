@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.server.level.ServerPlayer;
@@ -103,13 +104,21 @@ public class BrntalkCommands {
                 successCount++;
             } else {
                 // 如果 API 返回 false，说明 ID 不对，单独给发令者提示
-                source.sendFailure(Component.literal("§c[BRNTalk] 找不到对话脚本: " + id + " (玩家: " + player.getName().getString() + ")"));
+                source.sendFailure(Component.translatable(
+                        "command.brntalk.start.not_found",
+                        id,
+                        player.getName()
+                ).withStyle(ChatFormatting.RED));
             }
         }
 
         if (successCount > 0) {
             final int finalCount = successCount;
-            source.sendSuccess(() -> Component.literal("§a[BRNTalk] 已为 " + finalCount + " 名玩家触发: " + id), true);
+            source.sendSuccess(() -> Component.translatable(
+                    "command.brntalk.start.success",
+                    finalCount,
+                    id
+            ).withStyle(ChatFormatting.GREEN), true);
         }
 
         return successCount;
@@ -137,13 +146,22 @@ public class BrntalkCommands {
             final int count = successCount;
             source.sendSuccess(() -> {
                 if (scriptId == null) {
-                    return Component.literal("§a[BRNTalk] 已清除 " + count + " 名玩家的所有对话进度。");
+                    return Component.translatable(
+                            "command.brntalk.clear_all.success",
+                            count
+                    ).withStyle(ChatFormatting.GREEN);
                 } else {
-                    return Component.literal("§a[BRNTalk] 已为 " + count + " 名玩家清除对话: " + scriptId);
+                    return Component.translatable(
+                            "command.brntalk.clear_script.success",
+                            count,
+                            scriptId
+                    ).withStyle(ChatFormatting.GREEN);
                 }
             }, true);
         } else {
-            source.sendFailure(Component.literal("§c[BRNTalk] 未能清除对话 (可能目标当前无对话或指定ID不存在)"));
+            source.sendFailure(Component.translatable(
+                    "command.brntalk.clear.failure"
+            ).withStyle(ChatFormatting.RED));
         }
 
         return successCount;
@@ -158,19 +176,23 @@ public class BrntalkCommands {
 
         if (hasSeen) {
             ctx.getSource().sendSuccess(() ->
-                    Component.literal(
-                            "§a[BRNTalk] 玩家 " + target.getName().getString() + " 已达成/阅读: " +
-                            messageId + " (剧本: " + scriptId + ")"
-                    ),
+                    Component.translatable(
+                            "command.brntalk.has_seen.true",
+                            target.getName(),
+                            messageId,
+                            scriptId
+                    ).withStyle(ChatFormatting.GREEN),
                     false
             );
             return 1;
         } else {
             ctx.getSource().sendFailure(
-                    Component.literal(
-                            "§c[BRNTalk] 玩家 " + target.getName().getString() + " 尚未阅读: " + messageId +
-                            " (剧本: " + scriptId + ")"
-                    )
+                    Component.translatable(
+                            "command.brntalk.has_seen.false",
+                            target.getName(),
+                            messageId,
+                            scriptId
+                    ).withStyle(ChatFormatting.RED)
             );
             return 0;
         }
@@ -194,13 +216,19 @@ public class BrntalkCommands {
         if (totalResumed > 0) {
             final int pCount = playersAffected;
             final int tCount = totalResumed;
-            String msgInfo = (matchMessageId == null) ? "" : " (过滤ID: " + matchMessageId + ")";
-            ctx.getSource().sendSuccess(() -> Component.literal(
-                    "§a[BRNTalk] 已为 " + pCount + " 名玩家继续对话: " + scriptId + msgInfo +
-                    "，共恢复 " + tCount + " 个线程。"
-            ), true);
+            ctx.getSource().sendSuccess(() -> {
+                String translationKey = matchMessageId == null
+                        ? "command.brntalk.resume.success"
+                        : "command.brntalk.resume_filtered.success";
+                Object[] arguments = matchMessageId == null
+                        ? new Object[]{pCount, scriptId, tCount}
+                        : new Object[]{pCount, scriptId, matchMessageId, tCount};
+                return Component.translatable(translationKey, arguments).withStyle(ChatFormatting.GREEN);
+            }, true);
         } else {
-            ctx.getSource().sendFailure(Component.literal("§c[BRNTalk] 未能继续对话 (可能玩家没有该对话或并未处于等待状态)"));
+            ctx.getSource().sendFailure(Component.translatable(
+                    "command.brntalk.resume.failure"
+            ).withStyle(ChatFormatting.RED));
         }
 
         return totalResumed;

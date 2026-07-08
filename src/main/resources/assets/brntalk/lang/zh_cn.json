@@ -5,6 +5,17 @@
   "gui.brntalk.hud_pending_notification": "§e[!] §f已折叠来自 §6%s §f的消息",
   "key.brntalk.open_screen": "打开 BRNTalk GUI",
 
+  "command.brntalk.start.not_found": "[BRNTalk] 找不到对话脚本：%1$s（玩家：%2$s）",
+  "command.brntalk.start.success": "[BRNTalk] 已为 %1$s 名玩家触发对话：%2$s",
+  "command.brntalk.clear_all.success": "[BRNTalk] 已清除 %1$s 名玩家的所有对话进度。",
+  "command.brntalk.clear_script.success": "[BRNTalk] 已为 %1$s 名玩家清除对话：%2$s",
+  "command.brntalk.clear.failure": "[BRNTalk] 未能清除对话（目标当前可能没有对话，或指定 ID 不存在）。",
+  "command.brntalk.has_seen.true": "[BRNTalk] 玩家 %1$s 已阅读消息 %2$s（剧本：%3$s）。",
+  "command.brntalk.has_seen.false": "[BRNTalk] 玩家 %1$s 尚未阅读消息 %2$s（剧本：%3$s）。",
+  "command.brntalk.resume.success": "[BRNTalk] 已为 %1$s 名玩家继续对话 %2$s，共恢复 %3$s 个线程。",
+  "command.brntalk.resume_filtered.success": "[BRNTalk] 已为 %1$s 名玩家继续对话 %2$s（过滤 ID：%3$s），共恢复 %4$s 个线程。",
+  "command.brntalk.resume.failure": "[BRNTalk] 未能继续对话（玩家可能没有该对话，或对话并未处于等待状态）。",
+
   "title.brntalk.config": "BRNTalk 配置",
 
   "sidebar_button.brntalk.brntalk_open_ui": "查看消息",
