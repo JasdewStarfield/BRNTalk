@@ -220,7 +220,7 @@ public class TalkScreen extends Screen {
 
         // 如果还没有选中的聊天串，默认选第一个
         if (newSelected == null && !threads.isEmpty()) {
-            newSelected = threads.getFirst();
+            newSelected = threads.get(0);
         }
 
         if (this.selectedThread != newSelected) {

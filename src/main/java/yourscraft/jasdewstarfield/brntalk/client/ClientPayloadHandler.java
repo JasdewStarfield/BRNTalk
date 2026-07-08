@@ -113,7 +113,7 @@ public class ClientPayloadHandler {
 
             case TOAST:
                 // Toast 模式：只显示最新的一条，防止刷屏
-                TalkMessage latestMsg = recentMessages.getFirst();
+                TalkMessage latestMsg = recentMessages.get(0);
                 mc.getToasts().addToast(new TalkToast(latestMsg));
                 break;
 

@@ -41,7 +41,7 @@ public class TalkToast implements Toast{
         // 副标题 (截断过长的文本)
         List<FormattedCharSequence> lines = font.split(this.subtitle, 125); // 125 是文字最大宽度
         if (!lines.isEmpty()) {
-            gfx.drawString(font, lines.getFirst(), 30, 18, 0xFFFFFFFF, false);
+            gfx.drawString(font, lines.get(0), 30, 18, 0xFFFFFFFF, false);
         }
 
         gfx.renderFakeItem(new ItemStack(Items.PAPER), 8, 8);

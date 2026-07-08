@@ -80,7 +80,7 @@ public class TalkHud {
         // 计算开始时间：必须等上一条消息播完 + 暂停时间
         long startTime = now;
         if (!DISPLAY_QUEUE.isEmpty()) {
-            HudEntry lastAdded = DISPLAY_QUEUE.getFirst();
+            HudEntry lastAdded = DISPLAY_QUEUE.get(0);
             startTime = Math.max(now, lastAdded.visualEndTime + msgPause);
         }
 
