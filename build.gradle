@@ -9,7 +9,8 @@ version = mod_version
 group = mod_group_id
 
 base {
-    archivesName = mod_id
+    // Include the Minecraft line in release jars so Forge and NeoForge builds can share one mod version.
+    archivesName = "${mod_id}-mc${minecraft_version}"
 }
 
 java {
