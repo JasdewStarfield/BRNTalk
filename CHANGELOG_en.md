@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- `/brntalk` command feedback now uses translation keys, with built-in Simplified Chinese and English text selected by the player's client language.
 - Message previews in the conversation list now truncate to the actual available width, using space more effectively and avoiding overflow across GUI sizes.
 - Chat content now follows the bottom smoothly when typewriter text wraps onto new lines, reducing visible jumps as messages grow.
 

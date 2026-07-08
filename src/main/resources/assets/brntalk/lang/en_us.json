@@ -5,6 +5,17 @@
   "gui.brntalk.hud_pending_notification": "§e[!] §fFolded messages from §6%s",
   "key.brntalk.open_screen": "Open BRNTalk GUI",
 
+  "command.brntalk.start.not_found": "[BRNTalk] Dialogue script not found: %1$s (player: %2$s)",
+  "command.brntalk.start.success": "[BRNTalk] Started dialogue %2$s for %1$s player(s).",
+  "command.brntalk.clear_all.success": "[BRNTalk] Cleared all dialogue progress for %1$s player(s).",
+  "command.brntalk.clear_script.success": "[BRNTalk] Cleared dialogue %2$s for %1$s player(s).",
+  "command.brntalk.clear.failure": "[BRNTalk] Failed to clear dialogue progress. The targets may have no matching dialogue.",
+  "command.brntalk.has_seen.true": "[BRNTalk] Player %1$s has read message %2$s in script %3$s.",
+  "command.brntalk.has_seen.false": "[BRNTalk] Player %1$s has not read message %2$s in script %3$s.",
+  "command.brntalk.resume.success": "[BRNTalk] Resumed dialogue %2$s for %1$s player(s), restoring %3$s thread(s).",
+  "command.brntalk.resume_filtered.success": "[BRNTalk] Resumed dialogue %2$s for %1$s player(s), filtered by ID %3$s, restoring %4$s thread(s).",
+  "command.brntalk.resume.failure": "[BRNTalk] Failed to resume dialogue. The players may not have it or it may not be waiting.",
+
   "sidebar_button.brntalk.brntalk_open_ui": "View Messages",
 
   "title.brntalk.config": "BRNTalk 配置",
