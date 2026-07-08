@@ -80,6 +80,9 @@ public class TalkUIStyles {
     // 聊天内容的 y-offset
     public static final int CHAT_CONTENTS_Y_OFFSET = 8;
 
+    // 聊天内容底部留白，避免最后一行贴住裁剪边界
+    public static final int CHAT_CONTENTS_BOTTOM_PADDING = 8;
+
     // 气泡内边距
     public static final int BUBBLE_PADDING_X = 8;
     public static final int BUBBLE_PADDING_Y = 6;

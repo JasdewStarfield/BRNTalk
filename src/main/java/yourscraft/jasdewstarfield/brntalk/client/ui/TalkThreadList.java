@@ -220,9 +220,11 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
             }
 
             String timeStr = thread.getFormattedTime();
+            // 按当前列表项的实际宽度截断预览，让不同 UI 尺寸都能充分利用空间且不越界。
+            int previewMaxWidth = Math.max(0, width - 8);
             String preview = timelineState.isFinished
-                    ? ClientTalkUtils.getSingleLinePreview(timelineState.activeMessage, 115) // 静态
-                    : ClientTalkUtils.getThreadTimelinePreview(thread, 115); // 动态
+                    ? ClientTalkUtils.getSingleLinePreview(timelineState.activeMessage, previewMaxWidth) // 静态
+                    : ClientTalkUtils.getThreadTimelinePreview(thread, previewMaxWidth); // 动态
 
             //时间
             gfx.drawString(Minecraft.getInstance().font, timeStr, left + 4, top + 4, COLOR_LIST_TIME);
