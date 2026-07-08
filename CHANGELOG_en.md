@@ -14,6 +14,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Nothing yet.
 
+## [1.1.0] - 2026-07-08
+
+### Changed
+
+- Performed a larger multi-version refactor and organized the project around the 1.21.1 NeoForge and 1.20.1 Forge maintenance branches.
+- Consolidated platform-specific logic into the Platform package so core runtime code depends less directly on loader APIs.
+- Release artifact names now include the target Minecraft version, making same-version BRNTalk builds for different MC lines easier to distinguish.
+
+### Fixed
+
+- Completed the 1.20.1 Forge adaptation with additional lower-version fixes for Java 17 API differences, Forge networking/runtime differences, resource-pack metadata, legacy data migration prompts, and talk UI list/scrollbar behavior.
+
 ## [1.0.2] - 2026-06-10
 
 ### Added
