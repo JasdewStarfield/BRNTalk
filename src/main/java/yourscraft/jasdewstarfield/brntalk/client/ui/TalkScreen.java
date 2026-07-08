@@ -40,6 +40,7 @@ public class TalkScreen extends Screen {
     // --- 滚动与动画控制变量 ---
     private int totalContentHeight = 0;
     private boolean needScrollToBottom = true;
+    private boolean choiceControlsVisible = false;
 
     private final List<AbstractWidget> choiceButtons = new ArrayList<>();
     private final Map<String, MessageRenderCache> renderCacheMap = new HashMap<>();
@@ -67,7 +68,7 @@ public class TalkScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        this.renderCacheMap.clear();
+        clearRenderCache();
 
         // tile 单元大小
         int tileUnitX = FRAME_W - FRAME_BORDER_W * 2;
@@ -178,6 +179,9 @@ public class TalkScreen extends Screen {
         // 恢复位置
         this.threadList.restoreScroll(listScroll);
 
+        // 选项按钮只有在打字机播放完毕后才显示，也只有此时才为按钮区预留高度。
+        this.choiceControlsVisible = shouldShowChoiceControls();
+
         // 根据当前对话的最后一条消息，生成选项按钮（如果是 CHOICE 类型）
         addChoiceButtonsForCurrentConversation();
 
@@ -186,7 +190,7 @@ public class TalkScreen extends Screen {
             int maxBubbleWidth = (int) (this.chatAreaW * MAX_BUBBLE_WIDTH_RATIO);
             int textMaxWidth = maxBubbleWidth - (2 * BUBBLE_PADDING_X);
             // 提前计算高度
-            this.totalContentHeight = calculateTotalHeight(this.selectedThread.getMessages(), textMaxWidth);
+            this.totalContentHeight = calculateScrollableContentHeight(this.selectedThread.getMessages(), textMaxWidth);
         } else {
             this.totalContentHeight = 0;
         }
@@ -197,7 +201,7 @@ public class TalkScreen extends Screen {
         this.chatWidget = new ChatWidget(chatAreaX, innerY, chatAreaW, chatWidgetHeight);
 
         if (this.needScrollToBottom) {
-            this.chatWidget.scrollToBottom();
+            this.chatWidget.scrollToBottomImmediately();
             this.needScrollToBottom = false;
         } else {
             this.chatWidget.restoreScroll(chatScroll);
@@ -229,11 +233,7 @@ public class TalkScreen extends Screen {
             newSelected = threads.get(0);
         }
 
-        if (this.selectedThread != newSelected) {
-            this.selectedThread = newSelected;
-            this.selectedThreadId = newSelected != null ? newSelected.getId() : null;
-            this.needScrollToBottom = true;
-        }
+        updateSelectedThread(newSelected);
 
         // 同步左侧列表的选中视觉状态
         if (this.selectedThread != null) {
@@ -273,6 +273,8 @@ public class TalkScreen extends Screen {
                     )
                     .bounds(centerX - choiceWidth / 2, cy, choiceWidth, choiceHeight)
                     .build();
+            btn.visible = this.choiceControlsVisible;
+            btn.active = this.choiceControlsVisible;
 
             this.addRenderableWidget(btn);
             this.choiceButtons.add(btn);
@@ -283,16 +285,41 @@ public class TalkScreen extends Screen {
         int defaultHeight = this.innerH;
 
         TalkMessage last = getLastMessageOfSelected();
-        if (last != null && hasChoice()) {
+        if (last != null && this.choiceControlsVisible) {
             int choiceCount = last.getChoices().size();
-            if (ClientTalkUtils.isThreadFinished(selectedThread)) {
-                if (choiceCount > 0) {
-                    int buttonAreaHeight = choiceCount * 25 + 5;
-                    return Math.max(10, defaultHeight - buttonAreaHeight);
-                }
+            if (choiceCount > 0) {
+                int buttonAreaHeight = choiceCount * 25 + 5;
+                return Math.max(10, defaultHeight - buttonAreaHeight);
             }
         }
         return defaultHeight;
+    }
+
+    private boolean shouldShowChoiceControls() {
+        return this.selectedThread != null && hasChoice() && ClientTalkUtils.isThreadFinished(this.selectedThread);
+    }
+
+    private void syncChoiceButtonVisibility() {
+        for (AbstractWidget btn : this.choiceButtons) {
+            btn.visible = this.choiceControlsVisible;
+            btn.active = this.choiceControlsVisible;
+        }
+    }
+
+    private void updateChoiceControlLayoutIfNeeded() {
+        boolean shouldShow = shouldShowChoiceControls();
+        if (shouldShow == this.choiceControlsVisible) {
+            syncChoiceButtonVisibility();
+            return;
+        }
+
+        // 打字机播完时才重建布局：既避免提前空白，也让聊天区高度和滚动上限一起更新。
+        boolean wasAtBottom = this.chatWidget == null || this.chatWidget.isScrolledToBottom(1.0);
+        this.choiceControlsVisible = shouldShow;
+        if (wasAtBottom) {
+            this.needScrollToBottom = true;
+        }
+        rebuildUI();
     }
 
     // 工具方法：判定当前是否有选项按钮
@@ -332,12 +359,20 @@ public class TalkScreen extends Screen {
     }
 
     public void setSelectedThread(TalkThread thread) {
-        if (this.selectedThread != thread) {
-            this.selectedThread = thread;
-            this.selectedThreadId = thread != null ? thread.getId() : null;
-            this.needScrollToBottom = true;
-        }
+        updateSelectedThread(thread);
         rebuildUI();
+    }
+
+    private void updateSelectedThread(TalkThread thread) {
+        if (this.selectedThread == thread) {
+            return;
+        }
+
+        // 渲染与时间轴缓存只服务于当前线程；切换线程时必须清空，避免相同消息 ID 互相复用内容。
+        clearRenderCache();
+        this.selectedThread = thread;
+        this.selectedThreadId = thread != null ? thread.getId() : null;
+        this.needScrollToBottom = true;
     }
 
     private void applyThreadListYOffset(int yOffset) {
@@ -388,6 +423,8 @@ public class TalkScreen extends Screen {
 
     @Override
     public void render(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
+        updateChoiceControlLayoutIfNeeded();
+
         this.renderBackground(gfx);
 
         // --- 开屏动效 ---
@@ -473,7 +510,7 @@ public class TalkScreen extends Screen {
         gfx.pose().translate(0, yOffset, 0);
 
         // 如果有选项，渲染一个分界线
-        if (hasChoice()) {
+        if (this.choiceControlsVisible) {
             int buttonTopY = this.innerY + getChatViewHeight();
             gfx.fill(
                     chatAreaX + 5,
@@ -548,11 +585,6 @@ public class TalkScreen extends Screen {
         if (this.selectedThread != null) {
             boolean isFinished = ClientTalkUtils.isThreadFinished(this.selectedThread);
 
-            // 遍历所有选项按钮，设置它们的可见性
-            for (AbstractWidget btn : this.choiceButtons) {
-                btn.visible = isFinished;
-            }
-
             // 标记已读
             if (isFinished && ClientTalkState.get().hasUnread(this.selectedThread)) {
                 TalkNetworking.sendMarkRead(this.selectedThread.getId());
@@ -572,16 +604,15 @@ public class TalkScreen extends Screen {
         boolean wasAtBottom = this.chatWidget.isScrolledToBottom(1.0);
         int oldContentHeight = this.totalContentHeight;
 
-        this.totalContentHeight = calculateTotalHeight(selectedThread.getMessages(), textMaxWidth);
+        this.totalContentHeight = calculateScrollableContentHeight(selectedThread.getMessages(), textMaxWidth);
 
         if (this.needScrollToBottom) {
-            this.chatWidget.scrollToBottom();
+            this.chatWidget.scrollToBottomImmediately();
             this.needScrollToBottom = false;
             currentScroll = this.chatWidget.getScrollAmountVal();
         } else if (this.totalContentHeight > oldContentHeight && wasAtBottom) {
-            // 如果之前在底部，且高度因为打字机增加了，强制吸附到底部
+            // 打字机换行导致内容增高时，平滑追随新的底部位置。
             this.chatWidget.scrollToBottom();
-            currentScroll = this.chatWidget.getScrollAmountVal();
         }
 
         List<TalkMessage> msgs = selectedThread.getMessages();
@@ -752,6 +783,15 @@ public class TalkScreen extends Screen {
         return currentTotal;
     }
 
+    private int calculateScrollableContentHeight(List<TalkMessage> msgs, int textMaxWidth) {
+        int messageHeight = calculateTotalHeight(msgs, textMaxWidth);
+        if (messageHeight <= 0) {
+            return 0;
+        }
+        // AbstractScrollWidget 的 innerHeight 需要覆盖真实绘制区域，包括顶部偏移和底部留白。
+        return CHAT_CONTENTS_Y_OFFSET + messageHeight + CHAT_CONTENTS_BOTTOM_PADDING;
+    }
+
     private void updateTimelineCache(List<TalkMessage> msgs) {
         if (msgs.size() == cachedMessageCount) return;
 
@@ -871,7 +911,10 @@ public class TalkScreen extends Screen {
         }
 
         public boolean isScrolledToBottom(double tolerance) {
-            return (this.getMaxScrollAmount() - this.scrollAmount()) <= tolerance;
+            double maxScroll = this.getMaxScrollAmount();
+            boolean isAtBottom = (maxScroll - this.scrollAmount()) <= tolerance;
+            boolean isFollowingBottom = this.isSmoothScrolling && (maxScroll - this.targetScroll) <= tolerance;
+            return isAtBottom || isFollowingBottom;
         }
 
         public double getScrollAmountVal() {
@@ -907,6 +950,7 @@ public class TalkScreen extends Screen {
                     super.setScrollAmount(newScroll);
                 } else {
                     super.setScrollAmount(this.targetScroll);
+                    this.isSmoothScrolling = false;
                 }
             }
 
@@ -968,16 +1012,23 @@ public class TalkScreen extends Screen {
         protected void renderBorder(@NotNull GuiGraphics guiGraphics, int x, int y, int width, int height) {
         }
 
-        // 供外部调用：强制滚动到底部
+        // 供外部调用：平滑滚动到底部
         public void scrollToBottom() {
-            double max = this.getMaxScrollAmount();
-            this.targetScroll = max;
-            super.setScrollAmount(max);
+            this.targetScroll = this.getMaxScrollAmount();
+            this.isSmoothScrolling = true;
+        }
+
+        // 新建控件或切换线程时直接定位到底部，避免从历史顶部播放一段无意义的滚动动画。
+        public void scrollToBottomImmediately() {
+            this.targetScroll = this.getMaxScrollAmount();
+            this.isSmoothScrolling = false;
+            super.setScrollAmount(this.targetScroll);
         }
 
         // 供外部调用：恢复滚动位置
         public void restoreScroll(double val) {
             this.targetScroll = val;
+            this.isSmoothScrolling = false;
             super.setScrollAmount(val);
         }
 

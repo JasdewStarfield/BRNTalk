@@ -10,9 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Nothing yet.
 
+### Changed
+
+- Message previews in the conversation list now truncate to the actual available width, using space more effectively and avoiding overflow across GUI sizes.
+- Chat content now follows the bottom smoothly when typewriter text wraps onto new lines, reducing visible jumps as messages grow.
+
 ### Fixed
 
-- Nothing yet.
+- Fixed long conversations being clipped at the bottom and becoming impossible to scroll further at certain content heights.
+- Fixed render and timeline caches being reused across conversations with matching internal message IDs, which could cause one conversation to display another conversation's content.
+- Fixed the chat viewport height and scroll range not updating when choice buttons appear after the typewriter animation finishes.
 
 ## [1.1.0] - 2026-07-08
 
