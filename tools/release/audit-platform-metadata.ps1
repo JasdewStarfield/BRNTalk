@@ -85,12 +85,22 @@ $curseForgeAuthorHeaders = @{
     'Accept'      = 'application/json'
     'X-Api-Token' = $CurseForgeToken
 }
-$curseForgeGameVersions = @(
-    Invoke-RestMethod -Method Get -Uri 'https://minecraft.curseforge.com/api/game/versions' -Headers $curseForgeAuthorHeaders
-)
-$curseForgeDependencyTypes = @(
-    Invoke-RestMethod -Method Get -Uri 'https://minecraft.curseforge.com/api/game/dependencies' -Headers $curseForgeAuthorHeaders
-)
+$curseForgeAuthorApiAvailable = $false
+$curseForgeAuthorApiError = $null
+$curseForgeGameVersions = @()
+$curseForgeDependencyTypes = @()
+try {
+    $curseForgeGameVersions = @(
+        Invoke-RestMethod -Method Get -Uri 'https://minecraft.curseforge.com/api/game/versions' -Headers $curseForgeAuthorHeaders
+    )
+    $curseForgeDependencyTypes = @(
+        Invoke-RestMethod -Method Get -Uri 'https://minecraft.curseforge.com/api/game/dependencies' -Headers $curseForgeAuthorHeaders
+    )
+    $curseForgeAuthorApiAvailable = $true
+} catch {
+    # CurseForge still documents these routes, but the Minecraft host currently returns its HTML not-found page.
+    $curseForgeAuthorApiError = $_.Exception.Message
+}
 
 $curseForgeProject = $null
 $curseForgeFileMetadata = @()
@@ -134,6 +144,8 @@ $result = [ordered]@{
     }
     curseforge = [ordered]@{
         project_id                 = $CurseForgeProjectId
+        author_api_available       = $curseForgeAuthorApiAvailable
+        author_api_error           = $curseForgeAuthorApiError
         public_api_available       = $curseForgePublicApiAvailable
         project                    = $curseForgeProject
         files                      = @($curseForgeFileMetadata)
@@ -153,5 +165,8 @@ $result | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $OutputPath -Encod
 $curseForgeFileCount = @($curseForgeFileMetadata).Count
 Write-Host "[BRNTalk Release] Audited $($modrinthVersions.Count) Modrinth versions and $curseForgeFileCount CurseForge files."
 if (-not $curseForgePublicApiAvailable) {
-    Write-Host '[BRNTalk Release] CURSEFORGE_API_KEY is not configured; author metadata was read, but historical files were skipped.' -ForegroundColor Yellow
+    Write-Host '[BRNTalk Release] CURSEFORGE_API_KEY is not configured; historical CurseForge files were skipped.' -ForegroundColor Yellow
+}
+if (-not $curseForgeAuthorApiAvailable) {
+    Write-Host '[BRNTalk Release] CurseForge author read endpoints are unavailable; upload access is unaffected.' -ForegroundColor Yellow
 }

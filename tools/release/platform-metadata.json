@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "project": {
+    "name": "BRNTalk",
+    "summary": "A simple IM-style dialogue / talk UI mod for Minecraft",
+    "repository_url": "https://github.com/JasdewStarfield/BRNTalk",
+    "changelog_branch": "mc/1.21.1-neoforge"
+  },
+  "targets": {
+    "neoforge_1_21_1": {
+      "minecraft_version": "1.21.1",
+      "modrinth_loader": "neoforge",
+      "curseforge_loader": "NeoForge",
+      "jar_name": "brntalk-mc{minecraft_version}-{version}.jar"
+    },
+    "forge_1_20_1": {
+      "minecraft_version": "1.20.1",
+      "modrinth_loader": "forge",
+      "curseforge_loader": "Forge",
+      "jar_name": "brntalk-mc{minecraft_version}-{version}.jar"
+    }
+  },
+  "release": {
+    "name": "BRNTalk {version}",
+    "version_number": "mc{minecraft_version}-{version}"
+  },
+  "modrinth": {
+    "featured": false,
+    "status": "listed",
+    "environment": "client_and_server",
+    "dependencies": [
+      {
+        "project_id": "9s6osm5g",
+        "dependency_type": "optional"
+      }
+    ]
+  },
+  "curseforge": {
+    "display_name": "BRNTalk {version} - {minecraft_version} {loader}",
+    "changelog_type": "markdown",
+    "game_version_names": [
+      "Client",
+      "Server",
+      "{minecraft_version}",
+      "{loader}"
+    ],
+    "is_marked_for_manual_release": false,
+    "relations": {
+      "projects": [
+        {
+          "slug": "cloth-config",
+          "projectID": "348521",
+          "type": "optionalDependency"
+        }
+      ]
+    }
+  }
+}

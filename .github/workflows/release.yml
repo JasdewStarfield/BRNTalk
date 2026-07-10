@@ -1,0 +1,279 @@
+name: Release both Minecraft versions
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: BRNTalk SemVer without a leading v
+        required: true
+        type: string
+      release_type:
+        description: Distribution channel
+        required: true
+        default: release
+        type: choice
+        options:
+          - release
+          - beta
+          - alpha
+      draft:
+        description: Keep the GitHub Release as a draft
+        required: true
+        default: false
+        type: boolean
+      publish_modrinth:
+        description: Upload both jars to Modrinth
+        required: true
+        default: false
+        type: boolean
+      publish_curseforge:
+        description: Upload both jars to CurseForge
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: brntalk-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.loader }} ${{ matrix.minecraft }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - branch: mc/1.21.1-neoforge
+            minecraft: 1.21.1
+            loader: NeoForge
+            java: '21'
+            artifact: neoforge-1.21.1
+          - branch: mc/1.20.1-forge
+            minecraft: 1.20.1
+            loader: Forge
+            java: '17'
+            artifact: forge-1.20.1
+
+    steps:
+      # Release automation is maintained on the NeoForge/default branch.
+      - name: Check out release tooling
+        uses: actions/checkout@v4
+        with:
+          ref: mc/1.21.1-neoforge
+          path: automation
+
+      - name: Check out target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+          fetch-depth: 0
+          path: source
+
+      - name: Set up Java ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: gradle
+          cache-dependency-path: source/*.gradle*
+
+      - name: Verify release metadata and build
+        shell: pwsh
+        run: |
+          chmod +x ./source/gradlew
+          ./automation/tools/release/test-release.ps1 `
+            -ProjectRoot ./source `
+            -Version '${{ inputs.version }}' `
+            -MinecraftVersion '${{ matrix.minecraft }}' `
+            -Loader '${{ matrix.loader }}' `
+            -JavaVersion '${{ matrix.java }}'
+
+      - name: Upload release jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: source/build/libs/brntalk-mc${{ matrix.minecraft }}-${{ inputs.version }}.jar
+          if-no-files-found: error
+
+  render_metadata:
+    name: Render platform metadata
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release tooling and changelogs
+        uses: actions/checkout@v4
+        with:
+          ref: mc/1.21.1-neoforge
+
+      - name: Render both platform payloads
+        shell: pwsh
+        run: |
+          ./tools/release/render-platform-metadata.ps1 `
+            -ProjectRoot . `
+            -Version '${{ inputs.version }}' `
+            -Target neoforge_1_21_1 `
+            -ReleaseType '${{ inputs.release_type }}' `
+            -OutputPath ./build/release-metadata/neoforge_1_21_1.json
+          ./tools/release/render-platform-metadata.ps1 `
+            -ProjectRoot . `
+            -Version '${{ inputs.version }}' `
+            -Target forge_1_20_1 `
+            -ReleaseType '${{ inputs.release_type }}' `
+            -OutputPath ./build/release-metadata/forge_1_20_1.json
+
+      - name: Upload rendered metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-metadata
+          path: build/release-metadata/*.json
+          if-no-files-found: error
+
+  github_release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release tooling and changelogs
+        uses: actions/checkout@v4
+        with:
+          ref: mc/1.21.1-neoforge
+          path: source
+
+      - name: Download both jars
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Build bilingual release notes
+        shell: pwsh
+        run: |
+          ./source/tools/release/get-release-notes.ps1 `
+            -ProjectRoot ./source `
+            -Version '${{ inputs.version }}' `
+            -OutputPath ./release-notes.md
+
+      - name: Create or resume GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ inputs.version }}'
+          $jars = @(Get-ChildItem -LiteralPath ./dist -Filter '*.jar' -File)
+          if ($jars.Count -ne 2) {
+            throw "Expected exactly two release jars, found $($jars.Count)."
+          }
+
+          gh release view $version *> $null
+          if ($LASTEXITCODE -eq 0) {
+            $existingNames = @(gh release view $version --json assets --jq '.assets[].name')
+            foreach ($jar in $jars) {
+              if ($jar.Name -notin $existingNames) {
+                gh release upload $version $jar.FullName
+                if ($LASTEXITCODE -ne 0) { throw "Failed to upload $($jar.Name)." }
+              }
+            }
+            gh release edit $version --draft=${{ inputs.draft }}
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to update the existing GitHub Release.' }
+            exit 0
+          }
+
+          $arguments = @(
+            'release', 'create', $version,
+            '--target', 'mc/1.21.1-neoforge',
+            '--title', "BRNTalk $version",
+            '--notes-file', './release-notes.md'
+          )
+          if ('${{ inputs.draft }}' -eq 'true') { $arguments += '--draft' }
+          $arguments += $jars.FullName
+          gh @arguments
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to create the GitHub Release.' }
+
+  modrinth:
+    name: Publish Modrinth files
+    if: ${{ inputs.publish_modrinth == true && inputs.draft == false }}
+    needs:
+      - build
+      - github_release
+      - render_metadata
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release tooling and changelogs
+        uses: actions/checkout@v4
+        with:
+          ref: mc/1.21.1-neoforge
+          path: source
+
+      - name: Download both jars
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Upload to Modrinth
+        shell: pwsh
+        env:
+          MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          if (-not $env:MODRINTH_PROJECT_ID -or -not $env:MODRINTH_TOKEN) {
+            throw 'MODRINTH_PROJECT_ID variable and MODRINTH_TOKEN secret are required.'
+          }
+          $common = @{
+            ProjectId = $env:MODRINTH_PROJECT_ID
+            Token = $env:MODRINTH_TOKEN
+            Confirm = $false
+          }
+          ./source/tools/release/publish-modrinth.ps1 @common `
+            -JarPath './dist/brntalk-mc1.21.1-${{ inputs.version }}.jar' `
+            -MetadataPath './dist/neoforge_1_21_1.json'
+          ./source/tools/release/publish-modrinth.ps1 @common `
+            -JarPath './dist/brntalk-mc1.20.1-${{ inputs.version }}.jar' `
+            -MetadataPath './dist/forge_1_20_1.json'
+
+  curseforge:
+    name: Publish CurseForge files
+    if: ${{ inputs.publish_curseforge == true && inputs.draft == false }}
+    needs:
+      - build
+      - github_release
+      - render_metadata
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release tooling and changelogs
+        uses: actions/checkout@v4
+        with:
+          ref: mc/1.21.1-neoforge
+          path: source
+
+      - name: Download both jars
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Upload to CurseForge
+        shell: pwsh
+        env:
+          CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+        run: |
+          if (-not $env:CURSEFORGE_PROJECT_ID -or -not $env:CURSEFORGE_TOKEN) {
+            throw 'CURSEFORGE_PROJECT_ID variable and CURSEFORGE_TOKEN secret are required.'
+          }
+          $common = @{
+            ProjectId = $env:CURSEFORGE_PROJECT_ID
+            Token = $env:CURSEFORGE_TOKEN
+            Confirm = $false
+          }
+          ./source/tools/release/publish-curseforge.ps1 @common `
+            -JarPath './dist/brntalk-mc1.21.1-${{ inputs.version }}.jar' `
+            -MetadataPath './dist/neoforge_1_21_1.json'
+          ./source/tools/release/publish-curseforge.ps1 @common `
+            -JarPath './dist/brntalk-mc1.20.1-${{ inputs.version }}.jar' `
+            -MetadataPath './dist/forge_1_20_1.json'
