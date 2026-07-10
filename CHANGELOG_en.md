@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Nothing yet.
 
+## [1.1.1] - 2026-07-11
+
 ### Changed
 
 - `/brntalk` command feedback now uses translation keys, with built-in Simplified Chinese and English text selected by the player's client language.
