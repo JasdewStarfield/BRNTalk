@@ -1,6 +1,8 @@
 # BRNTalk
 
-一个面向剧情任务与 RPG 整合包/服务器的即时通讯软件风格 **Minecraft NeoForge 对话系统模组**。  
+[简体中文](README.md) | [English](README_en.md)
+
+一个面向剧情任务与 RPG 整合包/服务器的即时通讯软件风格 **Minecraft Forge 对话系统模组**。
 它提供了可脚本化的对话线程、分支选项、暂停/恢复、命令动作执行，以及客户端消息 UI/HUD 提示。
 
 ## 功能概览
@@ -27,9 +29,9 @@
 
 ## 环境与依赖
 
-- **Minecraft**: `1.21.1`
-- **NeoForge**: `21.1`
-- **Java**: `21`
+- **Minecraft**: `1.20.1`
+- **Forge**: `47.4.10`
+- **Java**: `17`
 - 可选依赖：
   - `cloth_config`（客户端配置界面）
   - `ftblibrary`（侧边栏按钮集成）
@@ -257,6 +259,12 @@ BRNTalk 还提供服务端配置，用于控制 `/reload` 后的校验提示行�
 ## 许可证
 
 MIT License（见 `LICENSE`）。
+
+---
+
+## 开发与发布
+
+- 双版本发布、构建门禁与平台上传流程由 NeoForge 主控分支维护，见 [`RELEASE_WORKFLOW.md`](https://github.com/JasdewStarfield/BRNTalk/blob/mc/1.21.1-neoforge/RELEASE_WORKFLOW.md)。
 
 ---
 
