@@ -1,0 +1,38 @@
+name: Audit release platform metadata
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release tooling
+        uses: actions/checkout@v4
+
+      - name: Read published platform metadata
+        shell: pwsh
+        env:
+          MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
+          CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+        run: |
+          if (-not $env:MODRINTH_PROJECT_ID -or -not $env:CURSEFORGE_PROJECT_ID -or -not $env:CURSEFORGE_TOKEN) {
+            throw 'MODRINTH_PROJECT_ID, CURSEFORGE_PROJECT_ID, and CURSEFORGE_TOKEN are required.'
+          }
+          ./tools/release/audit-platform-metadata.ps1 `
+            -ModrinthProjectId $env:MODRINTH_PROJECT_ID `
+            -CurseForgeProjectId $env:CURSEFORGE_PROJECT_ID `
+            -CurseForgeToken $env:CURSEFORGE_TOKEN `
+            -OutputPath ./build/reports/platform-metadata.json
+
+      - name: Upload sanitized audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-metadata
+          path: build/reports/platform-metadata.json
+          if-no-files-found: error
+          retention-days: 7
