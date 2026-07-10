@@ -19,15 +19,21 @@ jobs:
           MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
           CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
         run: |
           if (-not $env:MODRINTH_PROJECT_ID -or -not $env:CURSEFORGE_PROJECT_ID -or -not $env:CURSEFORGE_TOKEN) {
             throw 'MODRINTH_PROJECT_ID, CURSEFORGE_PROJECT_ID, and CURSEFORGE_TOKEN are required.'
           }
-          ./tools/release/audit-platform-metadata.ps1 `
-            -ModrinthProjectId $env:MODRINTH_PROJECT_ID `
-            -CurseForgeProjectId $env:CURSEFORGE_PROJECT_ID `
-            -CurseForgeToken $env:CURSEFORGE_TOKEN `
-            -OutputPath ./build/reports/platform-metadata.json
+          $arguments = @{
+            ModrinthProjectId = $env:MODRINTH_PROJECT_ID
+            CurseForgeProjectId = $env:CURSEFORGE_PROJECT_ID
+            CurseForgeToken = $env:CURSEFORGE_TOKEN
+            OutputPath = './build/reports/platform-metadata.json'
+          }
+          if ($env:CURSEFORGE_API_KEY) {
+            $arguments.CurseForgeApiKey = $env:CURSEFORGE_API_KEY
+          }
+          ./tools/release/audit-platform-metadata.ps1 @arguments
 
       - name: Upload sanitized audit report
         uses: actions/upload-artifact@v4

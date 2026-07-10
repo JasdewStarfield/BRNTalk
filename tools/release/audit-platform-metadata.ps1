@@ -9,6 +9,8 @@ param(
     [Parameter(Mandatory)]
     [string]$CurseForgeToken,
 
+    [string]$CurseForgeApiKey,
+
     [Parameter(Mandatory)]
     [string]$OutputPath,
 
@@ -79,17 +81,35 @@ $modrinthVersions = @(
     Invoke-RestMethod -Method Get -Uri "https://api.modrinth.com/v2/project/$ModrinthProjectId/version" -Headers $modrinthHeaders
 ) | Select-Object -First $VersionLimit
 
-$curseForgeHeaders = @{
-    'Accept'    = 'application/json'
-    'x-api-key' = $CurseForgeToken
+$curseForgeAuthorHeaders = @{
+    'Accept'      = 'application/json'
+    'X-Api-Token' = $CurseForgeToken
 }
-$curseForgeProjectResponse = Invoke-RestMethod -Method Get -Uri "https://api.curseforge.com/v1/mods/$CurseForgeProjectId" -Headers $curseForgeHeaders
-$curseForgeFilesResponse = Invoke-RestMethod -Method Get -Uri "https://api.curseforge.com/v1/mods/$CurseForgeProjectId/files?pageSize=$VersionLimit" -Headers $curseForgeHeaders
-$curseForgeFiles = @($curseForgeFilesResponse.data)
+$curseForgeGameVersions = @(
+    Invoke-RestMethod -Method Get -Uri 'https://minecraft.curseforge.com/api/game/versions' -Headers $curseForgeAuthorHeaders
+)
+$curseForgeDependencyTypes = @(
+    Invoke-RestMethod -Method Get -Uri 'https://minecraft.curseforge.com/api/game/dependencies' -Headers $curseForgeAuthorHeaders
+)
 
-$curseForgeFileMetadata = foreach ($file in $curseForgeFiles) {
-    $changelogResponse = Invoke-RestMethod -Method Get -Uri "https://api.curseforge.com/v1/mods/$CurseForgeProjectId/files/$($file.id)/changelog" -Headers $curseForgeHeaders
-    Select-CurseForgeFileMetadata -File $file -Changelog $changelogResponse.data
+$curseForgeProject = $null
+$curseForgeFileMetadata = @()
+$curseForgePublicApiAvailable = $false
+if ($CurseForgeApiKey) {
+    $curseForgePublicHeaders = @{
+        'Accept'    = 'application/json'
+        'x-api-key' = $CurseForgeApiKey
+    }
+    $curseForgeProjectResponse = Invoke-RestMethod -Method Get -Uri "https://api.curseforge.com/v1/mods/$CurseForgeProjectId" -Headers $curseForgePublicHeaders
+    $curseForgeFilesResponse = Invoke-RestMethod -Method Get -Uri "https://api.curseforge.com/v1/mods/$CurseForgeProjectId/files?pageSize=$VersionLimit" -Headers $curseForgePublicHeaders
+    $curseForgeProject = $curseForgeProjectResponse.data
+    $curseForgeFiles = @($curseForgeFilesResponse.data)
+    $curseForgePublicApiAvailable = $true
+
+    $curseForgeFileMetadata = foreach ($file in $curseForgeFiles) {
+        $changelogResponse = Invoke-RestMethod -Method Get -Uri "https://api.curseforge.com/v1/mods/$CurseForgeProjectId/files/$($file.id)/changelog" -Headers $curseForgePublicHeaders
+        Select-CurseForgeFileMetadata -File $file -Changelog $changelogResponse.data
+    }
 }
 
 $result = [ordered]@{
@@ -113,8 +133,14 @@ $result = [ordered]@{
         versions = @($modrinthVersions | ForEach-Object { Select-ModrinthVersionMetadata -Version $_ })
     }
     curseforge = [ordered]@{
-        project = $curseForgeProjectResponse.data
-        files   = @($curseForgeFileMetadata)
+        project_id                 = $CurseForgeProjectId
+        public_api_available       = $curseForgePublicApiAvailable
+        project                    = $curseForgeProject
+        files                      = @($curseForgeFileMetadata)
+        relevant_game_versions     = @($curseForgeGameVersions | Where-Object {
+            $_.name -in @('Client', 'Server', '1.20.1', '1.21.1', 'Forge', 'NeoForge')
+        })
+        available_dependency_types = @($curseForgeDependencyTypes)
     }
 }
 
@@ -124,4 +150,8 @@ if ($outputDirectory) {
 }
 $result | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $OutputPath -Encoding utf8
 
-Write-Host "[BRNTalk Release] Audited $($modrinthVersions.Count) Modrinth versions and $($curseForgeFiles.Count) CurseForge files."
+$curseForgeFileCount = @($curseForgeFileMetadata).Count
+Write-Host "[BRNTalk Release] Audited $($modrinthVersions.Count) Modrinth versions and $curseForgeFileCount CurseForge files."
+if (-not $curseForgePublicApiAvailable) {
+    Write-Host '[BRNTalk Release] CURSEFORGE_API_KEY is not configured; author metadata was read, but historical files were skipped.' -ForegroundColor Yellow
+}
