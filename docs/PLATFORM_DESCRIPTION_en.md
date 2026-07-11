@@ -1,6 +1,6 @@
 # BRNTalk
 
-**BRNTalk** is a dialogue-focused Minecraft (NeoForge) mod built for RPG servers, quest maps, and modpacks.  
+**BRNTalk** is a dialogue-focused Minecraft (NeoForge) mod built for RPG servers, quest maps, and modpacks.
 It helps you deliver story content in a cleaner, more immersive way by unifying NPC conversations, branching narrative, and player-facing message flow in one system.
 
 ---

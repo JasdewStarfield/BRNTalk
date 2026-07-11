@@ -264,7 +264,8 @@ MIT License（见 `LICENSE`）。
 
 ## 开发与发布
 
-- 双版本发布、构建门禁与平台上传流程由 NeoForge 主控分支维护，见 [`RELEASE_WORKFLOW.md`](https://github.com/JasdewStarfield/BRNTalk/blob/mc/1.21.1-neoforge/RELEASE_WORKFLOW.md)。
+- 项目规划、调试流程与发布流程见 [`docs/`](docs/README.md)。
+- 双版本发布、构建门禁与平台上传流程由 NeoForge 主控分支维护，见 [`docs/RELEASE_WORKFLOW.md`](docs/RELEASE_WORKFLOW.md)。
 
 ---
 

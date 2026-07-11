@@ -264,7 +264,8 @@ MIT License. See `LICENSE`.
 
 ## Development and releases
 
-- The NeoForge control branch maintains the two-version build and publication workflow in [`RELEASE_WORKFLOW.md`](https://github.com/JasdewStarfield/BRNTalk/blob/mc/1.21.1-neoforge/RELEASE_WORKFLOW.md).
+- See [`docs/`](docs/README.md) for project planning, debugging workflows, and release docs.
+- The NeoForge control branch maintains the two-version build and publication workflow; see [`docs/RELEASE_WORKFLOW.md`](docs/RELEASE_WORKFLOW.md).
 
 ---
 

@@ -1,6 +1,6 @@
 # BRNTalk
 
-**BRNTalk** 是一个为 Minecraft（NeoForge）设计的剧情对话模组，适合 RPG 服务器、任务地图与整合包使用。  
+**BRNTalk** 是一个为 Minecraft（NeoForge）设计的剧情对话模组，适合 RPG 服务器、任务地图与整合包使用。
 它专注于把“剧情阅读体验”做得更清晰、更沉浸：你可以把任务引导、世界观叙事、NPC 分支交流整合到统一的对话系统里。
 
 ---
