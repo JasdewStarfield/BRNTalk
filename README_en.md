@@ -264,7 +264,8 @@ MIT License. See `LICENSE`.
 
 ## Development and releases
 
-- See [`RELEASE_WORKFLOW.md`](RELEASE_WORKFLOW.md) for the two-version build gates and publication workflow.
+- See [`docs/`](docs/README.md) for project planning, debugging workflows, and release docs.
+- See [`docs/RELEASE_WORKFLOW.md`](docs/RELEASE_WORKFLOW.md) for the two-version build gates and publication workflow.
 
 ---
 

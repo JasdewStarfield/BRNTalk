@@ -264,7 +264,8 @@ MIT License（见 `LICENSE`）。
 
 ## 开发与发布
 
-- 双版本发布、构建门禁与平台上传流程见 [`RELEASE_WORKFLOW.md`](RELEASE_WORKFLOW.md)。
+- 项目规划、调试流程与发布流程见 [`docs/`](docs/README.md)。
+- 双版本发布、构建门禁与平台上传流程见 [`docs/RELEASE_WORKFLOW.md`](docs/RELEASE_WORKFLOW.md)。
 
 ---
 
