@@ -1,0 +1,55 @@
+{
+  "conversations": [
+    {
+      "id": "brntalk_debug:choice_branch",
+      "messages": [
+        {
+          "id": "start",
+          "type": "text",
+          "speaker": "Debug Guide",
+          "text": "Choice branch fixture started.",
+          "nextId": "choose_path"
+        },
+        {
+          "id": "choose_path",
+          "type": "choice",
+          "speaker": "Debug Guide",
+          "text": "Choose a smoke-test branch.",
+          "choices": [
+            {
+              "id": "left",
+              "text": "Take the left branch",
+              "nextId": "left_result"
+            },
+            {
+              "id": "right",
+              "text": "Take the right branch",
+              "nextId": "right_result"
+            }
+          ]
+        },
+        {
+          "id": "left_result",
+          "type": "text",
+          "speaker": "Debug Guide",
+          "text": "Left branch reached.",
+          "nextId": "end"
+        },
+        {
+          "id": "right_result",
+          "type": "text",
+          "speaker": "Debug Guide",
+          "text": "Right branch reached.",
+          "nextId": "end"
+        },
+        {
+          "id": "end",
+          "type": "text",
+          "speaker": "System",
+          "text": "Choice branch fixture finished.",
+          "nextId": null
+        }
+      ]
+    }
+  ]
+}
