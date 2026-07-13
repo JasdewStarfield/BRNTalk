@@ -1,0 +1,30 @@
+{
+  "conversations": [
+    {
+      "id": "brntalk_debug:wait_resume",
+      "messages": [
+        {
+          "id": "start",
+          "type": "text",
+          "speaker": "Debug Guide",
+          "text": "Wait/resume fixture started.",
+          "nextId": "wait_node"
+        },
+        {
+          "id": "wait_node",
+          "type": "wait",
+          "speaker": "System",
+          "text": "This fixture is paused. Resume it with /brntalk resume @s brntalk_debug:wait_resume wait_node.",
+          "nextId": "resumed"
+        },
+        {
+          "id": "resumed",
+          "type": "text",
+          "speaker": "Debug Guide",
+          "text": "Wait/resume fixture resumed successfully.",
+          "nextId": null
+        }
+      ]
+    }
+  ]
+}

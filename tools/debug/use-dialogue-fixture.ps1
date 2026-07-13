@@ -1,7 +1,10 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
+    [ValidateSet('invalid', 'valid')]
+    [string]$Type = 'invalid',
     [string]$Fixture,
-    [string]$SourcePath
+    [string]$SourcePath,
+    [switch]$List
 )
 
 $ErrorActionPreference = 'Stop'
@@ -10,8 +13,20 @@ $ErrorActionPreference = 'Stop'
 
 $context = Get-BrntalkDebugContext -ScriptRoot $PSScriptRoot
 
+if ($List) {
+    $fixtures = @(Get-BrntalkFixtureFiles -Context $context -Type 'all')
+    if ($fixtures.Count -eq 0) {
+        Write-Host "[BRNTalk Debug] No dialogue fixtures found under $($context.FixtureRoot)." -ForegroundColor Yellow
+        return
+    }
+
+    $fixtures |
+        Format-Table -AutoSize Type, Name, Path
+    return
+}
+
 if ([string]::IsNullOrWhiteSpace($Fixture) -and [string]::IsNullOrWhiteSpace($SourcePath)) {
-    throw 'Provide either -Fixture <name> or -SourcePath <path>.'
+    throw 'Provide -Fixture <name>, -SourcePath <path>, or -List.'
 }
 
 if (-not [string]::IsNullOrWhiteSpace($Fixture) -and -not [string]::IsNullOrWhiteSpace($SourcePath)) {
@@ -20,7 +35,8 @@ if (-not [string]::IsNullOrWhiteSpace($Fixture) -and -not [string]::IsNullOrWhit
 
 if (-not [string]::IsNullOrWhiteSpace($Fixture)) {
     $fixtureFileName = [System.IO.Path]::GetFileNameWithoutExtension($Fixture) + '.json'
-    $source = Join-Path $context.FixturesDir $fixtureFileName
+    $fixtureDirectory = Get-BrntalkFixtureDirectory -Context $context -Type $Type
+    $source = Join-Path $fixtureDirectory $fixtureFileName
 } else {
     $source = (Resolve-Path -LiteralPath $SourcePath).Path
     $fixtureFileName = [System.IO.Path]::GetFileName($source)
@@ -43,4 +59,5 @@ if ($PSCmdlet.ShouldProcess($target, "Install debug dialogue from '$source'")) {
 }
 
 Write-Host "[BRNTalk Debug] Installed debug dialogue: $target" -ForegroundColor Green
+Write-Host "[BRNTalk Debug] Fixture type: $Type"
 Write-Host '[BRNTalk Debug] Next step: run /reload or restart the debug server.' -ForegroundColor Cyan

@@ -168,6 +168,37 @@ validation_fixtures/
 - 有效 fixture 能验证“至少不应出现 validation error”的路径。
 - 无法自动确认的客户端步骤必须输出明确的人工下一步。
 
+### 5.1 RCON 自动验证脚本
+
+新增文件：
+
+- `tools/debug/invoke-rcon-command.ps1`
+- `tools/debug/run-rcon-smoke.ps1`
+
+目标：
+
+- 自动启用本地 debug server 的 RCON 配置。
+- 自动注入 fixture。
+- 自动执行 `reload`。
+- 自动读取日志并输出 `PASS`、`FAIL` 或 `UNKNOWN`。
+- 当指定 `-PlayerName` 且该玩家在线时，自动执行 `/brntalk start` 和 `/brntalk resume` 这类运行时命令。
+
+示例：
+
+```powershell
+.\tools\debug\run-debug-server.ps1 -EnableRcon -AcceptEula -NoBuild
+.\tools\debug\run-rcon-smoke.ps1 -Type invalid -Fixture missing_next_id
+.\tools\debug\run-rcon-smoke.ps1 -Type valid -Fixture basic_linear
+.\tools\debug\run-rcon-smoke.ps1 -Type valid -Fixture wait_resume -PlayerName DevPlayer
+```
+
+说明：
+
+- RCON 命令使用服务端控制台语法，不带 `/`。
+- 没有 `-PlayerName` 时，有效 fixture 只验证加载和日志，不执行玩家对话流程。
+- `choice_branch` 可以通过 RCON 自动开始线程，但选择选项仍需要客户端 UI。
+- `-AcceptEula` 只在你明确传入时写入 `run/eula.txt`。
+
 ### 6. 阶段一 README 更新
 
 需要更新：

@@ -1,0 +1,42 @@
+{
+  "conversations": [
+    {
+      "id": "brntalk_debug:multi_thread_alpha",
+      "messages": [
+        {
+          "id": "start",
+          "type": "text",
+          "speaker": "Alpha",
+          "text": "Alpha thread started.",
+          "nextId": "end"
+        },
+        {
+          "id": "end",
+          "type": "text",
+          "speaker": "Alpha",
+          "text": "Alpha thread finished.",
+          "nextId": null
+        }
+      ]
+    },
+    {
+      "id": "brntalk_debug:multi_thread_beta",
+      "messages": [
+        {
+          "id": "start",
+          "type": "text",
+          "speaker": "Beta",
+          "text": "Beta thread started.",
+          "nextId": "end"
+        },
+        {
+          "id": "end",
+          "type": "text",
+          "speaker": "Beta",
+          "text": "Beta thread finished.",
+          "nextId": null
+        }
+      ]
+    }
+  ]
+}

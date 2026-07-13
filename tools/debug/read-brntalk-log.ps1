@@ -3,7 +3,12 @@ param(
     [switch]$Tail,
     [int]$TailCount = 40,
     [datetime]$Since,
-    [switch]$SummaryOnly
+    [switch]$SummaryOnly,
+    [string[]]$ExpectPattern = @(),
+    [string[]]$RejectPattern = @(),
+    [switch]$FailOnValidationError,
+    [switch]$ExitWithCode,
+    [switch]$PassThru
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,6 +43,8 @@ $patterns = @(
     'Skipping script',
     'Failed to load conversation file'
 )
+$patterns += $ExpectPattern
+$patterns += $RejectPattern
 
 $lines = Get-Content -LiteralPath $context.LatestLogPath
 $matchingLines = foreach ($line in $lines) {
@@ -83,7 +90,72 @@ Write-Host "[BRNTalk Debug] Validation lines: $($summary.ValidationLineCount)"
 Write-Host "[BRNTalk Debug] Skipped scripts: $($summary.SkippedScriptCount)"
 Write-Host "[BRNTalk Debug] File load failures: $($summary.FileFailureCount)"
 
+$hasJudgementInput = $ExpectPattern.Count -gt 0 -or $RejectPattern.Count -gt 0 -or $FailOnValidationError
+$result = $null
+if ($hasJudgementInput) {
+    $failedReasons = New-Object System.Collections.Generic.List[string]
+    $unknownReasons = New-Object System.Collections.Generic.List[string]
+    $verdict = 'PASS'
+
+    foreach ($pattern in $ExpectPattern) {
+        $matchCount = @($matchingLines | Where-Object { $_ -match $pattern }).Count
+        if ($matchCount -eq 0) {
+            $unknownReasons.Add("Expected pattern was not found: $pattern")
+        }
+    }
+
+    foreach ($pattern in $RejectPattern) {
+        $matchCount = @($matchingLines | Where-Object { $_ -match $pattern }).Count
+        if ($matchCount -gt 0) {
+            $failedReasons.Add("Rejected pattern was found: $pattern")
+        }
+    }
+
+    if ($FailOnValidationError -and ($summary.ValidationLineCount -gt 0 -or $summary.SkippedScriptCount -gt 0 -or $summary.FileFailureCount -gt 0)) {
+        $failedReasons.Add('Validation, skipped script, or file load failure lines were found.')
+    }
+
+    if ($failedReasons.Count -gt 0) {
+        $verdict = 'FAIL'
+        Write-Host '[BRNTalk Debug] Verdict: FAIL' -ForegroundColor Red
+        $failedReasons | ForEach-Object { Write-Host "[BRNTalk Debug] - $_" -ForegroundColor Red }
+    } elseif ($unknownReasons.Count -gt 0) {
+        $verdict = 'UNKNOWN'
+        Write-Host '[BRNTalk Debug] Verdict: UNKNOWN' -ForegroundColor Yellow
+        $unknownReasons | ForEach-Object { Write-Host "[BRNTalk Debug] - $_" -ForegroundColor Yellow }
+    } else {
+        Write-Host '[BRNTalk Debug] Verdict: PASS' -ForegroundColor Green
+    }
+
+    if ($ExitWithCode) {
+        if ($verdict -eq 'FAIL') {
+            exit 1
+        }
+        if ($verdict -eq 'UNKNOWN') {
+            exit 2
+        }
+    }
+
+    $result = [PSCustomObject]@{
+        Verdict = $verdict
+        FailedReasons = @($failedReasons)
+        UnknownReasons = @($unknownReasons)
+        Summary = $summary
+    }
+} elseif ($PassThru) {
+    $result = [PSCustomObject]@{
+        Verdict = 'NONE'
+        FailedReasons = @()
+        UnknownReasons = @()
+        Summary = $summary
+    }
+}
+
 if (-not $SummaryOnly -and @($matchingLines).Count -gt 0) {
     Write-Host ''
     $matchingLines | ForEach-Object { Write-Output $_ }
+}
+
+if ($PassThru -and $null -ne $result) {
+    Write-Output $result
 }

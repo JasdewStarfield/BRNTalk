@@ -1,0 +1,31 @@
+{
+  "conversations": [
+    {
+      "id": "brntalk_debug:action_command",
+      "messages": [
+        {
+          "id": "start",
+          "type": "text",
+          "speaker": "Debug Guide",
+          "text": "Action command fixture started.",
+          "nextId": "action_node"
+        },
+        {
+          "id": "action_node",
+          "type": "text",
+          "speaker": "System",
+          "text": "This node runs a low-risk say command.",
+          "action": "/say BRNTalk action fixture reached",
+          "nextId": "end"
+        },
+        {
+          "id": "end",
+          "type": "text",
+          "speaker": "System",
+          "text": "Action command fixture finished.",
+          "nextId": null
+        }
+      ]
+    }
+  ]
+}

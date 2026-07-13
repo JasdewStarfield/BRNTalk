@@ -1,7 +1,11 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [switch]$CleanLog,
-    [switch]$NoBuild
+    [switch]$NoBuild,
+    [switch]$EnableRcon,
+    [string]$RconPassword = 'brntalk-debug',
+    [int]$RconPort = 25575,
+    [switch]$AcceptEula
 )
 
 $ErrorActionPreference = 'Stop'
@@ -10,7 +14,7 @@ $ErrorActionPreference = 'Stop'
 
 $context = Get-BrntalkDebugContext -ScriptRoot $PSScriptRoot
 
-Write-Host '[BRNTalk Debug] Repo-only Phase 1 workflow. No mod version bump is needed.' -ForegroundColor Cyan
+Write-Host '[BRNTalk Debug] External validation workflow. No mod version bump is needed.' -ForegroundColor Cyan
 Write-Host "[BRNTalk Debug] Repo root: $($context.RepoRoot)"
 Write-Host "[BRNTalk Debug] Latest log: $($context.LatestLogPath)"
 Write-Host "[BRNTalk Debug] Datapacks: $($context.DatapacksDir)"
@@ -18,6 +22,11 @@ Write-Host "[BRNTalk Debug] Server config: $($context.ServerConfigDir)"
 
 Ensure-BrntalkDirectory -Path $context.LogDir
 Ensure-BrntalkDirectory -Path $context.DatapacksDir
+
+if ($EnableRcon) {
+    Enable-BrntalkDebugRcon -Context $context -Password $RconPassword -Port $RconPort -AcceptEula:$AcceptEula
+    Write-Host "[BRNTalk Debug] RCON enabled on port $RconPort." -ForegroundColor Cyan
+}
 
 if ($CleanLog -and (Test-Path -LiteralPath $context.LatestLogPath)) {
     if ($PSCmdlet.ShouldProcess($context.LatestLogPath, 'Clear latest.log before starting the debug server')) {

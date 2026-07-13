@@ -1,0 +1,31 @@
+{
+  "conversations": [
+    {
+      "id": "brntalk_debug:basic_linear",
+      "messages": [
+        {
+          "id": "start",
+          "type": "text",
+          "speaker": "Debug Guide",
+          "text": "Basic linear fixture started.",
+          "nextId": "auto_continue",
+          "continue": true
+        },
+        {
+          "id": "auto_continue",
+          "type": "text",
+          "speaker": "Debug Guide",
+          "text": "Auto-continued message reached.",
+          "nextId": "end"
+        },
+        {
+          "id": "end",
+          "type": "text",
+          "speaker": "System",
+          "text": "Basic linear fixture finished.",
+          "nextId": null
+        }
+      ]
+    }
+  ]
+}
