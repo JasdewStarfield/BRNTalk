@@ -122,7 +122,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
         TalkConversation conv = new TalkConversation(convId);
 
         if (rawConv.messages == null || rawConv.messages.isEmpty()) {
-            ConversationValidator.ValidationReport report = new ConversationValidator.ValidationReport(convId);
+            ConversationValidator.ValidationReport report = new ConversationValidator.ValidationReport(fileId.toString(), convId);
             report.error("Script contains no messages.");
             report.logProblems();
             Brntalk.LOGGER.error("[BRNTalk] Skipping script '{}' due to {} validation error(s).", convId, report.errorCount());
@@ -196,7 +196,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
             parsedMessages.add(msg);
         }
 
-        ConversationValidator.ValidationReport report = ConversationValidator.validate(convId, parsedMessages, duplicateMessageIds);
+        ConversationValidator.ValidationReport report = ConversationValidator.validate(fileId.toString(), convId, parsedMessages, duplicateMessageIds);
         report.logProblems();
         if (report.hasErrors()) {
             Brntalk.LOGGER.error("[BRNTalk] Skipping script '{}' due to {} validation error(s).", convId, report.errorCount());

@@ -1,0 +1,24 @@
+{
+  "id": "brntalk_debug:blank_choice_text",
+  "messages": [
+    {
+      "id": "start",
+      "type": "choice",
+      "speaker": "Guide",
+      "text": "One option has blank text.",
+      "choices": [
+        {
+          "id": "blank_choice",
+          "text": "   ",
+          "nextId": "end"
+        }
+      ]
+    },
+    {
+      "id": "end",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "The script still loads because blank choice text is a warning."
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet('invalid', 'valid')]
+    [ValidateSet('invalid', 'valid', 'warning')]
     [string]$Type = 'invalid',
     [string]$Fixture,
     [string]$SourcePath,

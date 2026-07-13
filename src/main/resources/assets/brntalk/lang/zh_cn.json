@@ -16,6 +16,11 @@
   "command.brntalk.resume_filtered.success": "[BRNTalk] 已为 %1$s 名玩家继续对话 %2$s（过滤 ID：%3$s），共恢复 %4$s 个线程。",
   "command.brntalk.resume.failure": "[BRNTalk] 未能继续对话（玩家可能没有该对话，或对话并未处于等待状态）。",
 
+  "system.brntalk.migration.success": "[BRNTalk] 已迁移你的对话数据。你的进度现在会保存到玩家数据中。",
+  "validation.brntalk.reload.summary": "[BRNTalk] /reload 完成，但发现校验问题：已加载 %1$s 个对话，跳过 %2$s 个无效对话。",
+  "validation.brntalk.reload.summary_with_files": "[BRNTalk] /reload 完成，但发现校验问题：已加载 %1$s 个对话，跳过 %2$s 个无效对话，另有 %3$s 个文件加载失败。",
+  "validation.brntalk.reload.details_in_log": "[BRNTalk] 完整校验详情已写入 latest.log。",
+
   "title.brntalk.config": "BRNTalk 配置",
 
   "sidebar_button.brntalk.brntalk_open_ui": "查看消息",

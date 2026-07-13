@@ -157,6 +157,12 @@ The following errors block a dialogue script during server startup or `/reload`:
 - A message or choice whose `nextId` points to a missing message
 - An infinite automatic-progression loop between `text` nodes
 
+The following issues are logged as warnings in `latest.log`, but do not block loading:
+
+- Message text or choice text is empty or only whitespace
+- A `wait` node has no `nextId`, so `/brntalk resume` cannot advance it
+- A message is unreachable from the first message through `nextId` or choice paths
+
 After `/reload`, BRNTalk sends a short in-game report to online permission-level-2 players when validation fails. Full details remain available in `latest.log`.
 
 ### Example
@@ -230,9 +236,9 @@ BRNTalk also provides server settings for validation messages after `/reload`:
   - Sends the validation summary to online permission-level-2 players
   - Default: `true`
 - `validationReportMaxDetailLines`
-  - Maximum number of detail lines sent after the summary
-  - Set to `0` for summary-only mode; full details remain in `latest.log`
-  - Default: `5`
+  - Legacy compatibility setting; admin chat no longer emits detailed validation lines
+
+In-game messages only include a short summary. Detailed resource, script, message, and choice locations are written to `latest.log`.
 
 ---
 

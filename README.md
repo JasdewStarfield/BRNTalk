@@ -157,6 +157,12 @@ data/<namespace>/brntalk/dialogues/*.json
 - `nextId` 或选项 `nextId` 指向不存在的消息
 - `text` 节点之间形成无限自动推进循环
 
+以下问题会作为警告写入 `latest.log`，但不会阻止脚本加载：
+
+- 消息文本或选项文本为空，或只包含空白字符
+- `wait` 节点没有 `nextId`，导致 `/brntalk resume` 无法推进
+- 消息无法从第一条消息通过 `nextId` 或选项路径到达
+
 如果 `/reload` 时存在这类错误，BRNTalk 会向在线的 2 级权限玩家发送游戏内摘要提示；完整错误仍会写入 `latest.log`。
 
 ### 示例
@@ -230,9 +236,9 @@ BRNTalk 还提供服务端配置，用于控制 `/reload` 后的校验提示行�
   - 是否向在线的 2 级权限玩家发送校验摘要
   - 默认值：`true`
 - `validationReportMaxDetailLines`
-  - 摘要之后最多额外发送多少条详情
-  - 设为 `0` 时只发送摘要，完整内容仅写入 `latest.log`
-  - 默认值：`5`
+  - 旧配置项，当前保留兼容；管理员聊天不再输出详细校验行
+
+游戏内只发送简短摘要；具体资源、剧本、消息和选项定位会写入 `latest.log`。
 
 ---
 

@@ -1,0 +1,18 @@
+{
+  "id": "fixture_missing_choice_next_id",
+  "messages": [
+    {
+      "id": "start",
+      "type": "choice",
+      "speaker": "Guide",
+      "text": "This choice points to nowhere.",
+      "choices": [
+        {
+          "id": "broken_choice",
+          "text": "Broken path",
+          "nextId": "missing_choice_target"
+        }
+      ]
+    }
+  ]
+}

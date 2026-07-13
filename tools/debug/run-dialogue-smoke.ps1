@@ -1,7 +1,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('invalid', 'valid')]
+    [ValidateSet('invalid', 'valid', 'warning')]
     [string]$Type,
 
     [Parameter(Mandatory)]
@@ -90,6 +90,10 @@ if ($Type -eq 'invalid' -and $ExpectPattern.Count -eq 0) {
 
 if ($Type -eq 'valid' -and -not $FailOnValidationError) {
     $FailOnValidationError = $true
+}
+
+if ($Type -eq 'warning' -and $ExpectPattern.Count -eq 0) {
+    $ExpectPattern = @('Validation:', 'WARNING')
 }
 
 Write-Host ''

@@ -1,0 +1,24 @@
+{
+  "id": "brntalk_debug:unreachable_message",
+  "messages": [
+    {
+      "id": "start",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "Only this path is reachable.",
+      "nextId": "end"
+    },
+    {
+      "id": "end",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "Reachable end."
+    },
+    {
+      "id": "unused",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "This node is intentionally unreachable."
+    }
+  ]
+}
