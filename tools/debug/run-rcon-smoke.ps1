@@ -1,7 +1,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('invalid', 'valid')]
+    [ValidateSet('invalid', 'valid', 'warning')]
     [string]$Type,
 
     [Parameter(Mandatory)]
@@ -92,6 +92,7 @@ if ($StartServer) {
     $stderrPath = Join-Path $context.LogDir 'brntalk-debug-server.err.log'
 
     if ($PSCmdlet.ShouldProcess($context.RepoRoot, 'Start debug server as a background process')) {
+        Repair-BrntalkProcessPathEnvironment
         $serverProcess = Start-Process `
             -FilePath (Join-Path $context.RepoRoot 'gradlew.bat') `
             -ArgumentList @('runServer', '--no-configuration-cache') `
@@ -106,6 +107,12 @@ if ($StartServer) {
 }
 
 Wait-BrntalkRcon -HostName $HostName -Port $RconPort -Password $RconPassword -TimeoutSeconds $ServerWaitSeconds
+
+$logLineCountBeforeReload = if (Test-Path -LiteralPath $context.LatestLogPath) {
+    @(Get-Content -LiteralPath $context.LatestLogPath).Count
+} else {
+    0
+}
 
 $commands = @(Get-BrntalkRconSmokeCommands -FixtureName $fixtureName -TargetPlayer $PlayerName)
 $commandFailures = New-Object System.Collections.Generic.List[string]
@@ -147,9 +154,14 @@ $readLogArgs = @{
 
 if ($Type -eq 'invalid') {
     $readLogArgs.ExpectPattern = @('Validation:', 'Skipping script')
+} elseif ($Type -eq 'warning') {
+    $readLogArgs.ExpectPattern = @('Validation:', 'WARNING')
+    $readLogArgs.RejectPattern = @('Skipping script', 'Failed to load conversation file')
 } else {
     $readLogArgs.FailOnValidationError = $true
 }
+
+$readLogArgs.SkipFirstLineCount = $logLineCountBeforeReload
 
 try {
     $logResult = & (Join-Path $PSScriptRoot 'read-brntalk-log.ps1') @readLogArgs

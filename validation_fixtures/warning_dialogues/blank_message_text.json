@@ -1,0 +1,18 @@
+{
+  "id": "brntalk_debug:blank_message_text",
+  "messages": [
+    {
+      "id": "start",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "   ",
+      "nextId": "end"
+    },
+    {
+      "id": "end",
+      "type": "text",
+      "speaker": "Guide",
+      "text": "The script still loads because blank message text is a warning."
+    }
+  ]
+}

@@ -2,6 +2,7 @@ package yourscraft.jasdewstarfield.brntalk;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.OnDatapackSyncEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -90,7 +91,7 @@ public class SyncEventListener {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
         if (BrntalkPlatform.migrateLegacyTalkStateOnLogin(player)) {
-            player.sendSystemMessage(Component.literal("[BRNTalk] Migrated talk data for you! Your data is now an attachment!").withStyle(ChatFormatting.GREEN));
+            player.sendSystemMessage(Component.translatable("system.brntalk.migration.success").withStyle(ChatFormatting.GREEN));
             Brntalk.LOGGER.info("[BRNTalk] Migrated talk data for player {}", player.getName().getString());
         }
 
@@ -109,50 +110,22 @@ public class SyncEventListener {
             return;
         }
 
-        String summary = "[BRNTalk] Reload completed with validation issues: loaded "
-                + report.loadedConversations()
-                + " conversation(s), skipped "
-                + report.skippedConversations()
-                + " invalid conversation(s)";
-        if (report.failedFileCount() > 0) {
-            summary = summary + ", " + report.failedFileCount() + " file load failure(s)";
-        }
-        summary = summary + ".";
-
-        List<String> detailLines = new ArrayList<>();
-        for (ConversationLoadReport.InvalidConversation invalidConversation : report.invalidConversations()) {
-            for (String error : invalidConversation.errors()) {
-                detailLines.add("Script '" + invalidConversation.scriptId() + "': " + error);
-            }
-        }
-        for (ConversationLoadReport.FileLoadFailure fileLoadFailure : report.fileLoadFailures()) {
-            detailLines.add("File '" + fileLoadFailure.resourceId() + "': " + fileLoadFailure.summary());
-        }
-
-        // The full report is still in latest.log; chat only gets the first few
-        // detail lines plus a pointer to the log when needed.
-        int maxDetailLines = BrntalkConfig.SERVER.validationReportMaxDetailLines.get();
-        int remainingLines = Math.max(0, detailLines.size() - maxDetailLines);
-        int detailLinesToSend = Math.min(detailLines.size(), maxDetailLines);
-
         for (ServerPlayer player : players) {
             if (!player.hasPermissions(2)) {
                 continue;
             }
 
-            player.sendSystemMessage(Component.literal(summary).withStyle(ChatFormatting.YELLOW));
+            MutableComponent summary = report.failedFileCount() > 0
+                    ? Component.translatable("validation.brntalk.reload.summary_with_files",
+                    report.loadedConversations(), report.skippedConversations(), report.failedFileCount())
+                    : Component.translatable("validation.brntalk.reload.summary",
+                    report.loadedConversations(), report.skippedConversations());
 
-            for (int i = 0; i < detailLinesToSend; i++) {
-                player.sendSystemMessage(Component.literal("[BRNTalk] " + detailLines.get(i)).withStyle(ChatFormatting.RED));
-            }
-
-            if (remainingLines > 0) {
-                player.sendSystemMessage(Component.literal("[BRNTalk] ...and " + remainingLines + " more issue(s). Check latest.log for full details.")
-                        .withStyle(ChatFormatting.RED));
-            } else {
-                player.sendSystemMessage(Component.literal("[BRNTalk] Full validation details were written to latest.log.")
-                        .withStyle(ChatFormatting.GOLD));
-            }
+            player.sendSystemMessage(summary.withStyle(ChatFormatting.YELLOW));
+            // Chat stays short for admins; latest.log carries the structured
+            // source/script/message/choice details for author debugging.
+            player.sendSystemMessage(Component.translatable("validation.brntalk.reload.details_in_log")
+                    .withStyle(ChatFormatting.GOLD));
         }
     }
 }

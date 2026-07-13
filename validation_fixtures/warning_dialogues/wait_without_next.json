@@ -1,0 +1,11 @@
+{
+  "id": "brntalk_debug:wait_without_next",
+  "messages": [
+    {
+      "id": "start",
+      "type": "wait",
+      "speaker": "Guide",
+      "text": "This wait node has no resume target."
+    }
+  ]
+}

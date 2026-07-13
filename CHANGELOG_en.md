@@ -8,7 +8,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Nothing yet.
+- Validation reports now keep structured issue data, and logs include resource, script, message, and choice locations for author debugging.
+- Added non-blocking validation warnings for blank message/choice text, non-resumable `wait` nodes, and messages unreachable from the start node.
+
+### Changed
+
+- After `/reload`, the in-game admin validation message stays as a short summary while detailed validation information is written to `latest.log`.
+- `/reload` validation summaries and legacy data migration messages now use translation keys with built-in Simplified Chinese and English text.
+
+### External Tooling
+
+- Added rule-level validation fixtures for every current blocking error and non-blocking warning.
+- Added `tools/debug/run-validation-fixtures.ps1` to inject fixtures, run `reload`, and verify logs in batches through RCON.
+
+### Fixed
+
+- [1.20.1] Fixed a Forge dedicated-server crash caused by client packet handler registration loading client UI classes during common setup.
 
 ## [1.1.1] - 2026-07-11
 

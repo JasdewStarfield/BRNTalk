@@ -15,6 +15,7 @@ function Get-BrntalkDebugContext {
     $fixtureRoot = Join-Path $repoRoot 'validation_fixtures'
     $invalidFixturesDir = Join-Path $fixtureRoot 'invalid_dialogues'
     $validFixturesDir = Join-Path $fixtureRoot 'valid_dialogues'
+    $warningFixturesDir = Join-Path $fixtureRoot 'warning_dialogues'
 
     return [PSCustomObject]@{
         RepoRoot         = $repoRoot
@@ -31,6 +32,7 @@ function Get-BrntalkDebugContext {
         FixturesDir      = $invalidFixturesDir
         InvalidFixturesDir = $invalidFixturesDir
         ValidFixturesDir = $validFixturesDir
+        WarningFixturesDir = $warningFixturesDir
         ServerConfigDir  = Join-Path $runDir 'world\serverconfig'
     }
 }
@@ -54,12 +56,15 @@ function Get-BrntalkFixtureDirectory {
         [pscustomobject]$Context,
 
         [Parameter(Mandatory)]
-        [ValidateSet('invalid', 'valid')]
+        [ValidateSet('invalid', 'valid', 'warning')]
         [string]$Type
     )
 
     if ($Type -eq 'valid') {
         return $Context.ValidFixturesDir
+    }
+    if ($Type -eq 'warning') {
+        return $Context.WarningFixturesDir
     }
 
     return $Context.InvalidFixturesDir
@@ -70,11 +75,11 @@ function Get-BrntalkFixtureFiles {
         [Parameter(Mandatory)]
         [pscustomobject]$Context,
 
-        [ValidateSet('invalid', 'valid', 'all')]
+        [ValidateSet('invalid', 'valid', 'warning', 'all')]
         [string]$Type = 'all'
     )
 
-    $types = if ($Type -eq 'all') { @('invalid', 'valid') } else { @($Type) }
+    $types = if ($Type -eq 'all') { @('invalid', 'warning', 'valid') } else { @($Type) }
     foreach ($fixtureType in $types) {
         $directory = Get-BrntalkFixtureDirectory -Context $Context -Type $fixtureType
         if (-not (Test-Path -LiteralPath $directory)) {
@@ -95,7 +100,8 @@ function Get-BrntalkFixtureFiles {
 
 function Set-BrntalkPropertyLine {
     param(
-        [Parameter(Mandatory)]
+        [AllowNull()]
+        [AllowEmptyCollection()]
         [string[]]$Lines,
 
         [Parameter(Mandatory)]
@@ -104,6 +110,10 @@ function Set-BrntalkPropertyLine {
         [Parameter(Mandatory)]
         [string]$Value
     )
+
+    if ($null -eq $Lines) {
+        $Lines = @()
+    }
 
     $result = New-Object System.Collections.Generic.List[string]
     $found = $false
@@ -153,6 +163,20 @@ function Enable-BrntalkDebugRcon {
 
     if ($AcceptEula) {
         Write-BrntalkUtf8File -Path $Context.EulaPath -Content ("eula=true" + [Environment]::NewLine)
+    }
+}
+
+function Repair-BrntalkProcessPathEnvironment {
+    # Some Windows shells inherit both Path and PATH. PowerShell's Start-Process
+    # can choke on that duplicate key, so normalize only this script process.
+    $pathValue = [Environment]::GetEnvironmentVariable('Path', 'Process')
+    if ([string]::IsNullOrEmpty($pathValue)) {
+        $pathValue = [Environment]::GetEnvironmentVariable('PATH', 'Process')
+    }
+
+    if (-not [string]::IsNullOrEmpty($pathValue)) {
+        [Environment]::SetEnvironmentVariable('PATH', $null, 'Process')
+        [Environment]::SetEnvironmentVariable('Path', $pathValue, 'Process')
     }
 }
 

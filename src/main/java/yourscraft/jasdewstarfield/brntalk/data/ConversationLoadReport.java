@@ -60,24 +60,46 @@ public final class ConversationLoadReport {
     }
 
     public static final class InvalidConversation {
+        private final String sourceId;
         private final String scriptId;
-        private final List<String> errors;
+        private final List<ConversationValidator.ValidationIssue> issues;
 
-        private InvalidConversation(String scriptId, List<String> errors) {
+        private InvalidConversation(String sourceId, String scriptId, List<ConversationValidator.ValidationIssue> issues) {
+            this.sourceId = sourceId;
             this.scriptId = scriptId;
-            this.errors = List.copyOf(errors);
+            this.issues = List.copyOf(issues);
+        }
+
+        public String sourceId() {
+            return sourceId;
         }
 
         public String scriptId() {
             return scriptId;
         }
 
-        public List<String> errors() {
-            return errors;
+        public List<ConversationValidator.ValidationIssue> issues() {
+            return issues;
+        }
+
+        public List<ConversationValidator.ValidationIssue> errors() {
+            List<ConversationValidator.ValidationIssue> errors = new ArrayList<>();
+            for (ConversationValidator.ValidationIssue issue : issues) {
+                if (issue.severity() == ConversationValidator.ValidationReport.Severity.ERROR) {
+                    errors.add(issue);
+                }
+            }
+            return List.copyOf(errors);
         }
 
         public int errorCount() {
-            return errors.size();
+            int count = 0;
+            for (ConversationValidator.ValidationIssue issue : issues) {
+                if (issue.severity() == ConversationValidator.ValidationReport.Severity.ERROR) {
+                    count++;
+                }
+            }
+            return count;
         }
     }
 
@@ -111,7 +133,7 @@ public final class ConversationLoadReport {
 
         public void addInvalidConversation(ConversationValidator.ValidationReport report) {
             skippedConversations++;
-            invalidConversations.add(new InvalidConversation(report.convId(), report.errors()));
+            invalidConversations.add(new InvalidConversation(report.sourceId(), report.convId(), report.errors()));
         }
 
         // Keep file-level parse/load failures in the same report as script validation

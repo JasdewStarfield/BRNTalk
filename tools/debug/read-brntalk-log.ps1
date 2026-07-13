@@ -3,6 +3,7 @@ param(
     [switch]$Tail,
     [int]$TailCount = 40,
     [datetime]$Since,
+    [int]$SkipFirstLineCount = 0,
     [switch]$SummaryOnly,
     [string[]]$ExpectPattern = @(),
     [string[]]$RejectPattern = @(),
@@ -46,7 +47,10 @@ $patterns = @(
 $patterns += $ExpectPattern
 $patterns += $RejectPattern
 
-$lines = Get-Content -LiteralPath $context.LatestLogPath
+$lines = @(Get-Content -LiteralPath $context.LatestLogPath)
+if ($SkipFirstLineCount -gt 0) {
+    $lines = @($lines | Select-Object -Skip $SkipFirstLineCount)
+}
 $matchingLines = foreach ($line in $lines) {
     $isInteresting = $false
     foreach ($pattern in $patterns) {

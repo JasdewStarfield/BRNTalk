@@ -3,12 +3,13 @@ package yourscraft.jasdewstarfield.brntalk.network;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
-import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadHandler;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.platform.BrntalkPlatform;
 import yourscraft.jasdewstarfield.brntalk.platform.TalkNetworking;
@@ -82,15 +83,15 @@ public class TalkNetwork {
                 MarkThreadReadPayload::decode, TalkNetwork::handleMarkRead);
 
         registerClientPacket(PayloadSync.SyncThreadsPayload.class, PayloadSync.SyncThreadsPayload::encode,
-                PayloadSync.SyncThreadsPayload::decode, ClientPayloadHandler::handleSyncThreads);
+                PayloadSync.SyncThreadsPayload::decode, TalkNetwork::handleSyncThreadsClient);
         registerClientPacket(PayloadSync.AddThreadPayload.class, PayloadSync.AddThreadPayload::encode,
-                PayloadSync.AddThreadPayload::decode, ClientPayloadHandler::handleAddThread);
+                PayloadSync.AddThreadPayload::decode, TalkNetwork::handleAddThreadClient);
         registerClientPacket(PayloadSync.AppendMessagesPayload.class, PayloadSync.AppendMessagesPayload::encode,
-                PayloadSync.AppendMessagesPayload::decode, ClientPayloadHandler::handleAppendMessages);
+                PayloadSync.AppendMessagesPayload::decode, TalkNetwork::handleAppendMessagesClient);
         registerClientPacket(PayloadSync.UpdateStatePayload.class, PayloadSync.UpdateStatePayload::encode,
-                PayloadSync.UpdateStatePayload::decode, ClientPayloadHandler::handleUpdateState);
+                PayloadSync.UpdateStatePayload::decode, TalkNetwork::handleUpdateStateClient);
         registerClientPacket(OpenTalkScreenPayload.class, OpenTalkScreenPayload::encode,
-                OpenTalkScreenPayload::decode, ClientPayloadHandler::handleOpenTalkScreen);
+                OpenTalkScreenPayload::decode, TalkNetwork::handleOpenTalkScreenClient);
     }
 
     public static void handleRequestOpenTalk(final RequestOpenTalkPayload payload,
@@ -198,6 +199,41 @@ public class TalkNetwork {
         TalkNetworking.sendUpdateState(player, threadId, lastReadTime);
     }
 
+    private static void handleSyncThreadsClient(PayloadSync.SyncThreadsPayload payload) {
+        if (FMLEnvironment.dist != Dist.CLIENT) {
+            return;
+        }
+        ClientPacketDelegate.handleSyncThreads(payload);
+    }
+
+    private static void handleAddThreadClient(PayloadSync.AddThreadPayload payload) {
+        if (FMLEnvironment.dist != Dist.CLIENT) {
+            return;
+        }
+        ClientPacketDelegate.handleAddThread(payload);
+    }
+
+    private static void handleAppendMessagesClient(PayloadSync.AppendMessagesPayload payload) {
+        if (FMLEnvironment.dist != Dist.CLIENT) {
+            return;
+        }
+        ClientPacketDelegate.handleAppendMessages(payload);
+    }
+
+    private static void handleUpdateStateClient(PayloadSync.UpdateStatePayload payload) {
+        if (FMLEnvironment.dist != Dist.CLIENT) {
+            return;
+        }
+        ClientPacketDelegate.handleUpdateState(payload);
+    }
+
+    private static void handleOpenTalkScreenClient(OpenTalkScreenPayload payload) {
+        if (FMLEnvironment.dist != Dist.CLIENT) {
+            return;
+        }
+        ClientPacketDelegate.handleOpenTalkScreen(payload);
+    }
+
     private static <T> void registerServerPacket(
             Class<T> packetClass,
             BiConsumer<T, FriendlyByteBuf> encoder,
@@ -222,6 +258,32 @@ public class TalkNetwork {
                 .decoder(decoder)
                 .consumerMainThread((payload, contextSupplier) -> handler.handle(payload))
                 .add();
+    }
+
+    /*
+     * 客户端处理器会引用 Minecraft 客户端 UI 类。
+     * 专用服务端只经过上面的 dist 判断，不加载这个内部委托，避免 common setup 阶段触发 DistCleaner。
+     */
+    private static class ClientPacketDelegate {
+        private static void handleSyncThreads(PayloadSync.SyncThreadsPayload payload) {
+            yourscraft.jasdewstarfield.brntalk.client.ClientPayloadHandler.handleSyncThreads(payload);
+        }
+
+        private static void handleAddThread(PayloadSync.AddThreadPayload payload) {
+            yourscraft.jasdewstarfield.brntalk.client.ClientPayloadHandler.handleAddThread(payload);
+        }
+
+        private static void handleAppendMessages(PayloadSync.AppendMessagesPayload payload) {
+            yourscraft.jasdewstarfield.brntalk.client.ClientPayloadHandler.handleAppendMessages(payload);
+        }
+
+        private static void handleUpdateState(PayloadSync.UpdateStatePayload payload) {
+            yourscraft.jasdewstarfield.brntalk.client.ClientPayloadHandler.handleUpdateState(payload);
+        }
+
+        private static void handleOpenTalkScreen(OpenTalkScreenPayload payload) {
+            yourscraft.jasdewstarfield.brntalk.client.ClientPayloadHandler.handleOpenTalkScreen(payload);
+        }
     }
 
     private static int nextPacketId() {

@@ -16,6 +16,11 @@
   "command.brntalk.resume_filtered.success": "[BRNTalk] Resumed dialogue %2$s for %1$s player(s), filtered by ID %3$s, restoring %4$s thread(s).",
   "command.brntalk.resume.failure": "[BRNTalk] Failed to resume dialogue. The players may not have it or it may not be waiting.",
 
+  "system.brntalk.migration.success": "[BRNTalk] Migrated your talk data. Your progress is now stored in player data.",
+  "validation.brntalk.reload.summary": "[BRNTalk] /reload completed with validation issues: loaded %1$s conversation(s), skipped %2$s invalid conversation(s).",
+  "validation.brntalk.reload.summary_with_files": "[BRNTalk] /reload completed with validation issues: loaded %1$s conversation(s), skipped %2$s invalid conversation(s), and %3$s file load failure(s).",
+  "validation.brntalk.reload.details_in_log": "[BRNTalk] Full validation details were written to latest.log.",
+
   "sidebar_button.brntalk.brntalk_open_ui": "View Messages",
 
   "title.brntalk.config": "BRNTalk Config",

@@ -16,7 +16,9 @@ Then run `/reload` or restart the debug server.
 | Fixture | Purpose | Expected result |
 | --- | --- | --- |
 | `duplicate_message_id.json` | Reuses one message ID in a script. | BRNTalk logs a duplicate message ID validation error and skips the script. |
+| `empty_messages.json` | Defines a script with no messages. | BRNTalk logs an empty-script validation error and skips the script. |
 | `missing_next_id.json` | Points `nextId` at a missing message. | BRNTalk logs a missing message validation error and skips the script. |
+| `missing_choice_next_id.json` | Points a choice `nextId` at a missing message. | BRNTalk logs a missing choice target validation error and skips the script. |
 | `empty_choice_node.json` | Defines a `choice` node with no choices. | BRNTalk logs an empty choice validation error and skips the script. |
 | `duplicate_choice_id.json` | Reuses one choice ID in a choice node. | BRNTalk logs a duplicate choice ID validation error and skips the script. |
 | `infinite_text_loop.json` | Creates an infinite text auto-advance loop. | BRNTalk logs an automatic text loop validation error and skips the script. |
@@ -33,4 +35,10 @@ RCON smoke can inject the fixture, run `reload`, and check the log automatically
 
 ```powershell
 .\tools\debug\run-rcon-smoke.ps1 -Type invalid -Fixture missing_next_id
+```
+
+Run all invalid fixtures:
+
+```powershell
+.\tools\debug\run-validation-fixtures.ps1 -Type invalid
 ```
