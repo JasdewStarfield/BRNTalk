@@ -2,6 +2,7 @@ package yourscraft.jasdewstarfield.brntalk.runtime;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
+import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 
@@ -82,7 +83,7 @@ public class TalkManager {
         TalkMessage msgWithTime = firstMsg.withTimestamp(now);
         thread.appendMessage(msgWithTime);
 
-        executeAction(player, msgWithTime);
+        executeAction(player, thread, msgWithTime);
 
         // 尝试自动推进
         autoAdvance(player, thread, conv);
@@ -120,7 +121,7 @@ public class TalkManager {
         // 1. 添加目标消息
         TalkMessage msgWithTime = nextMsg.withTimestamp(System.currentTimeMillis());
         thread.appendMessage(msgWithTime);
-        executeAction(player, msgWithTime);
+        executeAction(player, thread, msgWithTime);
 
         // 2. 尝试自动推进
         autoAdvance(player, thread, conv);
@@ -160,10 +161,23 @@ public class TalkManager {
                 TalkMessage msgWithTime = nextMsg.withTimestamp(System.currentTimeMillis());
                 thread.appendMessage(msgWithTime);
 
-                executeAction(player, msgWithTime);
+                executeAction(player, thread, msgWithTime);
 
                 count++;
             }
+        }
+
+        if (count >= safetyLimit) {
+            TalkMessage lastMsg = thread.getCurrentMessage();
+            String messageId = lastMsg == null ? "<unknown>" : lastMsg.getId();
+            Brntalk.LOGGER.warn(
+                    "[BRNTalk] Auto-advance stopped after {} steps for script '{}' thread '{}' at message '{}'. " +
+                            "This is a runtime safety guard; check the dialogue graph for an unexpected loop.",
+                    safetyLimit,
+                    thread.getScriptId(),
+                    thread.getId(),
+                    messageId
+            );
         }
     }
 
@@ -196,14 +210,34 @@ public class TalkManager {
     /**
      * 执行命令的辅助方法
      */
-    private void executeAction(ServerPlayer player, TalkMessage msg) {
+    private void executeAction(ServerPlayer player, TalkThread thread, TalkMessage msg) {
         String action = msg.getAction();
         if (action != null && !action.isBlank()) {
             CommandSourceStack source = player.createCommandSourceStack()
                     .withPermission(2)
                     .withSuppressedOutput();
 
-            player.server.getCommands().performPrefixedCommand(source, action);
+            try {
+                int result = player.server.getCommands().performPrefixedCommand(source, action);
+                if (result == 0) {
+                    Brntalk.LOGGER.warn(
+                            "[BRNTalk] Action command returned 0 for script '{}' thread '{}' message '{}': {}",
+                            thread.getScriptId(),
+                            thread.getId(),
+                            msg.getId(),
+                            action
+                    );
+                }
+            } catch (RuntimeException ex) {
+                Brntalk.LOGGER.error(
+                        "[BRNTalk] Action command failed for script '{}' thread '{}' message '{}': {}",
+                        thread.getScriptId(),
+                        thread.getId(),
+                        msg.getId(),
+                        action,
+                        ex
+                );
+            }
         }
     }
 }

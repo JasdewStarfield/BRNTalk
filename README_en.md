@@ -246,6 +246,8 @@ In-game messages only include a short summary. Detailed resource, script, messag
 
 ### Java API (`BrntalkAPI`)
 
+See [`docs/API.md`](../docs/API.md) for stable boundaries and event semantics.
+
 Other Java mods can call:
 
 - `startConversation(player, scriptId)`
