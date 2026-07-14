@@ -15,11 +15,14 @@
 
 - `/reload` 后的管理员游戏内提示保持为简短摘要，详细校验信息改由 `latest.log` 承载。
 - `/reload` 校验摘要和旧存档迁移提示改用翻译键，内置简体中文与英文文本。
+- 运行时 `action` 命令失败、返回 0 或自动推进触发安全上限时，现在会写入包含剧本、线程和消息定位的日志。
+- 补充 `BrntalkAPI` 与 `PlayerSeenMessageEvent` 的稳定边界和事件触发语义文档。
 
 ### 外部工具
 
 - 新增规则级校验 fixture，覆盖所有当前阻断式错误和非阻断式警告。
 - 新增 `tools/debug/run-validation-fixtures.ps1`，可通过 RCON 批量注入 fixture、执行 `reload` 并检查日志判定。
+- 更新 `docs/EXTERNAL_VALIDATION_PLAN.md`，改为记录当前 fixture、RCON smoke 和批量校验工作流。
 
 ### 修复
 

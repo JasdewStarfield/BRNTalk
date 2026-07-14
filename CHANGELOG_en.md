@@ -15,11 +15,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - After `/reload`, the in-game admin validation message stays as a short summary while detailed validation information is written to `latest.log`.
 - `/reload` validation summaries and legacy data migration messages now use translation keys with built-in Simplified Chinese and English text.
+- Runtime logs now include script, thread, and message locations when an `action` command fails, returns 0, or automatic progression reaches the safety limit.
+- Documented the stable boundaries and event semantics for `BrntalkAPI` and `PlayerSeenMessageEvent`.
 
 ### External Tooling
 
 - Added rule-level validation fixtures for every current blocking error and non-blocking warning.
 - Added `tools/debug/run-validation-fixtures.ps1` to inject fixtures, run `reload`, and verify logs in batches through RCON.
+- Updated `docs/EXTERNAL_VALIDATION_PLAN.md` to describe the current fixture, RCON smoke, and batch validation workflow.
 
 ### Fixed
 

@@ -246,6 +246,8 @@ BRNTalk 还提供服务端配置，用于控制 `/reload` 后的校验提示行�
 
 ### API（`BrntalkAPI`）
 
+稳定边界和事件触发语义见 [`docs/API.md`](../docs/API.md)。
+
 你可以从其他 Java 模组直接调用：
 
 - `startConversation(player, scriptId)`
