@@ -57,11 +57,12 @@ $jarName = Expand-BrntalkMetadataText -Text $targetTemplate.jar_name -Values $va
 $releaseNotes = Get-BrntalkReleaseNotes -ProjectRoot $ProjectRoot -Version $Version
 $repositoryUrl = $template.project.repository_url.TrimEnd('/')
 $changelogBranch = $template.project.changelog_branch
+$cnChangelogLabel = -join [char[]](20013, 25991)
 $releaseNotes += @"
 
 ---
 
-Full changelogs: [English]($repositoryUrl/blob/$changelogBranch/CHANGELOG_en.md) | [中文]($repositoryUrl/blob/$changelogBranch/CHANGELOG_cn.md)
+Full changelogs: [English]($repositoryUrl/blob/$changelogBranch/CHANGELOG_en.md) | [$cnChangelogLabel]($repositoryUrl/blob/$changelogBranch/CHANGELOG_cn.md)
 "@
 
 $modrinthDependencies = @($template.modrinth.dependencies | ForEach-Object {

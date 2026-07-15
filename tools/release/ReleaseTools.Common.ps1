@@ -137,10 +137,12 @@ function Move-BrntalkUnreleasedSection {
     }
 
     $newline = if ($content.Contains("`r`n")) { "`r`n" } else { "`n" }
+    # Normalize caller-provided placeholder sections to the target file's newline style.
+    $emptySectionBody = $EmptySection.Trim() -replace "\r\n|\n|\r", $newline
     $replacement = @(
         "## [$UnreleasedHeading]",
         '',
-        $EmptySection.Trim(),
+        $emptySectionBody,
         '',
         "## [$Version] - $ReleaseDate",
         '',

@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Nothing yet.
+
+## [1.2.0] - 2026-07-15
+
+### Added
+
 - Validation reports now keep structured issue data, and logs include resource, script, message, and choice locations for author debugging.
 - Added non-blocking validation warnings for blank message/choice text, non-resumable `wait` nodes, and messages unreachable from the start node.
 
@@ -27,7 +33,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - [1.20.1] Fixed a Forge dedicated-server crash caused by client packet handler registration loading client UI classes during common setup.
-
 ## [1.1.1] - 2026-07-11
 
 ### Changed
