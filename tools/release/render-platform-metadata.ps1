@@ -76,7 +76,8 @@ $modrinthDependencies = @($template.modrinth.dependencies | ForEach-Object {
 $curseForgeRelations = @($template.curseforge.relations.projects | ForEach-Object {
     [ordered]@{
         slug      = $_.slug
-        projectID = $_.projectID
+        # CurseForge's upload endpoint requires numeric project IDs inside relation metadata.
+        projectID = [int]$_.projectID
         type      = $_.type
     }
 })
