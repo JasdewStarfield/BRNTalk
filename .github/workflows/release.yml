@@ -164,27 +164,30 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $version = '${{ inputs.version }}'
+          # The job stores release inputs outside the checkout root, so pass the repository explicitly.
+          $repo = $env:GITHUB_REPOSITORY
           $jars = @(Get-ChildItem -LiteralPath ./dist -Filter '*.jar' -File)
           if ($jars.Count -ne 2) {
             throw "Expected exactly two release jars, found $($jars.Count)."
           }
 
-          gh release view $version *> $null
+          gh release view $version --repo $repo *> $null
           if ($LASTEXITCODE -eq 0) {
-            $existingNames = @(gh release view $version --json assets --jq '.assets[].name')
+            $existingNames = @(gh release view $version --repo $repo --json assets --jq '.assets[].name')
             foreach ($jar in $jars) {
               if ($jar.Name -notin $existingNames) {
-                gh release upload $version $jar.FullName
+                gh release upload $version $jar.FullName --repo $repo
                 if ($LASTEXITCODE -ne 0) { throw "Failed to upload $($jar.Name)." }
               }
             }
-            gh release edit $version --draft=${{ inputs.draft }}
+            gh release edit $version --repo $repo --draft=${{ inputs.draft }}
             if ($LASTEXITCODE -ne 0) { throw 'Failed to update the existing GitHub Release.' }
             exit 0
           }
 
           $arguments = @(
             'release', 'create', $version,
+            '--repo', $repo,
             '--target', 'mc/1.21.1-neoforge',
             '--title', "BRNTalk $version",
             '--notes-file', './release-notes.md'
