@@ -11,7 +11,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
-import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
+import yourscraft.jasdewstarfield.brntalk.client.preview.TalkPreview;
 
 import java.util.List;
 
@@ -25,7 +25,7 @@ public class TalkToast implements Toast{
 
     public TalkToast(TalkMessage message) {
         this.title = Component.translatable("gui.brntalk.toast_new_message");
-        String preview = ClientTalkUtils.getSingleLinePreview(message, 120);
+        String preview = TalkPreview.getSingleLinePreview(message, 120);
         this.subtitle = Component.literal(preview);
     }
 

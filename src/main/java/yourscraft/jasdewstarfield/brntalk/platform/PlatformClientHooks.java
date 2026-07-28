@@ -18,7 +18,7 @@ import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.common.NeoForge;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.client.ClientKeyRegistry;
-import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
+import yourscraft.jasdewstarfield.brntalk.client.text.ClientTextFormatter;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkHud;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkScreen;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.OpenButton;
@@ -67,7 +67,7 @@ public final class PlatformClientHooks {
 
     private static void onRegisterClientReloadListeners(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener((ResourceManagerReloadListener) resourceManager -> {
-            ClientTalkUtils.clearCache();
+            ClientTextFormatter.clearCache();
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof TalkScreen talkScreen) {
                 talkScreen.clearRenderCache();

@@ -4,7 +4,9 @@ import net.minecraft.util.Mth;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
-import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
+import yourscraft.jasdewstarfield.brntalk.client.preview.TalkPreview;
+import yourscraft.jasdewstarfield.brntalk.client.render.TalkRenderUtils;
+import yourscraft.jasdewstarfield.brntalk.client.timeline.TalkTimeline;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import net.minecraft.client.Minecraft;
@@ -102,7 +104,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
                 int listHeight = this.getHeight();
                 int listY = this.getY();
 
-                ClientTalkUtils.drawCustomScrollbar(gfx,
+                TalkRenderUtils.drawCustomScrollbar(gfx,
                         scrollbarX,
                         listY,
                         listHeight,
@@ -192,7 +194,7 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
                 gfx.fill(left, top, left + width - 4, top + height, COLOR_LIST_HOVER_BG);
             }
 
-            var timelineState = ClientTalkUtils.calculateTimeline(thread);
+            var timelineState = TalkTimeline.calculate(thread);
 
             boolean isUnread = ClientTalkState.get().hasUnread(thread);
 
@@ -223,8 +225,8 @@ public class TalkThreadList extends ObjectSelectionList<TalkThreadList.Entry> {
             // 按当前列表项的实际宽度截断预览，让不同 UI 尺寸都能充分利用空间且不越界。
             int previewMaxWidth = Math.max(0, width - 8);
             String preview = timelineState.isFinished
-                    ? ClientTalkUtils.getSingleLinePreview(timelineState.activeMessage, previewMaxWidth) // 静态
-                    : ClientTalkUtils.getThreadTimelinePreview(thread, previewMaxWidth); // 动态
+                    ? TalkPreview.getSingleLinePreview(timelineState.activeMessage, previewMaxWidth) // 静态
+                    : TalkPreview.getThreadTimelinePreview(thread, previewMaxWidth); // 动态
 
             //时间
             gfx.drawString(Minecraft.getInstance().font, timeStr, left + 4, top + 4, COLOR_LIST_TIME);
