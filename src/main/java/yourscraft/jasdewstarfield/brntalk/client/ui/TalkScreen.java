@@ -1,16 +1,16 @@
 package yourscraft.jasdewstarfield.brntalk.client.ui;
 
-import net.minecraft.client.gui.components.AbstractScrollWidget;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.gui.narration.NarrationElementOutput;
 import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
-import yourscraft.jasdewstarfield.brntalk.client.render.MessageCacheKey;
-import yourscraft.jasdewstarfield.brntalk.client.render.MessageLayoutCache;
 import yourscraft.jasdewstarfield.brntalk.client.render.TalkRenderUtils;
 import yourscraft.jasdewstarfield.brntalk.client.text.ClientTextFormatter;
 import yourscraft.jasdewstarfield.brntalk.client.timeline.TalkTimeline;
+import yourscraft.jasdewstarfield.brntalk.client.ui.chat.TalkChatContentRenderer;
+import yourscraft.jasdewstarfield.brntalk.client.ui.chat.TalkChatWidget;
+import yourscraft.jasdewstarfield.brntalk.client.ui.layout.TalkScreenLayout;
+import yourscraft.jasdewstarfield.brntalk.client.ui.scroll.TalkScrollMath;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.ChainBoxButton;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.CloseButton;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
@@ -22,7 +22,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
 import java.util.*;
@@ -35,7 +34,7 @@ public class TalkScreen extends Screen {
 
     private TalkThreadList threadList;
     private TalkThread selectedThread;
-    private ChatWidget chatWidget;
+    private TalkChatWidget chatWidget;
 
     // --- 滚动与动画控制变量 ---
     private int totalContentHeight = 0;
@@ -43,11 +42,9 @@ public class TalkScreen extends Screen {
     private boolean choiceControlsVisible = false;
 
     private final List<AbstractWidget> choiceButtons = new ArrayList<>();
-    private final Map<MessageCacheKey, MessageRenderCache> renderCacheMap = new HashMap<>();
-    private final Map<MessageCacheKey, Long> messageStartTimeCache = new HashMap<>();
+    private final TalkChatContentRenderer chatContentRenderer = new TalkChatContentRenderer();
     private final ClientTalkState.StateListener stateListener = this::onTalkStateChanged;
     private boolean stateListenerRegistered = false;
-    private int cachedMessageCount = -1; // 用于检测是否需要刷新缓存
 
     private int winX, winY, winW, winH;
     private int innerX, innerY, innerW, innerH;
@@ -77,60 +74,36 @@ public class TalkScreen extends Screen {
         }
         clearRenderCache();
 
-        // tile 单元大小
-        int tileUnitX = FRAME_W - FRAME_BORDER_W * 2;
-        int tileUnitY = FRAME_H - FRAME_BORDER_H * 2;
+        TalkScreenLayout layout = TalkScreenLayout.calculate(this.width, this.height);
+        this.winX = layout.windowX();
+        this.winY = layout.windowY();
+        this.winW = layout.windowWidth();
+        this.winH = layout.windowHeight();
+        this.innerX = layout.innerX();
+        this.innerY = layout.innerY();
+        this.innerW = layout.innerWidth();
+        this.innerH = layout.innerHeight();
+        this.listAreaX = layout.listAreaX();
+        this.listAreaW = layout.listAreaWidth();
+        this.dividerX = layout.dividerX();
+        this.chatAreaX = layout.chatAreaX();
+        this.chatAreaW = layout.chatAreaWidth();
 
-        // 最大的范围
-        int maxW = this.width - (WIN_MARGIN_X * 2);
-        int maxH = this.height - (WIN_MARGIN_Y * 2);
-
-        // tile 数量
-        int tilesX = Math.max(1, (maxW - FRAME_BORDER_W * 2) / tileUnitX);
-        int tilesY = Math.max(1, (maxH - FRAME_BORDER_H * 2) / tileUnitY);
-
-        // 初始化布局坐标
-        this.winW = (FRAME_BORDER_W * 2) + (tilesX * tileUnitX);
-        this.winH = (FRAME_BORDER_H * 2) + (tilesY * tileUnitY);
-        this.winX = (this.width - this.winW) / 2;
-        this.winY = (this.height - this.winH) / 2;
-
-        this.innerX = winX + FRAME_BORDER_W - FRAME_INNER_PADDING;
-        this.innerY = winY + FRAME_BORDER_H - FRAME_INNER_PADDING;
-        this.innerW = winW - (FRAME_BORDER_W - FRAME_INNER_PADDING) * 2;
-        this.innerH = winH - (FRAME_BORDER_H - FRAME_INNER_PADDING) * 2;
-
-        // 左侧列表区域
-        int targetListW = (int) (this.innerW * TalkUIStyles.LIST_WIDTH_RATIO);
-        targetListW = Mth.clamp(targetListW, TalkUIStyles.LIST_MIN_WIDTH, TalkUIStyles.LIST_MAX_WIDTH);
-        // 对齐到 16 的倍数
-        int remainder = targetListW % 16;
-        if (remainder != 0) {
-            if (remainder >= 8) {
-                targetListW += (16 - remainder); // 向上取整
-            } else {
-                targetListW -= remainder;        // 向下取整
-            }
-        }
-
-        this.listAreaX = innerX;
-        this.listAreaW = targetListW;
-
-        // 分割线
-        this.dividerX = innerX + listAreaW;
-
-        // 右侧聊天区域
-        this.chatAreaX = dividerX + DIVIDER_WIDTH;
-        this.chatAreaW = innerW - listAreaW - DIVIDER_WIDTH;
-
-        this.chatWidget = new ChatWidget(chatAreaX, innerY, chatAreaW, innerH);
+        this.chatWidget = new TalkChatWidget(
+                chatAreaX,
+                innerY,
+                chatAreaW,
+                innerH,
+                () -> this.totalContentHeight,
+                this::renderChatContents
+        );
 
         rebuildUI();
     }
 
     private void rebuildUI() {
         // 清理
-        cachedMessageCount = -1;
+        chatContentRenderer.invalidateTimeline();
         this.clearWidgets();
         this.choiceButtons.clear();
 
@@ -197,7 +170,11 @@ public class TalkScreen extends Screen {
             int maxBubbleWidth = (int) (this.chatAreaW * MAX_BUBBLE_WIDTH_RATIO);
             int textMaxWidth = maxBubbleWidth - (2 * BUBBLE_PADDING_X);
             // 提前计算高度
-            this.totalContentHeight = calculateScrollableContentHeight(this.selectedThread.getMessages(), textMaxWidth);
+            this.totalContentHeight = chatContentRenderer.calculateScrollableHeight(
+                    this.selectedThread,
+                    this.font,
+                    textMaxWidth
+            );
         } else {
             this.totalContentHeight = 0;
         }
@@ -205,7 +182,14 @@ public class TalkScreen extends Screen {
         // ChatWidget
         double chatScroll = (this.chatWidget != null) ? this.chatWidget.getTargetScroll() : 0;
         int chatWidgetHeight = getChatViewHeight();
-        this.chatWidget = new ChatWidget(chatAreaX, innerY, chatAreaW, chatWidgetHeight);
+        this.chatWidget = new TalkChatWidget(
+                chatAreaX,
+                innerY,
+                chatAreaW,
+                chatWidgetHeight,
+                () -> this.totalContentHeight,
+                this::renderChatContents
+        );
 
         if (this.needScrollToBottom) {
             this.chatWidget.scrollToBottomImmediately();
@@ -347,7 +331,7 @@ public class TalkScreen extends Screen {
     }
 
     private void onTalkStateChanged(ClientTalkState.StateChange change) {
-        cachedMessageCount = -1;
+        chatContentRenderer.invalidateTimeline();
         String selectedId = ClientTalkState.get().getSelectedThreadId();
         boolean affectsSelectedThread = Objects.equals(selectedId, change.threadId());
         // 其他线程新增或已读确认只影响列表，不应把当前聊天区拉到底部。
@@ -452,7 +436,7 @@ public class TalkScreen extends Screen {
             if (this.threadList != null) {
                 // 对于 ObjectSelectionList，内容高度 ≈ maxScroll + viewHeight
                 int listContentH = this.threadList.getMaxScroll() + this.threadList.getHeight();
-                leftChainOffset = calculatePhysicalOffset(
+                leftChainOffset = TalkScrollMath.calculatePhysicalOffset(
                         this.threadList.getHeight(),
                         listContentH,
                         this.threadList.getScrollAmount(),
@@ -462,7 +446,7 @@ public class TalkScreen extends Screen {
 
             int rightChainOffset = 0;
             if (this.chatWidget != null) {
-                rightChainOffset = calculatePhysicalOffset(
+                rightChainOffset = TalkScrollMath.calculatePhysicalOffset(
                         this.chatWidget.getHeight(),
                         this.totalContentHeight,
                         this.chatWidget.getScrollAmountVal(),
@@ -595,7 +579,7 @@ public class TalkScreen extends Screen {
     public void renderChatContents(GuiGraphics gfx, int x, int yOffset, int width) {
         if (selectedThread == null) return;
 
-        // 1. 在这一帧渲染开始前，先算出正确的内容总高度
+        // 在这一帧绘制前先测量内容，滚动控件和渲染器共享同一宽度。
         int maxBubbleWidth = (int) (width * MAX_BUBBLE_WIDTH_RATIO);
         int textMaxWidth = maxBubbleWidth - (2 * BUBBLE_PADDING_X);
 
@@ -603,7 +587,11 @@ public class TalkScreen extends Screen {
         boolean wasAtBottom = this.chatWidget.isScrolledToBottom(1.0);
         int oldContentHeight = this.totalContentHeight;
 
-        this.totalContentHeight = calculateScrollableContentHeight(selectedThread.getMessages(), textMaxWidth);
+        this.totalContentHeight = chatContentRenderer.calculateScrollableHeight(
+                selectedThread,
+                this.font,
+                textMaxWidth
+        );
 
         if (this.needScrollToBottom) {
             this.chatWidget.scrollToBottomImmediately();
@@ -614,215 +602,18 @@ public class TalkScreen extends Screen {
             this.chatWidget.scrollToBottom();
         }
 
-        List<TalkMessage> msgs = selectedThread.getMessages();
-        int currentY = yOffset;
-        int lineHeight = this.font.lineHeight;
-
-        long now = System.currentTimeMillis();
-
-        String lastSpeaker = null;
-        long previousVisualEndTime = 0;
-        int charDelay = TalkTimeline.getCharDelay();
-        int msgPause = TalkTimeline.getMessagePause();
-
-        int widgetScreenY = this.chatWidget.getY();
-        int widgetHeight = this.chatWidget.getHeight();
-
-        for (TalkMessage msg : msgs) {
-            // 1. 获取或创建缓存
-            MessageCacheKey cacheKey = MessageCacheKey.of(selectedThread, msg);
-            MessageRenderCache cache = renderCacheMap.computeIfAbsent(cacheKey, ignored -> new MessageRenderCache());
-
-            // 2. 检查缓存是否过期（例如：首次加载、或宽度变化导致需要重新折行）
-            cache.updateLayoutIfNeeded(msg, textMaxWidth, this.font);
-
-            // 3. 计算时间轴
-            long visualStartTime;
-            if (msg.getTimestamp() == 0) {
-                visualStartTime = 0;
-                previousVisualEndTime = 0;
-            } else {
-                visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + msgPause);
-                previousVisualEndTime = visualStartTime + cache.duration;
-            }
-
-            // 是否显示名字
-            String currentSpeaker = cache.speakerComp.getString();
-            boolean showName = lastSpeaker == null || !lastSpeaker.equals(currentSpeaker);
-            lastSpeaker = currentSpeaker;
-
-            // 4. 判断当前消息的打字机进度
-            String textToShow;
-            long timePassed = now - visualStartTime;
-
-            String fullText = cache.layoutCache.processedText;
-
-            if (timePassed < 0) {
-                // 还没轮到，直接跳过
-                continue;
-            } else if (timePassed >= cache.duration) {
-                // 播完了，直接用缓存的完整文本
-                textToShow = fullText;
-            } else {
-                int charCount = (int) (timePassed / charDelay);
-                charCount = Math.max(0, Math.min(charCount, fullText.length()));
-                textToShow = fullText.substring(0, charCount);
-            }
-
-            // 5. 获取行 (如果是动态的，需要临时计算；如果是完整的，使用缓存)
-            List<FormattedCharSequence> linesToDraw;
-            if (textToShow.length() == fullText.length()) {
-                linesToDraw = cache.layoutCache.getLines(this.font, msg, textMaxWidth);
-            } else {
-                linesToDraw = this.font.split(Component.literal(textToShow), textMaxWidth);
-            }
-
-            // 气泡最终尺寸
-            int contentH = linesToDraw.size() * lineHeight;
-            int bubbleW = 0;
-            for (FormattedCharSequence seq : linesToDraw) {
-                int w = this.font.width(seq);
-                if (w > bubbleW) bubbleW = w;
-            }
-            bubbleW += (2 * BUBBLE_PADDING_X);
-            int bubbleH = contentH + (2 * BUBBLE_PADDING_Y);
-
-            int nameHeight = showName ? (lineHeight + 2) : 0;
-            int entryTotalHeight = nameHeight + bubbleH;
-
-            // 块级Culling
-            // 如果 底部 < 0 或者 顶部 > Widget 高度，则不画
-            if (currentY + entryTotalHeight + MSG_SPACING < currentScroll || currentY > currentScroll + widgetHeight) {
-                currentY += entryTotalHeight + MSG_SPACING;
-                continue;
-            }
-
-            // --- 渲染说话人 ---
-            boolean isPlayer = (msg.getSpeakerType() == TalkMessage.SpeakerType.PLAYER);
-            int bubbleX = x + (isPlayer ? (width - bubbleW - 10) : 10);
-            int drawY = widgetScreenY + currentY;
-            if (showName) {
-                int nameX = x + (isPlayer ? (width - cache.speakerNameWidth - 10) : 10);
-                int nameColor = isPlayer ? COLOR_PLAYER_NAME : COLOR_NPC_NAME;
-                gfx.drawString(this.font, cache.speakerComp, nameX, drawY, nameColor);
-                drawY += nameHeight; // 只有绘制了名字才让 Y 下移
-            }
-
-            // --- 绘制气泡背景 ---
-            int bgColor = isPlayer ? COLOR_PLAYER_BUBBLE_BG : COLOR_NPC_BUBBLE_BG;
-            int borderColor = isPlayer ? COLOR_PLAYER_BUBBLE_BORDER : COLOR_NPC_BUBBLE_BORDER;
-
-            // 填充
-            gfx.fill(bubbleX, drawY, bubbleX + bubbleW, drawY + bubbleH, bgColor);
-            // 简单的四边框绘制
-            gfx.fill(bubbleX, drawY, bubbleX + bubbleW, drawY + 1, borderColor);
-            gfx.fill(bubbleX, drawY + bubbleH - 1, bubbleX + bubbleW, drawY + bubbleH, borderColor);
-            gfx.fill(bubbleX, drawY, bubbleX + 1, drawY + bubbleH, borderColor);
-            gfx.fill(bubbleX + bubbleW - 1, drawY, bubbleX + bubbleW, drawY + bubbleH, borderColor);
-
-            // --- 渲染正文 ---
-            int textY = drawY + BUBBLE_PADDING_Y;
-            int textX = bubbleX + BUBBLE_PADDING_X;
-
-            for (FormattedCharSequence line : linesToDraw) {
-                gfx.drawString(this.font, line, textX, textY, COLOR_TEXT_NORMAL, false);
-                textY += lineHeight;
-            }
-
-            currentY += entryTotalHeight + MSG_SPACING;
-        }
-    }
-
-    private int calculateTotalHeight(List<TalkMessage> msgs, int textMaxWidth) {
-        updateTimelineCache(msgs);
-
-        int currentTotal = 0;
-        int lineHeight = this.font.lineHeight;
-        long now = System.currentTimeMillis();
-        int charDelay = TalkTimeline.getCharDelay();
-
-        String lastSpeaker = null;
-
-        for (TalkMessage msg : msgs) {
-            MessageCacheKey cacheKey = MessageCacheKey.of(selectedThread, msg);
-            Long visualStartTimeObj = messageStartTimeCache.get(cacheKey);
-            long visualStartTime = (visualStartTimeObj != null) ? visualStartTimeObj : now + 1;
-
-            // 如果还没开始显示，后面的肯定也没开始，直接跳出循环
-            if (now < visualStartTime) break;
-
-            // 获取渲染缓存
-            MessageRenderCache cache = renderCacheMap.computeIfAbsent(cacheKey, ignored -> new MessageRenderCache());
-            cache.updateLayoutIfNeeded(msg, textMaxWidth, this.font);
-
-            // 判断是否显示名字
-            String currentSpeaker = cache.speakerComp.getString();
-            boolean showName = lastSpeaker == null || !lastSpeaker.equals(currentSpeaker);
-            lastSpeaker = currentSpeaker;
-            int nameHeight = showName ? (lineHeight + 2) : 0;
-
-            // 计算时间轴 (同渲染逻辑)
-            long timePassed = now - visualStartTime;
-
-            // 情况 A: 已播完
-            if (timePassed >= cache.duration) {
-                currentTotal += nameHeight + cache.bubbleHeight + MSG_SPACING;
-            } else {    // 情况 B: 正在打字
-                int charCount = (int) (timePassed / charDelay);
-                String fullText = cache.layoutCache.processedText;
-                charCount = Math.max(0, Math.min(charCount, fullText.length()));
-                String textToShow = fullText.substring(0, charCount);
-
-                int lines = this.font.split(Component.literal(textToShow), textMaxWidth).size();
-                int bubbleH = (lines * lineHeight) + (2 * BUBBLE_PADDING_Y);
-
-                currentTotal += nameHeight + bubbleH + MSG_SPACING;
-            }
-        }
-        return currentTotal;
-    }
-
-    private int calculateScrollableContentHeight(List<TalkMessage> msgs, int textMaxWidth) {
-        int messageHeight = calculateTotalHeight(msgs, textMaxWidth);
-        if (messageHeight <= 0) {
-            return 0;
-        }
-        // AbstractScrollWidget 的 innerHeight 需要覆盖真实绘制区域，包括顶部偏移和底部留白。
-        return CHAT_CONTENTS_Y_OFFSET + messageHeight + CHAT_CONTENTS_BOTTOM_PADDING;
-    }
-
-    private void updateTimelineCache(List<TalkMessage> msgs) {
-        if (msgs.size() == cachedMessageCount) return;
-
-        int msgPause = TalkTimeline.getMessagePause();
-
-        // 如果是清空了或者从头开始，清理缓存
-        if (msgs.isEmpty()) {
-            messageStartTimeCache.clear();
-            cachedMessageCount = 0;
-            return;
-        }
-
-        long previousVisualEndTime = 0;
-
-        for (TalkMessage msg : msgs) {
-            MessageCacheKey cacheKey = MessageCacheKey.of(selectedThread, msg);
-
-            // 计算开始时间
-            long visualStartTime;
-            if (msg.getTimestamp() == 0) {
-                visualStartTime = 0;
-                previousVisualEndTime = 0;
-            } else {
-                visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + msgPause);
-                long duration = TalkTimeline.calculateDuration(msg);
-                previousVisualEndTime = visualStartTime + duration;
-            }
-
-            messageStartTimeCache.put(cacheKey, visualStartTime);
-        }
-
-        cachedMessageCount = msgs.size();
+        chatContentRenderer.render(
+                gfx,
+                this.font,
+                selectedThread,
+                x,
+                yOffset,
+                width,
+                textMaxWidth,
+                currentScroll,
+                this.chatWidget.getY(),
+                this.chatWidget.getHeight()
+        );
     }
 
     @Override
@@ -849,21 +640,6 @@ public class TalkScreen extends Screen {
         return false;
     }
 
-    private int calculatePhysicalOffset(int viewHeight, int contentHeight, double scrollAmount, int maxScroll) {
-        if (maxScroll <= 0) return 0;
-
-        // 1. 计算滑块高度（逻辑同 TalkRenderUtils）
-        int barHeight = (int) ((float) (viewHeight * viewHeight) / (float) contentHeight);
-        barHeight = Mth.clamp(barHeight, 14, viewHeight);
-
-        // 2. 计算轨道可移动的物理长度
-        int trackLength = viewHeight - barHeight;
-        if (trackLength <= 0) return 0;
-
-        // 3. 计算当前物理偏移
-        return (int) ((scrollAmount / (float) maxScroll) * trackLength);
-    }
-
     @Override
     public boolean isPauseScreen() {
         // 返回 false：打开对话 UI 时，游戏不会暂停
@@ -874,9 +650,7 @@ public class TalkScreen extends Screen {
     public void onClose() {
         // 关闭界面时清理缓存，回到游戏
         ClientTextFormatter.clearCache();
-        this.renderCacheMap.clear();
-        messageStartTimeCache.clear();
-        cachedMessageCount = -1;
+        this.chatContentRenderer.clear();
         super.onClose();
     }
 
@@ -891,197 +665,7 @@ public class TalkScreen extends Screen {
     }
 
     public void clearRenderCache() {
-        this.renderCacheMap.clear();
-        this.messageStartTimeCache.clear();
-        this.cachedMessageCount = -1;
+        this.chatContentRenderer.clear();
     }
 
-    // 内部类：ChatWidget
-    class ChatWidget extends AbstractScrollWidget {
-
-        private double targetScroll = 0;
-        private boolean isSmoothScrolling = false; // 标记是否正在进行平滑滚动
-
-        public ChatWidget(int x, int y, int width, int height) {
-            super(x, y, width, height, Component.empty());
-        }
-
-        // --- 平滑滚动逻辑 ---
-
-        @Override
-        public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
-            // 滚轮事件：只更新目标值，不直接修改 scrollAmount
-            if (!this.visible) return false;
-
-            this.targetScroll -= scrollY * this.scrollRate();
-            this.targetScroll = Mth.clamp(this.targetScroll, 0, this.getMaxScrollAmount());
-            this.isSmoothScrolling = true;
-            return true;
-        }
-
-        public boolean isScrolledToBottom(double tolerance) {
-            double maxScroll = this.getMaxScrollAmount();
-            boolean isAtBottom = (maxScroll - this.scrollAmount()) <= tolerance;
-            boolean isFollowingBottom = this.isSmoothScrolling && (maxScroll - this.targetScroll) <= tolerance;
-            return isAtBottom || isFollowingBottom;
-        }
-
-        public double getScrollAmountVal() {
-            return this.scrollAmount();
-        }
-
-        @Override
-        protected void setScrollAmount(double amount) {
-            // 拖拽滚动条或键盘控制：直接更新，取消平滑动画
-            super.setScrollAmount(amount);
-            this.targetScroll = amount;
-            this.isSmoothScrolling = false;
-        }
-
-        public void scrollBy(double amount) {
-            double newVal = this.scrollAmount() + amount;
-            this.setScrollAmount(newVal);
-            // 同时也更新平滑滚动的目标值，防止冲突
-            this.targetScroll = newVal;
-        }
-
-        @Override
-        public void renderWidget(@NotNull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-            // 每一帧渲染前，计算插值
-            if (this.isSmoothScrolling) {
-                // 重新计算 maxScroll 防止窗口大小变化导致 target 越界
-                this.targetScroll = Mth.clamp(this.targetScroll, 0, this.getMaxScrollAmount());
-
-                double current = this.scrollAmount();
-                // 2. 平滑插值
-                if (Math.abs(this.targetScroll - current) > 0.1) {
-                    double newScroll = current + (this.targetScroll - current) * BrntalkConfig.CLIENT.smoothFactor.get();
-                    super.setScrollAmount(newScroll);
-                } else {
-                    super.setScrollAmount(this.targetScroll);
-                    this.isSmoothScrolling = false;
-                }
-            }
-
-            super.renderWidget(guiGraphics, mouseX, mouseY, partialTick);
-        }
-
-        @Override
-        protected void updateWidgetNarration(@NotNull NarrationElementOutput narrationElementOutput) {
-            this.defaultButtonNarrationText(narrationElementOutput);
-        }
-
-        // --- 实现抽象方法 ---
-
-        @Override
-        protected int getInnerHeight() {
-            return TalkScreen.this.totalContentHeight;
-        }
-
-        @Override
-        protected double scrollRate() {
-            return BrntalkConfig.CLIENT.scrollRate.get(); // 滚动灵敏度
-        }
-
-        @Override
-        protected void renderContents(@NotNull GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
-            TalkScreen.this.renderChatContents(gfx, this.getX(), CHAT_CONTENTS_Y_OFFSET, this.width);
-        }
-
-        @Override
-        protected void renderDecorations(@NotNull GuiGraphics gfx) {
-            // 如果是原版风格，交给父类绘制默认滚动条
-            if (BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
-                super.renderDecorations(gfx);
-                return;
-            }
-
-            // 如果是自定义风格，且需要显示滚动条，则绘制自定义版本
-            if (this.scrollbarVisible()) {
-                int scrollbarX = this.getX() + this.getWidth() + 2;
-                int barY = this.getY();
-                int barH = this.getHeight();
-
-                TalkRenderUtils.drawCustomScrollbar(gfx,
-                        scrollbarX,
-                        barY,
-                        barH,
-                        TalkScreen.this.totalContentHeight,
-                        this.scrollAmount(),
-                        this.getMaxScrollAmount()
-                );
-            }
-        }
-
-        @Override
-        protected void renderBackground(@NotNull GuiGraphics guiGraphics) {
-        }
-
-        @Override
-        protected void renderBorder(@NotNull GuiGraphics guiGraphics, int x, int y, int width, int height) {
-        }
-
-        // 供外部调用：平滑滚动到底部
-        public void scrollToBottom() {
-            this.targetScroll = this.getMaxScrollAmount();
-            this.isSmoothScrolling = true;
-        }
-
-        // 新建控件或切换线程时直接定位到底部，避免从历史顶部播放一段无意义的滚动动画。
-        public void scrollToBottomImmediately() {
-            this.targetScroll = this.getMaxScrollAmount();
-            this.isSmoothScrolling = false;
-            super.setScrollAmount(this.targetScroll);
-        }
-
-        // 供外部调用：恢复滚动位置
-        public void restoreScroll(double val) {
-            this.targetScroll = val;
-            this.isSmoothScrolling = false;
-            super.setScrollAmount(val);
-        }
-
-        public double getTargetScroll() {
-            return targetScroll;
-        }
-
-        public int getMaxScroll() {
-            return this.getMaxScrollAmount();
-        }
-    }
-
-    private static class MessageRenderCache {
-        // 委托给通用的 LayoutCache
-        final MessageLayoutCache layoutCache = new MessageLayoutCache();
-
-        // 屏幕特有的缓存数据 (气泡高度、名字渲染)
-        Component speakerComp;
-        int speakerNameWidth;
-        int bubbleHeight = -1;
-        long duration = -1;
-        private int cachedLayoutWidth = -1;
-
-        void updateLayoutIfNeeded(TalkMessage msg, int widthLimit, net.minecraft.client.gui.Font font) {
-            // 如果宽度没变且已经初始化过，无需更新
-            if (cachedLayoutWidth == widthLimit && speakerComp != null) {
-                return;
-            }
-
-            cachedLayoutWidth = widthLimit;
-
-            // 1. 让通用 Cache 更新文本和折行
-            List<FormattedCharSequence> lines = layoutCache.getLines(font, msg, widthLimit);
-
-            // 2. 更新 Screen 特有的数据
-            if (speakerComp == null) {
-                String speakerName = ClientTextFormatter.process(msg.getSpeaker());
-                this.speakerComp = Component.literal(speakerName);
-                this.speakerNameWidth = font.width(speakerName);
-                this.duration = TalkTimeline.calculateDuration(msg);
-            }
-
-            int lineHeight = font.lineHeight;
-            this.bubbleHeight = (lines.size() * lineHeight) + (2 * BUBBLE_PADDING_Y);
-        }
-    }
 }
