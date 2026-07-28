@@ -5,11 +5,15 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import org.jetbrains.annotations.NotNull;
+import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
+import yourscraft.jasdewstarfield.brntalk.client.render.MessageCacheKey;
+import yourscraft.jasdewstarfield.brntalk.client.render.MessageLayoutCache;
+import yourscraft.jasdewstarfield.brntalk.client.render.TalkRenderUtils;
+import yourscraft.jasdewstarfield.brntalk.client.text.ClientTextFormatter;
+import yourscraft.jasdewstarfield.brntalk.client.timeline.TalkTimeline;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.ChainBoxButton;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.CloseButton;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
-import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
-import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.platform.TalkNetworking;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
@@ -39,8 +43,8 @@ public class TalkScreen extends Screen {
     private boolean choiceControlsVisible = false;
 
     private final List<AbstractWidget> choiceButtons = new ArrayList<>();
-    private final Map<String, MessageRenderCache> renderCacheMap = new HashMap<>();
-    private final Map<String, Long> messageStartTimeCache = new HashMap<>();
+    private final Map<MessageCacheKey, MessageRenderCache> renderCacheMap = new HashMap<>();
+    private final Map<MessageCacheKey, Long> messageStartTimeCache = new HashMap<>();
     private final ClientTalkState.StateListener stateListener = this::onTalkStateChanged;
     private boolean stateListenerRegistered = false;
     private int cachedMessageCount = -1; // 用于检测是否需要刷新缓存
@@ -257,7 +261,7 @@ public class TalkScreen extends Screen {
             int cy = startY - (choiceHeight + spacing) * (i + 1);
 
             Button btn = Button.builder(
-                            Component.literal(ClientTalkUtils.processText(c.getText())),
+                            Component.literal(ClientTextFormatter.process(c.getText())),
                             b -> onChoiceClicked(c)
                     )
                     .bounds(centerX - choiceWidth / 2, cy, choiceWidth, choiceHeight)
@@ -285,7 +289,7 @@ public class TalkScreen extends Screen {
     }
 
     private boolean shouldShowChoiceControls() {
-        return this.selectedThread != null && hasChoice() && ClientTalkUtils.isThreadFinished(this.selectedThread);
+        return this.selectedThread != null && hasChoice() && TalkTimeline.isFinished(this.selectedThread);
     }
 
     private void syncChoiceButtonVisibility() {
@@ -397,19 +401,19 @@ public class TalkScreen extends Screen {
         } else {
             // 1. 左背景
             if (listAreaW > 0) {
-                ClientTalkUtils.drawRepeatedTexture(gfx, TEX_BG_LEFT,
+                TalkRenderUtils.drawRepeatedTexture(gfx, TEX_BG_LEFT,
                         innerX, currentInnerY, listAreaW, innerH, 16, 16);
             }
             // 2. 右背景
             if (chatAreaW > 0) {
-                ClientTalkUtils.drawRepeatedTexture(gfx, TEX_BG_RIGHT,
+                TalkRenderUtils.drawRepeatedTexture(gfx, TEX_BG_RIGHT,
                         chatAreaX, currentInnerY, chatAreaW, innerH, 16, 16);
             }
             // 3. 分割线
-            ClientTalkUtils.drawRepeatedTexture(gfx, TEX_DIVIDER,
+            TalkRenderUtils.drawRepeatedTexture(gfx, TEX_DIVIDER,
                     dividerX, currentInnerY, DIVIDER_WIDTH, innerH, 9, 16);
             // 4. 外框
-            ClientTalkUtils.drawTextureFrame(gfx, TEX_FRAME,
+            TalkRenderUtils.drawTextureFrame(gfx, TEX_FRAME,
                     winX, currentWinY, winW, winH,
                     FRAME_BORDER_W, FRAME_BORDER_H,
                     FRAME_W, FRAME_H);
@@ -468,12 +472,12 @@ public class TalkScreen extends Screen {
 
             // 左侧竖链
             int leftChainX = this.winX + 8;
-            ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, leftChainX, 0, CHAIN_V_W, this.height,
+            TalkRenderUtils.drawTiledTexture(gfx, TEX_PARTS, leftChainX, 0, CHAIN_V_W, this.height,
                     CHAIN_V_U, CHAIN_V_V, CHAIN_V_W, CHAIN_V_H, 0, - yOffset - leftChainOffset, texTotalW, texTotalH);
 
             // 右侧竖链
             int rightChainX = this.winX + this.winW - 5;
-            ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, rightChainX, 0, CHAIN_V_W, this.height,
+            TalkRenderUtils.drawTiledTexture(gfx, TEX_PARTS, rightChainX, 0, CHAIN_V_W, this.height,
                     CHAIN_V_U, CHAIN_V_V, CHAIN_V_W, CHAIN_V_H, 0, - yOffset - rightChainOffset, texTotalW, texTotalH);
         }
 
@@ -550,11 +554,11 @@ public class TalkScreen extends Screen {
             int topChainY = this.winY + 4;
 
             // 横向锁链 1
-            ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, 0, topChainY, this.width, CHAIN_H_H,
+            TalkRenderUtils.drawTiledTexture(gfx, TEX_PARTS, 0, topChainY, this.width, CHAIN_H_H,
                     CHAIN_H_U, CHAIN_H_V, CHAIN_H_W, CHAIN_H_H, 0, 0, texTotalW, texTotalH);
 
             // 横向锁链 2
-            ClientTalkUtils.drawTiledTexture(gfx, TEX_PARTS, 0, topChainY + 8, this.width, CHAIN_H_H,
+            TalkRenderUtils.drawTiledTexture(gfx, TEX_PARTS, 0, topChainY + 8, this.width, CHAIN_H_H,
                     CHAIN_H_U, CHAIN_H_V, CHAIN_H_W, CHAIN_H_H, 0, 0, texTotalW, texTotalH);
         }
         // 手动绘制关闭按钮
@@ -578,7 +582,7 @@ public class TalkScreen extends Screen {
         }
 
         if (this.selectedThread != null) {
-            boolean isFinished = ClientTalkUtils.isThreadFinished(this.selectedThread);
+            boolean isFinished = TalkTimeline.isFinished(this.selectedThread);
 
             // 标记已读
             if (isFinished && ClientTalkState.get().hasUnread(this.selectedThread)) {
@@ -618,15 +622,16 @@ public class TalkScreen extends Screen {
 
         String lastSpeaker = null;
         long previousVisualEndTime = 0;
-        int charDelay = ClientTalkUtils.getCharDelay();
-        int msgPause = ClientTalkUtils.getMsgPause();
+        int charDelay = TalkTimeline.getCharDelay();
+        int msgPause = TalkTimeline.getMessagePause();
 
         int widgetScreenY = this.chatWidget.getY();
         int widgetHeight = this.chatWidget.getHeight();
 
         for (TalkMessage msg : msgs) {
             // 1. 获取或创建缓存
-            MessageRenderCache cache = renderCacheMap.computeIfAbsent(msg.getId(), k -> new MessageRenderCache());
+            MessageCacheKey cacheKey = MessageCacheKey.of(selectedThread, msg);
+            MessageRenderCache cache = renderCacheMap.computeIfAbsent(cacheKey, ignored -> new MessageRenderCache());
 
             // 2. 检查缓存是否过期（例如：首次加载、或宽度变化导致需要重新折行）
             cache.updateLayoutIfNeeded(msg, textMaxWidth, this.font);
@@ -734,21 +739,20 @@ public class TalkScreen extends Screen {
         int currentTotal = 0;
         int lineHeight = this.font.lineHeight;
         long now = System.currentTimeMillis();
-        int charDelay = ClientTalkUtils.getCharDelay();
+        int charDelay = TalkTimeline.getCharDelay();
 
         String lastSpeaker = null;
 
         for (TalkMessage msg : msgs) {
-            String msgId = msg.getId();
-
-            Long visualStartTimeObj = messageStartTimeCache.get(msgId);
+            MessageCacheKey cacheKey = MessageCacheKey.of(selectedThread, msg);
+            Long visualStartTimeObj = messageStartTimeCache.get(cacheKey);
             long visualStartTime = (visualStartTimeObj != null) ? visualStartTimeObj : now + 1;
 
             // 如果还没开始显示，后面的肯定也没开始，直接跳出循环
             if (now < visualStartTime) break;
 
             // 获取渲染缓存
-            MessageRenderCache cache = renderCacheMap.computeIfAbsent(msg.getId(), k -> new MessageRenderCache());
+            MessageRenderCache cache = renderCacheMap.computeIfAbsent(cacheKey, ignored -> new MessageRenderCache());
             cache.updateLayoutIfNeeded(msg, textMaxWidth, this.font);
 
             // 判断是否显示名字
@@ -790,7 +794,7 @@ public class TalkScreen extends Screen {
     private void updateTimelineCache(List<TalkMessage> msgs) {
         if (msgs.size() == cachedMessageCount) return;
 
-        int msgPause = ClientTalkUtils.getMsgPause();
+        int msgPause = TalkTimeline.getMessagePause();
 
         // 如果是清空了或者从头开始，清理缓存
         if (msgs.isEmpty()) {
@@ -802,7 +806,7 @@ public class TalkScreen extends Screen {
         long previousVisualEndTime = 0;
 
         for (TalkMessage msg : msgs) {
-            String id = msg.getId();
+            MessageCacheKey cacheKey = MessageCacheKey.of(selectedThread, msg);
 
             // 计算开始时间
             long visualStartTime;
@@ -811,11 +815,11 @@ public class TalkScreen extends Screen {
                 previousVisualEndTime = 0;
             } else {
                 visualStartTime = Math.max(msg.getTimestamp(), previousVisualEndTime + msgPause);
-                long duration = ClientTalkUtils.calculateDuration(msg);
+                long duration = TalkTimeline.calculateDuration(msg);
                 previousVisualEndTime = visualStartTime + duration;
             }
 
-            messageStartTimeCache.put(id, visualStartTime);
+            messageStartTimeCache.put(cacheKey, visualStartTime);
         }
 
         cachedMessageCount = msgs.size();
@@ -848,7 +852,7 @@ public class TalkScreen extends Screen {
     private int calculatePhysicalOffset(int viewHeight, int contentHeight, double scrollAmount, int maxScroll) {
         if (maxScroll <= 0) return 0;
 
-        // 1. 计算滑块高度 (逻辑同 ClientTalkUtils)
+        // 1. 计算滑块高度（逻辑同 TalkRenderUtils）
         int barHeight = (int) ((float) (viewHeight * viewHeight) / (float) contentHeight);
         barHeight = Mth.clamp(barHeight, 14, viewHeight);
 
@@ -869,7 +873,7 @@ public class TalkScreen extends Screen {
     @Override
     public void onClose() {
         // 关闭界面时清理缓存，回到游戏
-        ClientTalkUtils.clearCache();
+        ClientTextFormatter.clearCache();
         this.renderCacheMap.clear();
         messageStartTimeCache.clear();
         cachedMessageCount = -1;
@@ -998,7 +1002,7 @@ public class TalkScreen extends Screen {
                 int barY = this.getY();
                 int barH = this.getHeight();
 
-                ClientTalkUtils.drawCustomScrollbar(gfx,
+                TalkRenderUtils.drawCustomScrollbar(gfx,
                         scrollbarX,
                         barY,
                         barH,
@@ -1048,7 +1052,7 @@ public class TalkScreen extends Screen {
 
     private static class MessageRenderCache {
         // 委托给通用的 LayoutCache
-        final ClientTalkUtils.MessageLayoutCache layoutCache = new ClientTalkUtils.MessageLayoutCache();
+        final MessageLayoutCache layoutCache = new MessageLayoutCache();
 
         // 屏幕特有的缓存数据 (气泡高度、名字渲染)
         Component speakerComp;
@@ -1070,10 +1074,10 @@ public class TalkScreen extends Screen {
 
             // 2. 更新 Screen 特有的数据
             if (speakerComp == null) {
-                String speakerName = ClientTalkUtils.processText(msg.getSpeaker());
+                String speakerName = ClientTextFormatter.process(msg.getSpeaker());
                 this.speakerComp = Component.literal(speakerName);
                 this.speakerNameWidth = font.width(speakerName);
-                this.duration = ClientTalkUtils.calculateDuration(msg);
+                this.duration = TalkTimeline.calculateDuration(msg);
             }
 
             int lineHeight = font.lineHeight;

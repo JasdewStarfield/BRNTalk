@@ -9,7 +9,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
-import yourscraft.jasdewstarfield.brntalk.client.ClientTalkUtils;
+import yourscraft.jasdewstarfield.brntalk.client.render.MessageLayoutCache;
+import yourscraft.jasdewstarfield.brntalk.client.text.ClientTextFormatter;
+import yourscraft.jasdewstarfield.brntalk.client.timeline.TalkTimeline;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 
@@ -65,7 +67,7 @@ public class TalkHud {
             addEntryToQueue(message, now);
         } else {
             // 是其他线程，加入折叠提示
-            String speaker = ClientTalkUtils.stripColor(ClientTalkUtils.processText(message.getSpeaker()));
+            String speaker = ClientTextFormatter.stripColor(ClientTextFormatter.process(message.getSpeaker()));
             PENDING_NOTIFICATIONS.put(threadId, new NotificationState(speaker, now));
         }
     }
@@ -74,7 +76,7 @@ public class TalkHud {
         int msgPause = BrntalkConfig.CLIENT.msgPause.get();
 
         // 计算纯文本长度和所需播放时间
-        long playDuration = ClientTalkUtils.calculateDuration(msg);
+        long playDuration = TalkTimeline.calculateDuration(msg);
 
         // 计算开始时间：必须等上一条消息播完 + 暂停时间
         long startTime = now;
@@ -185,8 +187,8 @@ public class TalkHud {
             boolean showName = true;
             if (i + 1 < entries.size()) {
                 HudEntry olderEntry = entries.get(i + 1);
-                String currentSpeaker = ClientTalkUtils.processText(entry.msg.getSpeaker());
-                String olderSpeaker = ClientTalkUtils.processText(olderEntry.msg.getSpeaker());
+                String currentSpeaker = ClientTextFormatter.process(entry.msg.getSpeaker());
+                String olderSpeaker = ClientTextFormatter.process(olderEntry.msg.getSpeaker());
                 if (currentSpeaker.equals(olderSpeaker)) {
                     showName = false;
                 }
@@ -245,7 +247,10 @@ public class TalkHud {
 
             // 绘制名字
             if (showName) {
-                String speaker = ClientTalkUtils.trimToWidth(ClientTalkUtils.processText(entry.msg.getSpeaker()), HUD_WIDTH - 10);
+                String speaker = ClientTextFormatter.trimToWidth(
+                        ClientTextFormatter.process(entry.msg.getSpeaker()),
+                        HUD_WIDTH - 10
+                );
                 int nameColorBase = (alphaInt << 24) | (isPlayer ? HUD_TEXT_NAME_PLAYER : HUD_TEXT_NAME_NPC);
                 int nameColor = (alphaInt << 24) | (nameColorBase & 0x00FFFFFF);
                 gfx.drawString(mc.font, speaker, baseX + 6, drawY + HUD_PADDING, nameColor, false);
@@ -332,7 +337,7 @@ public class TalkHud {
         final TalkMessage msg;
         final long visualStartTime;
         final long visualEndTime;
-        final ClientTalkUtils.MessageLayoutCache layout = new ClientTalkUtils.MessageLayoutCache();
+        final MessageLayoutCache layout = new MessageLayoutCache();
 
         boolean loggedOverflow = false;
 
