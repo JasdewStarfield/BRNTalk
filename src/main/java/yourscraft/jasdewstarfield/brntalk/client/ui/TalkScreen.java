@@ -21,7 +21,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
-import javax.annotation.Nullable;
 import java.util.*;
 
 import static yourscraft.jasdewstarfield.brntalk.client.ui.TalkUIStyles.*;
@@ -34,9 +33,6 @@ public class TalkScreen extends Screen {
     private TalkThread selectedThread;
     private ChatWidget chatWidget;
 
-    @Nullable
-    private String selectedThreadId;
-
     // --- 滚动与动画控制变量 ---
     private int totalContentHeight = 0;
     private boolean needScrollToBottom = true;
@@ -45,6 +41,8 @@ public class TalkScreen extends Screen {
     private final List<AbstractWidget> choiceButtons = new ArrayList<>();
     private final Map<String, MessageRenderCache> renderCacheMap = new HashMap<>();
     private final Map<String, Long> messageStartTimeCache = new HashMap<>();
+    private final ClientTalkState.StateListener stateListener = this::onTalkStateChanged;
+    private boolean stateListenerRegistered = false;
     private int cachedMessageCount = -1; // 用于检测是否需要刷新缓存
 
     private int winX, winY, winW, winH;
@@ -68,6 +66,11 @@ public class TalkScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        if (!stateListenerRegistered) {
+            // Screen 只订阅通用状态事件，不再由状态层反向识别具体 UI 类型。
+            ClientTalkState.get().addListener(stateListener);
+            stateListenerRegistered = true;
+        }
         clearRenderCache();
 
         // tile 单元大小
@@ -211,27 +214,13 @@ public class TalkScreen extends Screen {
     }
 
     private void reloadThreadList() {
-        List<TalkThread> threads = ClientTalkState.get().getThreads().stream()
-                .sorted(Comparator.comparingLong(TalkThread::getLastActivityTime).reversed())
-                .toList();
+        ClientTalkState state = ClientTalkState.get();
+        List<TalkThread> threads = state.getThreadsByRecentActivity();
 
         this.threadList.setThreads(threads);
 
-        // 用 id 恢复选中状态，避免 selectedThread 指向旧对象
-        TalkThread newSelected = null;
-        if (selectedThreadId != null) {
-            for (TalkThread t : threads) {
-                if (selectedThreadId.equals(t.getId())) {
-                    newSelected = t;
-                    break;
-                }
-            }
-        }
-
-        // 如果还没有选中的聊天串，默认选第一个
-        if (newSelected == null && !threads.isEmpty()) {
-            newSelected = threads.get(0);
-        }
+        // 选中身份由状态层维护；全量同步后这里总是取得最新线程对象。
+        TalkThread newSelected = state.getSelectedThread();
 
         updateSelectedThread(newSelected);
 
@@ -336,7 +325,9 @@ public class TalkScreen extends Screen {
     }
 
     public void onThreadSelected(TalkThread thread) {
-        setSelectedThread(thread);
+        if (thread != null) {
+            ClientTalkState.get().selectThread(thread.getId());
+        }
     }
 
     // 选项按钮点击：根据 nextConversationId 跳转到新的对话脚本，同时创建/更新对应聊天串
@@ -351,16 +342,21 @@ public class TalkScreen extends Screen {
         TalkNetworking.sendSelectChoice(threadId, choiceId);
     }
 
-    public void onThreadsSynced() {
+    private void onTalkStateChanged(ClientTalkState.StateChange change) {
         cachedMessageCount = -1;
-        this.needScrollToBottom = true;
+        String selectedId = ClientTalkState.get().getSelectedThreadId();
+        boolean affectsSelectedThread = Objects.equals(selectedId, change.threadId());
+        // 其他线程新增或已读确认只影响列表，不应把当前聊天区拉到底部。
+        boolean shouldScrollToBottom = switch (change.type()) {
+            case THREADS_REPLACED, SELECTION_CHANGED, CLEARED -> true;
+            case THREAD_ADDED, MESSAGES_APPENDED -> affectsSelectedThread;
+            case READ_TIME_UPDATED -> false;
+        };
+        if (shouldScrollToBottom) {
+            this.needScrollToBottom = true;
+        }
         this.reloadThreadList();
         this.rebuildUI();
-    }
-
-    public void setSelectedThread(TalkThread thread) {
-        updateSelectedThread(thread);
-        rebuildUI();
     }
 
     private void updateSelectedThread(TalkThread thread) {
@@ -371,7 +367,6 @@ public class TalkScreen extends Screen {
         // 渲染与时间轴缓存只服务于当前线程；切换线程时必须清空，避免相同消息 ID 互相复用内容。
         clearRenderCache();
         this.selectedThread = thread;
-        this.selectedThreadId = thread != null ? thread.getId() : null;
         this.needScrollToBottom = true;
     }
 
@@ -879,6 +874,16 @@ public class TalkScreen extends Screen {
         messageStartTimeCache.clear();
         cachedMessageCount = -1;
         super.onClose();
+    }
+
+    @Override
+    public void removed() {
+        if (stateListenerRegistered) {
+            // Screen 被替换或关闭时解除监听，避免状态单例长期持有旧界面。
+            ClientTalkState.get().removeListener(stateListener);
+            stateListenerRegistered = false;
+        }
+        super.removed();
     }
 
     public void clearRenderCache() {

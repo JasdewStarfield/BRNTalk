@@ -26,19 +26,15 @@ public class ClientPayloadHandler {
         List<TalkThread> threads = payload.threads().stream()
                 .map(PayloadSync.NetThread::toThread)
                 .toList();
+        // Forge 的 consumerMainThread 保证状态写入和监听器通知位于客户端主线程。
         ClientTalkState.get().setThreads(threads);
-
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof TalkScreen screen) {
-            screen.onThreadsSynced();
-        }
     }
 
     // 处理新增线程
     public static void handleAddThread(final PayloadSync.AddThreadPayload payload) {
         TalkThread thread = payload.thread().toThread();
         // 将 NetThread 还原为 TalkThread 并加入状态管理器
-        ClientTalkState.get().addThread(payload.thread().toThread());
+        ClientTalkState.get().addThread(thread);
 
         List<TalkMessage> msgs = thread.getMessages();
         if (!msgs.isEmpty()) {
