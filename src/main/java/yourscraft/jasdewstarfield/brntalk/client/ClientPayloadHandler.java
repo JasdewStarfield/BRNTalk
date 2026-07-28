@@ -32,13 +32,9 @@ public class ClientPayloadHandler {
             List<TalkThread> threads = payload.threads().stream()
                     .map(PayloadSync.NetThread::toThread)
                     .toList();
+            // 状态写入和监听器通知必须在同一个客户端主线程任务内完成。
             ClientTalkState.get().setThreads(threads);
         });
-
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof TalkScreen screen) {
-            screen.onThreadsSynced();
-        }
     }
 
     // 处理新增线程
@@ -46,7 +42,7 @@ public class ClientPayloadHandler {
         context.enqueueWork(() -> {
             TalkThread thread = payload.thread().toThread();
             // 将 NetThread 还原为 TalkThread 并加入状态管理器
-            ClientTalkState.get().addThread(payload.thread().toThread());
+            ClientTalkState.get().addThread(thread);
 
             List<TalkMessage> msgs = thread.getMessages();
             if (!msgs.isEmpty()) {
