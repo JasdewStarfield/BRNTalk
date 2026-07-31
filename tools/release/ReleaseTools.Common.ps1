@@ -147,6 +147,7 @@ function Move-BrntalkUnreleasedSection {
         "## [$Version] - $ReleaseDate",
         '',
         $body,
+        '',
         ''
     ) -join $newline
 
