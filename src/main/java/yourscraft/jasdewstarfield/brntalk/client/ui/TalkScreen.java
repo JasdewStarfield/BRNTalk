@@ -41,6 +41,7 @@ public class TalkScreen extends Screen {
 
     private final List<AbstractWidget> choiceButtons = new ArrayList<>();
     private final TalkChatContentRenderer chatContentRenderer = new TalkChatContentRenderer();
+    private final Map<String, Long> pendingReadActivityTimes = new HashMap<>();
     private final ClientTalkState.StateListener stateListener = this::onTalkStateChanged;
     private boolean stateListenerRegistered = false;
 
@@ -326,12 +327,18 @@ public class TalkScreen extends Screen {
 
     private void onTalkStateChanged(ClientTalkState.StateChange change) {
         chatContentRenderer.invalidateTimeline();
-        String selectedId = ClientTalkState.get().getSelectedThreadId();
+        ClientTalkState state = ClientTalkState.get();
+        reconcilePendingReadRequests(state);
+        String selectedId = state.getSelectedThreadId();
         boolean affectsSelectedThread = Objects.equals(selectedId, change.threadId());
+        boolean selectedThreadWasAtBottom = this.chatWidget == null
+                || this.chatWidget.isScrolledToBottom(1.0);
         // 其他线程新增或已读确认只影响列表，不应把当前聊天区拉到底部。
         boolean shouldScrollToBottom = switch (change.type()) {
             case THREADS_REPLACED, SELECTION_CHANGED, CLEARED -> true;
-            case THREAD_ADDED, MESSAGES_APPENDED -> affectsSelectedThread;
+            case THREAD_ADDED -> affectsSelectedThread;
+            // 阅读历史消息时保持当前视口；只有原本位于底部才继续跟随新增内容。
+            case MESSAGES_APPENDED -> affectsSelectedThread && selectedThreadWasAtBottom;
             case READ_TIME_UPDATED -> false;
         };
         if (shouldScrollToBottom) {
@@ -339,6 +346,13 @@ public class TalkScreen extends Screen {
         }
         this.reloadThreadList();
         this.rebuildUI();
+    }
+
+    private void reconcilePendingReadRequests(ClientTalkState state) {
+        pendingReadActivityTimes.entrySet().removeIf(entry -> {
+            TalkThread thread = state.getThread(entry.getKey());
+            return thread == null || thread.getLastReadTime() >= entry.getValue();
+        });
     }
 
     private void updateSelectedThread(TalkThread thread) {
@@ -548,12 +562,29 @@ public class TalkScreen extends Screen {
         if (this.selectedThread != null) {
             boolean isFinished = TalkTimeline.isFinished(this.selectedThread);
 
-            // 标记已读
-            if (isFinished && ClientTalkState.get().hasUnread(this.selectedThread)) {
-                TalkNetworking.sendMarkRead(this.selectedThread.getId());
-                this.selectedThread.setLastReadTime(System.currentTimeMillis());
+            if (isFinished) {
+                requestSelectedThreadReadIfNeeded();
             }
         }
+    }
+
+    private void requestSelectedThreadReadIfNeeded() {
+        ClientTalkState state = ClientTalkState.get();
+        if (!state.hasUnread(this.selectedThread)) {
+            pendingReadActivityTimes.remove(this.selectedThread.getId());
+            return;
+        }
+
+        String threadId = this.selectedThread.getId();
+        long lastActivityTime = this.selectedThread.getLastActivityTime();
+        long pendingActivityTime = pendingReadActivityTimes.getOrDefault(threadId, Long.MIN_VALUE);
+        if (pendingActivityTime >= lastActivityTime) {
+            return;
+        }
+
+        // 客户端只记录请求去重；正式 lastReadTime 必须等待服务端 UpdateState 确认。
+        pendingReadActivityTimes.put(threadId, lastActivityTime);
+        TalkNetworking.sendMarkRead(threadId);
     }
 
     public void renderChatContents(GuiGraphics gfx, int x, int yOffset, int width) {

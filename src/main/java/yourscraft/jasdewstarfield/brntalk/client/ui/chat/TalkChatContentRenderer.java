@@ -12,8 +12,11 @@ import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static yourscraft.jasdewstarfield.brntalk.client.ui.TalkUIStyles.*;
 
@@ -21,7 +24,10 @@ import static yourscraft.jasdewstarfield.brntalk.client.ui.TalkUIStyles.*;
  * 负责聊天消息的时间轴缓存、内容测量和绘制，不管理 Screen 或滚动控件生命周期。
  */
 public final class TalkChatContentRenderer {
-    private final Map<MessageCacheKey, MessageRenderCache> renderCache = new HashMap<>();
+    private static final int MAX_RENDER_CACHE_ENTRIES = 2048;
+
+    private final Map<MessageCacheKey, MessageRenderCache> renderCache =
+            new LinkedHashMap<>(128, 0.75f, true);
     private final Map<MessageCacheKey, Long> messageStartTimes = new HashMap<>();
     private String timelineThreadId;
     private int cachedMessageCount = -1;
@@ -56,7 +62,7 @@ public final class TalkChatContentRenderer {
 
         for (TalkMessage message : messages) {
             MessageCacheKey cacheKey = MessageCacheKey.of(thread, message);
-            MessageRenderCache cache = renderCache.computeIfAbsent(cacheKey, ignored -> new MessageRenderCache());
+            MessageRenderCache cache = getOrCreateRenderCache(cacheKey);
             cache.updateLayoutIfNeeded(message, textMaxWidth, font);
 
             long visualStartTime;
@@ -147,7 +153,7 @@ public final class TalkChatContentRenderer {
                 break;
             }
 
-            MessageRenderCache cache = renderCache.computeIfAbsent(cacheKey, ignored -> new MessageRenderCache());
+            MessageRenderCache cache = getOrCreateRenderCache(cacheKey);
             cache.updateLayoutIfNeeded(message, textMaxWidth, font);
 
             String currentSpeaker = cache.speakerComponent.getString();
@@ -182,8 +188,11 @@ public final class TalkChatContentRenderer {
         cachedMessageCount = messages.size();
         long previousVisualEndTime = 0;
         int messagePause = TalkTimeline.getMessagePause();
+        Set<MessageCacheKey> activeMessageKeys = new HashSet<>();
 
         for (TalkMessage message : messages) {
+            MessageCacheKey cacheKey = MessageCacheKey.of(thread, message);
+            activeMessageKeys.add(cacheKey);
             long visualStartTime;
             if (message.getTimestamp() == 0) {
                 visualStartTime = 0;
@@ -192,8 +201,20 @@ public final class TalkChatContentRenderer {
                 visualStartTime = Math.max(message.getTimestamp(), previousVisualEndTime + messagePause);
                 previousVisualEndTime = visualStartTime + TalkTimeline.calculateDuration(message);
             }
-            messageStartTimes.put(MessageCacheKey.of(thread, message), visualStartTime);
+            messageStartTimes.put(cacheKey, visualStartTime);
         }
+
+        // 全量同步删除消息或替换线程内容后，不保留已经失效的消息布局。
+        renderCache.keySet().removeIf(cacheKey -> !activeMessageKeys.contains(cacheKey));
+    }
+
+    private MessageRenderCache getOrCreateRenderCache(MessageCacheKey cacheKey) {
+        MessageRenderCache cache = renderCache.computeIfAbsent(cacheKey, ignored -> new MessageRenderCache());
+        while (renderCache.size() > MAX_RENDER_CACHE_ENTRIES) {
+            MessageCacheKey eldestKey = renderCache.keySet().iterator().next();
+            renderCache.remove(eldestKey);
+        }
+        return cache;
     }
 
     private static void drawBubble(GuiGraphics graphics, int x, int y, int width, int height,
