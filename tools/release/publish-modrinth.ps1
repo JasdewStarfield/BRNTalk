@@ -16,6 +16,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Net.Http
 $jar = Get-Item -LiteralPath $JarPath
 $metadata = Get-Content -LiteralPath $MetadataPath -Raw -Encoding utf8 | ConvertFrom-Json
 if ($jar.Name -ne $metadata.jar_name) {
@@ -46,8 +47,28 @@ if ($existingVersions.version_number -contains $platformVersion) {
     return
 }
 
-$response = Invoke-RestMethod -Method Post -Uri "$ApiBase/version" -Headers $headers -Form @{
-    data = $data
-    file = $jar
+$client = [System.Net.Http.HttpClient]::new()
+$form = [System.Net.Http.MultipartFormDataContent]::new()
+try {
+    $null = $client.DefaultRequestHeaders.TryAddWithoutValidation('Authorization', $Token)
+    $null = $client.DefaultRequestHeaders.TryAddWithoutValidation('User-Agent', $headers['User-Agent'])
+
+    # Modrinth parses the data part as JSON; an untyped form string can be rejected before JSON parsing begins.
+    $dataContent = [System.Net.Http.StringContent]::new($data, [System.Text.Encoding]::UTF8, 'application/json')
+    $fileStream = [System.IO.File]::OpenRead($jar.FullName)
+    $fileContent = [System.Net.Http.StreamContent]::new($fileStream)
+    $fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::new('application/java-archive')
+    $form.Add($dataContent, 'data')
+    $form.Add($fileContent, 'file', $jar.Name)
+
+    $httpResponse = $client.PostAsync("$ApiBase/version", $form).GetAwaiter().GetResult()
+    $responseBody = $httpResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+    if (-not $httpResponse.IsSuccessStatusCode) {
+        throw "Modrinth upload failed with HTTP $([int]$httpResponse.StatusCode): $responseBody"
+    }
+    $response = $responseBody | ConvertFrom-Json
+} finally {
+    $form.Dispose()
+    $client.Dispose()
 }
 Write-Host "[BRNTalk Release] Modrinth published version id $($response.id)." -ForegroundColor Green
