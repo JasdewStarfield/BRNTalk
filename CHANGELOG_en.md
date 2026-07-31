@@ -10,6 +10,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Nothing yet.
 
+## [1.3.0] - 2026-08-01
+
+### Added
+
+- Added general client-state listeners and change events so the state layer no longer identifies or refreshes a specific screen directly.
+- Added dedicated text formatting, timeline, preview, layout, chat rendering, scrolling, and texture-button components to reduce `TalkScreen` responsibility coupling.
+
+### Changed
+
+- Thread selection, stable ordering, and unread evaluation are now managed by `ClientTalkState` using `threadId`, with deterministic fallback after full synchronization.
+- New messages no longer force the view to the bottom while reading history; the view still follows when already at the bottom and moves to the bottom when switching threads.
+- Message rendering caches now remove stale entries and enforce a size limit to avoid retaining obsolete data after long sessions or full synchronization.
+- Read requests are deduplicated per activity timestamp and client read state waits for server confirmation.
+
+### Compatibility
+
+- Dialogue JSON, network protocol, server-authoritative progression semantics, and save format remain unchanged.
 ## [1.2.0] - 2026-07-15
 
 ### Added
