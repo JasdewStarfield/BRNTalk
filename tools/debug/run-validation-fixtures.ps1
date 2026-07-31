@@ -85,7 +85,7 @@ if ($StartServer) {
         Repair-BrntalkProcessPathEnvironment
         $serverProcess = Start-Process `
             -FilePath (Join-Path $context.RepoRoot 'gradlew.bat') `
-            -ArgumentList @('runServer', '--no-configuration-cache') `
+            -ArgumentList @('runServer', '--no-configuration-cache', '--no-daemon') `
             -WorkingDirectory $context.RepoRoot `
             -WindowStyle Hidden `
             -RedirectStandardOutput $stdoutPath `
@@ -143,6 +143,14 @@ try {
             Invoke-BrntalkRconCommand -HostName $HostName -Port $RconPort -Password $RconPassword -Command 'stop' | Out-Null
         } catch {
             Write-Host "[BRNTalk Validation Fixtures] Could not stop server through RCON: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+
+        if ($null -ne $serverProcess -and -not $serverProcess.HasExited) {
+            # Bound wrapper shutdown so inherited redirected handles cannot keep the validation command alive.
+            if (-not ($serverProcess.WaitForExit(15000))) {
+                Write-Host '[BRNTalk Validation Fixtures] Gradle server wrapper did not exit in 15 seconds; stopping it.' -ForegroundColor Yellow
+                Stop-Process -Id $serverProcess.Id -Force
+            }
         }
     }
 }
