@@ -24,9 +24,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Message rendering caches now remove stale entries and enforce a size limit to avoid retaining obsolete data after long sessions or full synchronization.
 - Read requests are deduplicated per activity timestamp and client read state waits for server confirmation.
 
-### Compatibility
-
-- Dialogue JSON, network protocol, server-authoritative progression semantics, and save format remain unchanged.
 ## [1.2.0] - 2026-07-15
 
 ### Added
@@ -50,6 +47,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - [1.20.1] Fixed a Forge dedicated-server crash caused by client packet handler registration loading client UI classes during common setup.
+
 ## [1.1.1] - 2026-07-11
 
 ### Changed
