@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Nothing yet.
 
+## [1.3.1] - 2026-08-06
+
+### Fixed
+
+- Fixed an issue where the HUD display limit could discard earlier messages before they began playing when a batch of consecutive messages arrived.
+- Fixed the awaiting-response prompt appearing outside its message background when the speaker name was hidden for consecutive messages from the same speaker.
+
 ## [1.3.0] - 2026-08-01
 
 ### Added
