@@ -35,6 +35,8 @@ public class TalkHud {
 
     // 主显示队列
     private static final LinkedList<HudEntry> DISPLAY_QUEUE = new LinkedList<>();
+    // 尚未到达播放时间的消息必须单独保留，避免批量入队时被历史数量上限提前删除。
+    private static final LinkedList<HudEntry> PENDING_QUEUE = new LinkedList<>();
     // 待处理通知 (ThreadId -> 说话人名字)
     private static final Map<String, NotificationState> PENDING_NOTIFICATIONS = new LinkedHashMap<>();
 
@@ -49,7 +51,7 @@ public class TalkHud {
         long now = System.currentTimeMillis();
 
         // 1. 检查专注权是否过期
-        if (activeThreadId != null && (now - lastActivityTime > THREAD_TIMEOUT) && DISPLAY_QUEUE.isEmpty()) {
+        if (activeThreadId != null && (now - lastActivityTime > THREAD_TIMEOUT) && hasNoQueuedMessages()) {
             activeThreadId = null;
         }
 
@@ -58,6 +60,7 @@ public class TalkHud {
             activeThreadId = threadId;
             // 切换了线程，清理旧的显示队列和对应的 Pending 提示
             DISPLAY_QUEUE.clear();
+            PENDING_QUEUE.clear();
             PENDING_NOTIFICATIONS.remove(threadId);
         }
 
@@ -76,31 +79,57 @@ public class TalkHud {
     private static void addEntryToQueue(TalkMessage msg, long now) {
         int msgPause = BrntalkConfig.CLIENT.msgPause.get();
 
+        // 网络消息可能在暂停恢复后的首个 HUD tick 之前到达，先激活到期项以保持严格时序。
+        activateDueEntries(now);
+
         // 计算纯文本长度和所需播放时间
         long playDuration = TalkTimeline.calculateDuration(msg);
 
-        // 计算开始时间：必须等上一条消息播完 + 暂停时间
+        // 计算开始时间：待播放队尾是调度时间最晚的消息；没有待播放消息时再衔接最新显示项。
         long startTime = now;
-        if (!DISPLAY_QUEUE.isEmpty()) {
-            HudEntry lastAdded = DISPLAY_QUEUE.get(0);
+        HudEntry lastAdded = !PENDING_QUEUE.isEmpty()
+                ? PENDING_QUEUE.getLast()
+                : DISPLAY_QUEUE.peekFirst();
+        if (lastAdded != null) {
             startTime = Math.max(now, lastAdded.visualEndTime + msgPause);
         }
 
         long endTime = startTime + playDuration;
+        HudEntry entry = new HudEntry(msg, startTime, endTime);
 
-        // 插入到队首
-        DISPLAY_QUEUE.addFirst(new HudEntry(msg, startTime, endTime));
+        if (startTime <= now) {
+            // 当前即可播放的消息直接进入显示历史，保证首条消息无需等待下一次 tick。
+            DISPLAY_QUEUE.addFirst(entry);
+            trimDisplayedHistory();
+        } else {
+            // FIFO 队列保持视觉时间顺序，后续由 tick 在开始时间到达时激活。
+            PENDING_QUEUE.addLast(entry);
+        }
+    }
 
-        // 限制历史数量
+    private static void activateDueEntries(long now) {
+        while (!PENDING_QUEUE.isEmpty() && PENDING_QUEUE.getFirst().visualStartTime <= now) {
+            DISPLAY_QUEUE.addFirst(PENDING_QUEUE.removeFirst());
+        }
+        trimDisplayedHistory();
+    }
+
+    private static void trimDisplayedHistory() {
+        // 只限制已经开始播放的历史；尚未播放的消息绝不能在这里被裁剪。
         while (DISPLAY_QUEUE.size() > MAX_DISPLAY_COUNT + 2) {
             DISPLAY_QUEUE.removeLast();
         }
     }
 
+    private static boolean hasNoQueuedMessages() {
+        return DISPLAY_QUEUE.isEmpty() && PENDING_QUEUE.isEmpty();
+    }
+
     public static void tick() {
         long now = System.currentTimeMillis();
 
-        // 1. 清理主消息队列
+        // 1. 激活已经到达开始时间的消息，再清理显示历史。
+        activateDueEntries(now);
         Iterator<HudEntry> it = DISPLAY_QUEUE.iterator();
         while (it.hasNext()) {
             HudEntry entry = it.next();
@@ -127,7 +156,7 @@ public class TalkHud {
         }
 
         // 3. 处理 activeThreadId 的超时逻辑
-        if (activeThreadId != null && (now - lastActivityTime > THREAD_TIMEOUT) && DISPLAY_QUEUE.isEmpty()) {
+        if (activeThreadId != null && (now - lastActivityTime > THREAD_TIMEOUT) && hasNoQueuedMessages()) {
             activeThreadId = null;
         }
     }
@@ -137,8 +166,9 @@ public class TalkHud {
         if (mc.options.hideGui || mc.screen instanceof TalkScreen) return;
 
         if (BrntalkConfig.CLIENT.notificationMode.get() != BrntalkConfig.NotificationMode.HUD) {
-            if (!DISPLAY_QUEUE.isEmpty()) {
+            if (!hasNoQueuedMessages()) {
                 DISPLAY_QUEUE.clear();
+                PENDING_QUEUE.clear();
             }
             return;
         }
@@ -148,6 +178,8 @@ public class TalkHud {
         int topLimit = BrntalkConfig.CLIENT.hudTopMargin.get();
 
         long now = System.currentTimeMillis();
+        // 渲染前也激活一次，避免低 tick 或暂停恢复后出现额外一帧空白。
+        activateDueEntries(now);
         int fontHeight = mc.font.lineHeight;
 
         gfx.pose().pushPose();
@@ -285,9 +317,9 @@ public class TalkHud {
             if (showWaiting) {
                 long blink = (now / 500) % 2;
                 String suffix = (blink == 0) ? " _" : "";
-                // 确保它画在所有文本下方
+                // 等待提示紧跟正文；同说话人的连续消息会隐藏名字，因此不能固定预留名字高度。
                 int waitColor = (alphaInt << 24) | (HUD_TEXT_WAITING & 0x00FFFFFF);
-                int waitY = drawY + HUD_PADDING + fontHeight + 2 + (allLines.size() * fontHeight);
+                int waitY = drawY + HUD_PADDING + nameHeight + contentHeight;
                 String waitingText = I18n.get("gui.brntalk.hud_awaiting_response") + suffix;
                 gfx.drawString(
                         mc.font,
