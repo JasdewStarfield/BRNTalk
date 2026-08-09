@@ -20,6 +20,12 @@ public class BrntalkCommands {
         dispatcher.register(
                 Commands.literal("brntalk")
                         .requires(source -> source.hasPermission(2))
+                        // 服务端入口必须显式指定目标，供管理员、命令方块和数据包函数调用。
+                        .then(Commands.literal("open_ui")
+                                .then(Commands.argument("targets", EntityArgument.players())
+                                        .executes(BrntalkCommands::openUiForTargets)
+                                )
+                        )
                         // --- start 命令分支 ---
                         .then(Commands.literal("start")
                                 // 用法 1: /brntalk start <id> (为自己开启某条指定对话)
@@ -81,6 +87,27 @@ public class BrntalkCommands {
                                 )
                         )
         );
+    }
+
+    private static int openUiForTargets(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        Collection<ServerPlayer> targets = EntityArgument.getPlayers(ctx, "targets");
+        int successCount = 0;
+
+        for (ServerPlayer player : targets) {
+            if (BrntalkAPI.openTalkScreen(player)) {
+                successCount++;
+            }
+        }
+
+        if (successCount > 0) {
+            final int count = successCount;
+            ctx.getSource().sendSuccess(() -> Component.translatable(
+                    "command.brntalk.open_ui.success",
+                    count
+            ).withStyle(ChatFormatting.GREEN), true);
+        }
+
+        return successCount;
     }
 
     private static int startForSelf(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {

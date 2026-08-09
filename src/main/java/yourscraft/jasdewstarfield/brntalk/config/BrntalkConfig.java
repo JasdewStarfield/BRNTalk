@@ -36,6 +36,7 @@ public class BrntalkConfig {
         public final ModConfigSpec.IntValue openButtonX;
         public final ModConfigSpec.IntValue openButtonY;
         public final ModConfigSpec.EnumValue<NotificationMode> notificationMode;
+        public final ModConfigSpec.BooleanValue autoOpenOnNewMessage;
         public final ModConfigSpec.DoubleValue hudScale;
         public final ModConfigSpec.IntValue hudOffsetY;
         public final ModConfigSpec.IntValue hudTopMargin;
@@ -96,13 +97,19 @@ public class BrntalkConfig {
 
             builder.pop();
 
-            builder.comment("HUD settings").push("hud");
+            builder.comment("Notification and HUD settings").push("hud");
 
             notificationMode = builder
                     .comment("Notification Mode")
                     .comment("How new messages are displayed.")
                     .comment("Other HUD settings are only available when this is set to 'HUD'.")
                     .defineEnum("notificationMode", NotificationMode.HUD);
+
+            autoOpenOnNewMessage = builder
+                    .comment("Automatically Open the Dialogue Screen")
+                    .comment("If enabled, receiving a new dialogue thread or appended message immediately opens the BRNTalk screen.")
+                    .comment("Full synchronization during login or reconnect does not trigger this behavior.")
+                    .define("autoOpenOnNewMessage", false);
 
             hudScale = builder
                     .comment("Scale of the HUD")

@@ -8,7 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Nothing yet.
+- Added the server-side `BrntalkAPI.openTalkScreen` API and permission-level-2 `/brntalk open_ui <targets>` command, allowing operators, command blocks, and other mods to open the dialogue UI for players.
+- Added the disabled-by-default `autoOpenOnNewMessage` client option to immediately open the dialogue UI when a new thread or appended message arrives.
 
 ## [1.3.1] - 2026-08-06
 

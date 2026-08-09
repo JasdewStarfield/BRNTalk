@@ -119,6 +119,15 @@ public class ClothConfigIntegration {
                 .setSaveConsumer(BrntalkConfig.CLIENT.notificationMode::set)
                 .build());
 
+        hudCategory.addEntry(entryBuilder.startBooleanToggle(
+                        Component.translatable("config.option.brntalk.autoOpenOnNewMessage"),
+                        BrntalkConfig.CLIENT.autoOpenOnNewMessage.get()
+                )
+                .setDefaultValue(false)
+                .setTooltip(Component.translatable("config.option.brntalk.autoOpenOnNewMessage.tooltip"))
+                .setSaveConsumer(BrntalkConfig.CLIENT.autoOpenOnNewMessage::set)
+                .build());
+
         hudCategory.addEntry(entryBuilder.startDoubleField(
                         Component.translatable("config.option.brntalk.hudScale"),
                         BrntalkConfig.CLIENT.hudScale.get()
