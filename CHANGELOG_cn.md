@@ -8,6 +8,12 @@
 
 ### 新增
 
+- 暂无。
+
+## [1.4.0] - 2026-08-09
+
+### 新增
+
 - 新增服务端 API `BrntalkAPI.openTalkScreen` 与 2 级权限命令 `/brntalk open_ui <targets>`，可由管理员、命令方块或其他模组控制玩家打开对话界面。
 - 新增默认关闭的客户端选项 `autoOpenOnNewMessage`，允许在收到新对话线程或新增消息时立即打开对话界面。
 
