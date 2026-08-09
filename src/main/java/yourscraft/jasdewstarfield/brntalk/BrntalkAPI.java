@@ -19,6 +19,23 @@ import java.util.List;
 public class BrntalkAPI {
 
     /**
+     * 同步指定玩家的对话状态，并要求客户端打开 BRNTalk 对话界面。
+     *
+     * @param player 目标玩家
+     * @return 成功发送打开请求时返回 true；玩家为空时返回 false
+     */
+    public static boolean openTalkScreen(ServerPlayer player) {
+        if (player == null) {
+            return false;
+        }
+
+        // 先发送完整状态，确保客户端打开界面时展示的是服务端最新数据。
+        TalkNetworking.syncThreadsTo(player);
+        TalkNetworking.sendOpenTalkScreen(player);
+        return true;
+    }
+
+    /**
      * 为指定玩家强制开启一段对话。
      *
      * @param player 目标玩家 (ServerPlayer)

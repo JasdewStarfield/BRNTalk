@@ -17,8 +17,7 @@ import java.util.List;
 public class ClientPayloadHandler {
 
     public static void handleOpenTalkScreen(final TalkNetwork.OpenTalkScreenPayload payload) {
-        Minecraft mc = Minecraft.getInstance();
-        mc.setScreen(new TalkScreen());
+        openTalkScreenIfClosed(null);
     }
 
     // 处理全量同步
@@ -39,6 +38,7 @@ public class ClientPayloadHandler {
         List<TalkMessage> msgs = thread.getMessages();
         if (!msgs.isEmpty()) {
             processIncomingMessages(msgs, thread.getId());
+            maybeAutoOpenTalkScreen(thread.getId());
         }
     }
 
@@ -53,6 +53,7 @@ public class ClientPayloadHandler {
 
         if (!msgs.isEmpty()) {
             processIncomingMessages(msgs, payload.threadId());
+            maybeAutoOpenTalkScreen(payload.threadId());
         }
     }
 
@@ -109,5 +110,32 @@ public class ClientPayloadHandler {
         if (shouldPlaySound) {
             mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.EXPERIENCE_ORB_PICKUP, 1.0F));
         }
+    }
+
+    /**
+     * 仅对增量消息包执行自动开屏；登录和重连时的全量同步不会调用此方法。
+     */
+    private static void maybeAutoOpenTalkScreen(String threadId) {
+        if (BrntalkConfig.CLIENT.autoOpenOnNewMessage.get()) {
+            openTalkScreenIfClosed(threadId);
+        }
+    }
+
+    /**
+     * 幂等地打开对话界面。界面已打开时忽略请求，避免重新创建 Screen 并重播开场动画。
+     *
+     * @param threadId 自动开屏时需要定位的线程；服务端直接开屏请求可传 null
+     */
+    private static void openTalkScreenIfClosed(String threadId) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof TalkScreen) {
+            return;
+        }
+
+        if (threadId != null) {
+            // 开屏前定位到消息所属线程，避免自动打开后仍显示旧对话。
+            ClientTalkState.get().selectThread(threadId);
+        }
+        mc.setScreen(new TalkScreen());
     }
 }

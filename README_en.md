@@ -62,6 +62,14 @@ This command requires permission level 2, normally an operator.
 /brntalk open_ui
 ```
 
+Operators and command blocks can also request the UI for selected players through the server command:
+
+```mcfunction
+/brntalk open_ui <targets>
+```
+
+For example, `/brntalk open_ui @p`. The server command requires permission level 2 and synchronizes each target's latest dialogue state before opening the UI.
+
 ### 3. Try choices, pause, and resume
 
 The bundled `test_demo` script includes both `choice` and `wait` nodes.
@@ -222,6 +230,7 @@ BRNTalk provides client options for:
   - `X/Y` position
 - Notification HUD:
   - Mode (`HUD`, `TOAST`, or `NONE`)
+  - Automatically open the dialogue screen for a new thread or appended message (`autoOpenOnNewMessage`, disabled by default)
   - HUD scale, vertical offset, and safe top margin
 
 When Cloth Config is installed, the mod menu exposes a visual configuration screen.

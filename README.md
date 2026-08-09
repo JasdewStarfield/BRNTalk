@@ -62,6 +62,14 @@
 /brntalk open_ui
 ```
 
+管理员或命令方块也可以通过服务端命令要求指定玩家打开 UI：
+
+```mcfunction
+/brntalk open_ui <targets>
+```
+
+例如 `/brntalk open_ui @p`。服务端命令需要 2 级权限，并会在打开 UI 前同步目标玩家的最新对话状态。
+
 ### 3) 体验分支/暂停/恢复
 
 测试脚本 `test_demo` 中包含 `choice` 与 `wait` 节点。  
@@ -222,6 +230,7 @@ BRNTalk 提供客户端配置，包含：
   - 按钮 `X/Y` 坐标
 - 提示 HUD：
   - 提示模式（`HUD` / `TOAST` / `NONE`）
+  - 收到新线程或新增消息时自动打开对话界面（`autoOpenOnNewMessage`，默认关闭）
   - HUD 缩放、垂直偏移、安全上边距
 
 安装 Cloth Config 后，模组菜单会自动提供可视化配置页。
