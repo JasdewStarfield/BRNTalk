@@ -8,7 +8,7 @@
 
 ### 新增
 
-- 暂无。
+- 新增持久化的剧本完成状态、`BrntalkAPI.hasCompleted` 与只触发一次的 `PlayerCompletedConversationEvent`。
 
 ## [1.4.0] - 2026-08-09
 

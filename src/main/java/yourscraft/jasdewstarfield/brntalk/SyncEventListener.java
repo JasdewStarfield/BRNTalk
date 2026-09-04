@@ -55,6 +55,9 @@ public class SyncEventListener {
             }
 
             manager.restoreThread(player.getUUID(), thread);
+            // Older saves did not carry a completion ledger. Rebuild it from a reached
+            // terminal text node and emit at most once through the persisted marker.
+            BrntalkPlatform.completeConversationIfTerminal(player, thread);
         }
     }
 

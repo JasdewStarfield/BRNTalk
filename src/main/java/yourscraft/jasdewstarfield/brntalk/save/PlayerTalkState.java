@@ -87,6 +87,8 @@ public class PlayerTalkState {
 
     // threadId -> SavedThread 列表
     private final Map<String, SavedThread> threads = new HashMap<>();
+    // 剧本级完成账本独立于线程，防止重登或事件重放重复触发联动。
+    private final Set<String> completedScripts = new HashSet<>();
 
     /** 默认构造：空状态 */
     public PlayerTalkState() {}
@@ -130,6 +132,24 @@ public class PlayerTalkState {
         return threads.containsKey(threadId);
     }
 
+    /** 首次记录剧本完成时返回 true，供调用方决定是否发布完成事件。 */
+    public boolean markConversationCompleted(String scriptId) {
+        return scriptId != null && !scriptId.isBlank() && completedScripts.add(scriptId);
+    }
+
+    public boolean hasCompletedConversation(String scriptId) {
+        return scriptId != null && completedScripts.contains(scriptId);
+    }
+
+    /** 清除剧本时同步清除完成账本，允许作者显式重新开始该剧情。 */
+    public boolean clearCompletedConversation(String scriptId) {
+        return scriptId != null && completedScripts.remove(scriptId);
+    }
+
+    public boolean isEmpty() {
+        return threads.isEmpty() && completedScripts.isEmpty();
+    }
+
     /**
      * 检查玩家是否在指定的剧本中看到过某条消息
      * @param scriptId 剧本 ID (Conversation ID)
@@ -170,22 +190,31 @@ public class PlayerTalkState {
         }
 
         tag.put("threads", threadsTag);
+        ListTag completedTag = new ListTag();
+        completedScripts.stream().sorted().forEach(scriptId -> completedTag.add(StringTag.valueOf(scriptId)));
+        tag.put("completedScripts", completedTag);
     }
 
     /** 从 NBT 读取一个 PlayerTalkState */
     public static PlayerTalkState fromNbt(CompoundTag tag) {
         PlayerTalkState state = new PlayerTalkState();
 
-        if (!tag.contains("threads", Tag.TAG_COMPOUND)) {
-            return state;
+        if (tag.contains("threads", Tag.TAG_COMPOUND)) {
+            CompoundTag threadsTag = tag.getCompound("threads");
+            for (String threadId : threadsTag.getAllKeys()) {
+                Tag t = threadsTag.get(threadId);
+                if (t instanceof CompoundTag threadCompound) {
+                    SavedThread st = SavedThread.fromNbt(threadCompound);
+                    state.threads.put(threadId, st);
+                }
+            }
         }
 
-        CompoundTag threadsTag = tag.getCompound("threads");
-        for (String threadId : threadsTag.getAllKeys()) {
-            Tag t = threadsTag.get(threadId);
-            if (t instanceof CompoundTag threadCompound) {
-                SavedThread st = SavedThread.fromNbt(threadCompound);
-                state.threads.put(threadId, st);
+        if (tag.contains("completedScripts", Tag.TAG_LIST)) {
+            ListTag completedTag = tag.getList("completedScripts", Tag.TAG_STRING);
+            for (Tag entry : completedTag) {
+                String scriptId = entry.getAsString();
+                if (!scriptId.isBlank()) state.completedScripts.add(scriptId);
             }
         }
 

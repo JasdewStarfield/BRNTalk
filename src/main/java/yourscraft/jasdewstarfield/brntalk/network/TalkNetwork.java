@@ -137,7 +137,8 @@ public class TalkNetwork {
         // 2. 获取跳转目标 ID (nextId)
         String nextMsgId = selected.getNextId();
         if (nextMsgId == null || nextMsgId.isEmpty()) {
-            // 没有后续 => 对话结束
+            // 无后继选项是玩家在服务端明确选择的结束点。
+            BrntalkPlatform.completeConversation(serverPlayer, thread);
             return;
         }
 
@@ -154,6 +155,8 @@ public class TalkNetwork {
             for (String msgId : newIds) {
                 BrntalkPlatform.postPlayerSeenMessage(serverPlayer, scriptId, msgId);
             }
+
+            BrntalkPlatform.completeConversationIfTerminal(serverPlayer, thread);
 
             // 6. 同步给客户端
             TalkNetworking.sendAppendMessages(serverPlayer, threadId, newMsgs);

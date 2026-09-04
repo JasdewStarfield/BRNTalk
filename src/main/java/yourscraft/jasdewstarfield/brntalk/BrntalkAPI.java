@@ -77,6 +77,9 @@ public class BrntalkAPI {
             for (String msgId : allMsgIds) {
                 BrntalkPlatform.postPlayerSeenMessage(player, scriptId, msgId);
             }
+
+            // Persist completion only after every reached message has been recorded.
+            BrntalkPlatform.completeConversationIfTerminal(player, thread);
         }
 
         // 4. 同步网络包给客户端
@@ -99,7 +102,7 @@ public class BrntalkAPI {
         // 1. 清除存档
         PlayerTalkState state = BrntalkPlatform.getTalkState(player);
 
-        if (state.getThreadIds().isEmpty()) {
+        if (state.isEmpty()) {
             return false;
         }
 
@@ -131,8 +134,6 @@ public class BrntalkAPI {
         // 1. 查找所有属于该 scriptId 的 threadId
         PlayerTalkState state = BrntalkPlatform.getTalkState(player);
 
-        if (state.getThreadIds().isEmpty()) return false;
-
         List<String> threadsToRemove = new ArrayList<>();
         for (String tid : state.getThreadIds()) {
             PlayerTalkState.SavedThread st = state.getThread(tid);
@@ -141,7 +142,8 @@ public class BrntalkAPI {
             }
         }
 
-        if (threadsToRemove.isEmpty()) {
+        boolean completionRemoved = state.clearCompletedConversation(scriptId);
+        if (threadsToRemove.isEmpty() && !completionRemoved) {
             return false;
         }
 
@@ -174,6 +176,12 @@ public class BrntalkAPI {
 
         PlayerTalkState state = BrntalkPlatform.getTalkState(player);
         return state.hasSeenMessage(scriptId, messageId);
+    }
+
+    /** Returns the persisted server-side completion state for one dialogue script. */
+    public static boolean hasCompleted(ServerPlayer player, String scriptId) {
+        if (player == null || scriptId == null) return false;
+        return BrntalkPlatform.getTalkState(player).hasCompletedConversation(scriptId);
     }
 
     /**
@@ -239,6 +247,8 @@ public class BrntalkAPI {
                 for (String msgId : newIds) {
                     BrntalkPlatform.postPlayerSeenMessage(player, scriptId, msgId);
                 }
+
+                BrntalkPlatform.completeConversationIfTerminal(player, manager.getActiveThread(player.getUUID(), tid));
 
                 TalkNetworking.sendAppendMessages(player, tid, newMsgs);
                 successCount++;

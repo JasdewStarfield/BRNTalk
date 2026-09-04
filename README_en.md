@@ -263,6 +263,7 @@ Other Java mods can call:
 - `clearAllConversation(player)`
 - `clearConversation(player, scriptId)`
 - `hasSeen(player, scriptId, messageId)`
+- `hasCompleted(player, scriptId)`
 - `resumeConversation(player, scriptId, matchMessageId)`
 
 ### Event
@@ -270,6 +271,9 @@ Other Java mods can call:
 - `PlayerSeenMessageEvent`
   - Fired when a player reaches or reads a message node
   - Can advance quests, achievements, or other scripted behavior
+- `PlayerCompletedConversationEvent`
+  - Fired once after completion is persisted in the player's server state
+  - A terminal `text` node or an ending choice completes the conversation; an unresumable `wait` does not
 
 ---
 

@@ -263,6 +263,7 @@ BRNTalk 还提供服务端配置，用于控制 `/reload` 后的校验提示行�
 - `clearAllConversation(player)`
 - `clearConversation(player, scriptId)`
 - `hasSeen(player, scriptId, messageId)`
+- `hasCompleted(player, scriptId)`
 - `resumeConversation(player, scriptId, matchMessageId)`
 
 ### 事件
@@ -270,6 +271,9 @@ BRNTalk 还提供服务端配置，用于控制 `/reload` 后的校验提示行�
 - `PlayerSeenMessageEvent`
   - 当玩家到达/阅读某个消息节点时触发
   - 可用于推进任务、成就或脚本逻辑
+- `PlayerCompletedConversationEvent`
+  - 完成状态写入玩家存档后只触发一次
+  - 到达无后继的 `text`，或选择无后继的结束选项时触发；孤立的 `wait` 不算完成
 
 ---
 

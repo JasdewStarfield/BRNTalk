@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Nothing yet.
+- Added persistent conversation-completion state, `BrntalkAPI.hasCompleted`, and the once-only `PlayerCompletedConversationEvent`.
 
 ## [1.4.0] - 2026-08-09
 
