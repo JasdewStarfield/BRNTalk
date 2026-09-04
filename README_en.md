@@ -24,6 +24,7 @@ It provides scriptable conversation threads, branching choices, pause/resume beh
   - Cloth Config configuration screen
   - FTB Library sidebar button
   - JEI extra-area avoidance
+  - BRNQuest message/completion objectives and dialogue-control rewards
 
 ---
 
@@ -36,6 +37,7 @@ It provides scriptable conversation threads, branching choices, pause/resume beh
   - `cloth_config` for the client configuration screen
   - `ftblibrary` for sidebar-button integration
   - `jei` for extra-area avoidance
+  - `brnquest` for optional story-quest integration on Minecraft 1.21.1 NeoForge only
 
 ---
 
@@ -264,12 +266,33 @@ Other Java mods can call:
 - `clearConversation(player, scriptId)`
 - `hasSeen(player, scriptId, messageId)`
 - `resumeConversation(player, scriptId, matchMessageId)`
+- `hasCompleted(player, scriptId)`
 
 ### Event
 
 - `PlayerSeenMessageEvent`
   - Fired when a player reaches or reads a message node
   - Can advance quests, achievements, or other scripted behavior
+- `PlayerCompletedConversationEvent`
+  - Fired once after completion is persisted in the player's server state
+  - A terminal `text` node or an ending choice completes the conversation; an unresumable `wait` does not
+
+### Optional BRNQuest integration
+
+When BRNQuest is installed, BRNTalk registers two objective types from its isolated compatibility package:
+
+- `brntalk:message_seen` uses `script_id` and `message_id` and completes when the player reaches that node.
+- `brntalk:conversation_complete` uses `script_id` and completes when the player finishes that script.
+
+Both objectives advance from authoritative server events and reconcile against persisted BRNTalk state after login, data-pack reload, or task-book reload.
+
+The plugin also provides three reward types:
+
+- `brntalk:start_conversation` requires `script_id` and starts a new conversation when claimed.
+- `brntalk:resume_conversation` requires `script_id`, accepts an optional `message_id`, and resumes matching waiting conversations.
+- `brntalk:open_screen` has no configuration and synchronizes server state before opening the BRNTalk screen.
+
+Each delivery derives a stable key from the BRNQuest progress owner, reward ID, and current completion timestamp, then persists a BRNTalk receipt before applying the side effect. Replayed calls do not start or advance the dialogue again, while interrupted or failed deliveries leave diagnosable `PENDING`/`FAILED` receipts. When BRNQuest is absent, the compatibility class is not loaded and normal dialogue behavior is unchanged.
 
 ---
 

@@ -8,7 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Nothing yet.
+- Added persistent conversation-completion state, `BrntalkAPI.hasCompleted`, and the once-only `PlayerCompletedConversationEvent`.
+- Added an optional BRNQuest plugin to the Minecraft 1.21.1 NeoForge build with `brntalk:message_seen` and `brntalk:conversation_complete` objective types; the normal loading path remains unchanged when BRNQuest is absent.
+- Added `brntalk:start_conversation`, `brntalk:resume_conversation`, and `brntalk:open_screen` reward types to the BRNQuest plugin, with persistent delivery receipts preventing replayed cross-mod side effects.
 
 ## [1.4.0] - 2026-08-09
 

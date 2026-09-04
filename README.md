@@ -24,6 +24,7 @@
   - Cloth Config（可选）配置界面
   - FTB Library（可选）侧边栏按钮
   - JEI（可选）界面避让
+  - BRNQuest（可选）消息/完成目标与对话控制奖励
 
 ---
 
@@ -36,6 +37,7 @@
   - `cloth_config`（客户端配置界面）
   - `ftblibrary`（侧边栏按钮集成）
   - `jei`（额外区域避让）
+  - `brnquest`（可选剧情任务联动；仅 Minecraft 1.21.1 NeoForge）
 
 ---
 
@@ -264,12 +266,33 @@ BRNTalk 还提供服务端配置，用于控制 `/reload` 后的校验提示行�
 - `clearConversation(player, scriptId)`
 - `hasSeen(player, scriptId, messageId)`
 - `resumeConversation(player, scriptId, matchMessageId)`
+- `hasCompleted(player, scriptId)`
 
 ### 事件
 
 - `PlayerSeenMessageEvent`
   - 当玩家到达/阅读某个消息节点时触发
   - 可用于推进任务、成就或脚本逻辑
+- `PlayerCompletedConversationEvent`
+  - 完成状态写入玩家存档后只触发一次
+  - 到达无后继的 `text`，或选择无后继的结束选项时触发；孤立的 `wait` 不算完成
+
+### BRNQuest（可选）
+
+安装 BRNQuest 后，BRNTalk 会在自身的隔离兼容包中注册两个目标类型：
+
+- `brntalk:message_seen`：配置 `script_id` 与 `message_id`；玩家到达对应消息节点后完成。
+- `brntalk:conversation_complete`：配置 `script_id`；玩家完成对应剧本后完成。
+
+两种目标都由服务端事件推进，并会在登录、数据包 reload 或任务书 reload 后用 BRNTalk 持久化状态对账。
+
+插件还提供三个奖励类型：
+
+- `brntalk:start_conversation`：必填 `script_id`，领取时启动一段新对话。
+- `brntalk:resume_conversation`：必填 `script_id`，可选 `message_id`，领取时继续匹配的等待中对话。
+- `brntalk:open_screen`：无配置，先同步服务端状态再打开 BRNTalk 界面。
+
+每次奖励投递会按 BRNQuest 进度 owner、奖励 ID 和本轮完成时间生成稳定键，并在执行副作用前写入 BRNTalk 玩家存档。重复调用不会再次启动或推进对话；异常中断会留下可诊断的 `PENDING`/`FAILED` 收据。BRNQuest 未安装时不会加载兼容类，也不影响 BRNTalk 的对话功能。
 
 ---
 

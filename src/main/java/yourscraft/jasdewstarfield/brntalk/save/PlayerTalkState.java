@@ -87,6 +87,19 @@ public class PlayerTalkState {
 
     // threadId -> SavedThread 列表
     private final Map<String, SavedThread> threads = new HashMap<>();
+    // 剧本级完成账本独立于线程，防止重登或事件重放重复触发联动。
+    private final Set<String> completedScripts = new HashSet<>();
+    // 外部奖励先记录 PENDING 再执行副作用；崩溃恢复时宁可留下可对账记录，也不重复开对话。
+    private final Map<String, ExternalActionReceipt> externalActionReceipts = new HashMap<>();
+
+    public enum ExternalActionStatus {
+        PENDING,
+        SUCCEEDED,
+        FAILED
+    }
+
+    /** 持久化跨模组动作的用途和最终状态，供管理员诊断未完成的奖励投递。 */
+    public record ExternalActionReceipt(String action, ExternalActionStatus status) {}
 
     /** 默认构造：空状态 */
     public PlayerTalkState() {}
@@ -130,6 +143,43 @@ public class PlayerTalkState {
         return threads.containsKey(threadId);
     }
 
+    /** 首次记录剧本完成时返回 true，供调用方决定是否发布完成事件。 */
+    public boolean markConversationCompleted(String scriptId) {
+        return scriptId != null && !scriptId.isBlank() && completedScripts.add(scriptId);
+    }
+
+    public boolean hasCompletedConversation(String scriptId) {
+        return scriptId != null && completedScripts.contains(scriptId);
+    }
+
+    /** 清除剧本时同步清除完成账本，允许作者显式重新开始该剧情。 */
+    public boolean clearCompletedConversation(String scriptId) {
+        return scriptId != null && completedScripts.remove(scriptId);
+    }
+
+    /**
+     * 在执行跨模组副作用前占用稳定键。只有首次调用返回 true，重放不会再次执行动作。
+     */
+    public boolean beginExternalAction(String key, String action) {
+        if (key == null || key.isBlank() || action == null || action.isBlank()) return false;
+        return externalActionReceipts.putIfAbsent(key,
+                new ExternalActionReceipt(action, ExternalActionStatus.PENDING)) == null;
+    }
+
+    /** 更新已占用动作的结果；未知键不会被事后凭空创建。 */
+    public void finishExternalAction(String key, boolean succeeded) {
+        externalActionReceipts.computeIfPresent(key, (ignored, receipt) -> new ExternalActionReceipt(
+                receipt.action(), succeeded ? ExternalActionStatus.SUCCEEDED : ExternalActionStatus.FAILED));
+    }
+
+    public ExternalActionReceipt getExternalActionReceipt(String key) {
+        return key == null ? null : externalActionReceipts.get(key);
+    }
+
+    public boolean isEmpty() {
+        return threads.isEmpty() && completedScripts.isEmpty() && externalActionReceipts.isEmpty();
+    }
+
     /**
      * 检查玩家是否在指定的剧本中看到过某条消息
      * @param scriptId 剧本 ID (Conversation ID)
@@ -170,22 +220,56 @@ public class PlayerTalkState {
         }
 
         tag.put("threads", threadsTag);
+        ListTag completedTag = new ListTag();
+        completedScripts.stream().sorted().forEach(scriptId -> completedTag.add(StringTag.valueOf(scriptId)));
+        tag.put("completedScripts", completedTag);
+
+        CompoundTag receiptsTag = new CompoundTag();
+        externalActionReceipts.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> {
+            CompoundTag receiptTag = new CompoundTag();
+            receiptTag.putString("action", entry.getValue().action());
+            receiptTag.putString("status", entry.getValue().status().name());
+            receiptsTag.put(entry.getKey(), receiptTag);
+        });
+        tag.put("externalActionReceipts", receiptsTag);
     }
 
     /** 从 NBT 读取一个 PlayerTalkState */
     public static PlayerTalkState fromNbt(CompoundTag tag) {
         PlayerTalkState state = new PlayerTalkState();
 
-        if (!tag.contains("threads", Tag.TAG_COMPOUND)) {
-            return state;
+        if (tag.contains("threads", Tag.TAG_COMPOUND)) {
+            CompoundTag threadsTag = tag.getCompound("threads");
+            for (String threadId : threadsTag.getAllKeys()) {
+                Tag t = threadsTag.get(threadId);
+                if (t instanceof CompoundTag threadCompound) {
+                    SavedThread st = SavedThread.fromNbt(threadCompound);
+                    state.threads.put(threadId, st);
+                }
+            }
         }
 
-        CompoundTag threadsTag = tag.getCompound("threads");
-        for (String threadId : threadsTag.getAllKeys()) {
-            Tag t = threadsTag.get(threadId);
-            if (t instanceof CompoundTag threadCompound) {
-                SavedThread st = SavedThread.fromNbt(threadCompound);
-                state.threads.put(threadId, st);
+        if (tag.contains("completedScripts", Tag.TAG_LIST)) {
+            ListTag completedTag = tag.getList("completedScripts", Tag.TAG_STRING);
+            for (Tag entry : completedTag) {
+                String scriptId = entry.getAsString();
+                if (!scriptId.isBlank()) state.completedScripts.add(scriptId);
+            }
+        }
+
+        if (tag.contains("externalActionReceipts", Tag.TAG_COMPOUND)) {
+            CompoundTag receiptsTag = tag.getCompound("externalActionReceipts");
+            for (String key : receiptsTag.getAllKeys()) {
+                CompoundTag receiptTag = receiptsTag.getCompound(key);
+                String action = receiptTag.getString("action");
+                try {
+                    ExternalActionStatus status = ExternalActionStatus.valueOf(receiptTag.getString("status"));
+                    if (!key.isBlank() && !action.isBlank()) {
+                        state.externalActionReceipts.put(key, new ExternalActionReceipt(action, status));
+                    }
+                } catch (IllegalArgumentException ignored) {
+                    // Unknown future/corrupt statuses are skipped instead of preventing player login.
+                }
             }
         }
 

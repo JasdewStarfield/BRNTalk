@@ -17,6 +17,7 @@ import yourscraft.jasdewstarfield.brntalk.BrntalkCommands;
 import yourscraft.jasdewstarfield.brntalk.BrntalkRegistries;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.config.ClothConfigIntegration;
+import yourscraft.jasdewstarfield.brntalk.compat.brnquest.BrnQuestIntegration;
 import yourscraft.jasdewstarfield.brntalk.data.ConversationLoader;
 
 public final class PlatformModHooks {
@@ -36,6 +37,11 @@ public final class PlatformModHooks {
         NeoForge.EVENT_BUS.addListener(PlatformModHooks::onAddReloadListeners);
         NeoForge.EVENT_BUS.addListener(PlatformModHooks::onServerStarting);
         NeoForge.EVENT_BUS.addListener(PlatformModHooks::onRegisterCommands);
+
+        // The compatibility class owns every BRNQuest reference and is resolved only when present.
+        if (ModList.get().isLoaded("brnquest")) {
+            BrnQuestIntegration.install();
+        }
 
         if (FMLEnvironment.dist == Dist.CLIENT) {
             PlatformClientHooks.register(modEventBus);
