@@ -8,9 +8,19 @@
 
 ### 新增
 
+- 暂无。
+
+## [1.4.1] - 2026-09-05
+
+### 新增
+
 - 新增持久化的剧本完成状态、`BrntalkAPI.hasCompleted` 与只触发一次的 `PlayerCompletedConversationEvent`。
 - Minecraft 1.21.1 NeoForge 版本新增可选 BRNQuest 插件，提供 `brntalk:message_seen` 与 `brntalk:conversation_complete` 目标类型；未安装 BRNQuest 时保持原有加载路径。
 - BRNQuest 插件新增 `brntalk:start_conversation`、`brntalk:resume_conversation` 与 `brntalk:open_screen` 奖励类型，并以持久化投递收据阻止跨模组副作用被重复执行。
+
+### 修复
+
+- 修复 BRNQuest 编辑器无法发现或配置 BRNTalk 类型、配置字段与默认标题缺少本地化，以及对话目标满足后任务未自动结算的问题。
 
 ## [1.4.0] - 2026-08-09
 

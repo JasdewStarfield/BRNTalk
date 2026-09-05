@@ -22,6 +22,7 @@ import yourscraft.jasdewstarfield.brntalk.client.text.ClientTextFormatter;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkHud;
 import yourscraft.jasdewstarfield.brntalk.client.ui.TalkScreen;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.OpenButton;
+import yourscraft.jasdewstarfield.brntalk.compat.brnquest.BrnQuestClientIntegration;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 
 public final class PlatformClientHooks {
@@ -40,6 +41,8 @@ public final class PlatformClientHooks {
         NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onClientTick);
         NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onScreenInit);
         NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onRegisterClientCommands);
+        // Install before BRNQuest freezes client presentations during client setup.
+        if (ModList.get().isLoaded("brnquest")) BrnQuestClientIntegration.install();
     }
 
     private static void onClientSetup(FMLClientSetupEvent event) {

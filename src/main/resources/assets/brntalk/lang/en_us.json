@@ -1,4 +1,11 @@
 {
+  "screen.brntalk.brnquest.task.message_seen": "Reach dialogue message",
+  "screen.brntalk.brnquest.task.conversation_complete": "Complete conversation",
+  "screen.brntalk.brnquest.task.completed": "Completed",
+  "screen.brntalk.brnquest.task.waiting": "Waiting for dialogue progress",
+  "screen.brntalk.brnquest.reward.start_conversation": "Start conversation",
+  "screen.brntalk.brnquest.reward.resume_conversation": "Resume conversation",
+  "screen.brntalk.brnquest.reward.open_screen": "Open dialogue screen",
   "gui.brntalk.no_conversation": "Currently no message...",
   "gui.brntalk.toast_new_message": "New Message Received",
   "gui.brntalk.hud_awaiting_response": "[Awaiting Response]",

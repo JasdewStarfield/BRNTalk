@@ -103,12 +103,14 @@ public final class BrnQuestIntegration {
                 if (task.typeId().equals(MESSAGE_SEEN)) {
                     String scriptId = task.config().get("script_id");
                     String messageId = task.config().get("message_id");
-                    if (BrntalkAPI.hasSeen(player, scriptId, messageId)) advance(player, task);
+                    if (BrntalkAPI.hasSeen(player, scriptId, messageId)) advance(player, quest.id(), task);
                 } else if (task.typeId().equals(CONVERSATION_COMPLETE)) {
                     String scriptId = task.config().get("script_id");
-                    if (BrntalkAPI.hasCompleted(player, scriptId)) advance(player, task);
+                    if (BrntalkAPI.hasCompleted(player, scriptId)) advance(player, quest.id(), task);
                 }
             }
+            // Also repairs quests left in the former "objective submitted but quest available" state.
+            BrnQuestApi.submitQuestCompletionResult(CONTEXT, player, quest.id().toString(), false);
         }
     }
 
@@ -122,17 +124,26 @@ public final class BrnQuestIntegration {
             for (TaskView task : quest.tasks()) {
                 if (!task.typeId().equals(typeId) || !scriptId.equals(task.config().get("script_id"))) continue;
                 if (messageId != null && !messageId.equals(task.config().get("message_id"))) continue;
-                advance(player, task);
+                advance(player, quest.id(), task);
             }
         }
     }
 
-    private static void advance(ServerPlayer player, TaskView task) {
+    private static void advance(ServerPlayer player, ResourceLocation questId, TaskView task) {
+        ProgressView progress = BrnQuestApi.getProgress(player, questId.toString()).orElse(null);
+        if (progress != null && progress.taskProgress().getOrDefault(task.id(), 0L) >= 1L) {
+            BrnQuestApi.submitQuestCompletionResult(CONTEXT, player, questId.toString(), false);
+            return;
+        }
         OperationResult result = BrnQuestApi.addTaskProgressResult(CONTEXT, player, task.id().toString(), 1L);
         if (!result.success()) {
             Brntalk.LOGGER.warn("[BRNTalk/BRNQuest] Could not advance task {}: {} ({})",
                     task.id(), result.message(), result.code());
+            return;
         }
+        // Event-driven objectives have no player submission step. Let BRNQuest atomically finish
+        // the quest when this was its final required objective; incomplete siblings remain authoritative.
+        BrnQuestApi.submitQuestCompletionResult(CONTEXT, player, questId.toString(), false);
     }
 
     private static final class Plugin implements BrnQuestPlugin {
@@ -149,10 +160,11 @@ public final class BrnQuestIntegration {
         }
     }
 
-    private record MessageSeenConfig(String scriptId, String messageId) {}
+    private record MessageSeenConfig(String title, String scriptId, String messageId) {}
 
     private static final class MessageSeenTask implements TaskType<MessageSeenConfig> {
         private static final Codec<MessageSeenConfig> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.STRING.optionalFieldOf("title", "").forGetter(MessageSeenConfig::title),
                 NON_BLANK.fieldOf("script_id").forGetter(MessageSeenConfig::scriptId),
                 NON_BLANK.fieldOf("message_id").forGetter(MessageSeenConfig::messageId)
         ).apply(instance, MessageSeenConfig::new));
@@ -167,6 +179,8 @@ public final class BrnQuestIntegration {
 
         public List<ConfigFieldDescriptor> configFields() {
             return List.of(
+                    ConfigFieldDescriptor.field("title", ConfigValueType.TEXT)
+                            .withHelp("Optional player-facing objective title"),
                     ConfigFieldDescriptor.field("script_id", ConfigValueType.TEXT).asRequired()
                             .withHelp("BRNTalk dialogue script ID"),
                     ConfigFieldDescriptor.field("message_id", ConfigValueType.TEXT).asRequired()
@@ -175,14 +189,16 @@ public final class BrnQuestIntegration {
         }
 
         public Component describe(TaskView task, MessageSeenConfig config) {
-            return Component.literal("Reach " + config.scriptId() + "/" + config.messageId());
+            return Component.literal(config.title().isBlank()
+                    ? "Reach " + config.scriptId() + "/" + config.messageId() : config.title());
         }
     }
 
-    private record ConversationCompleteConfig(String scriptId) {}
+    private record ConversationCompleteConfig(String title, String scriptId) {}
 
     private static final class ConversationCompleteTask implements TaskType<ConversationCompleteConfig> {
         private static final Codec<ConversationCompleteConfig> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.STRING.optionalFieldOf("title", "").forGetter(ConversationCompleteConfig::title),
                 NON_BLANK.fieldOf("script_id").forGetter(ConversationCompleteConfig::scriptId)
         ).apply(instance, ConversationCompleteConfig::new));
 
@@ -195,12 +211,16 @@ public final class BrnQuestIntegration {
         }
 
         public List<ConfigFieldDescriptor> configFields() {
-            return List.of(ConfigFieldDescriptor.field("script_id", ConfigValueType.TEXT).asRequired()
-                    .withHelp("BRNTalk dialogue script ID to complete"));
+            return List.of(
+                    ConfigFieldDescriptor.field("title", ConfigValueType.TEXT)
+                            .withHelp("Optional player-facing objective title"),
+                    ConfigFieldDescriptor.field("script_id", ConfigValueType.TEXT).asRequired()
+                            .withHelp("BRNTalk dialogue script ID to complete"));
         }
 
         public Component describe(TaskView task, ConversationCompleteConfig config) {
-            return Component.literal("Complete conversation " + config.scriptId());
+            return Component.literal(config.title().isBlank()
+                    ? "Complete conversation " + config.scriptId() : config.title());
         }
     }
 
@@ -216,8 +236,11 @@ public final class BrnQuestIntegration {
         }
 
         public List<ConfigFieldDescriptor> configFields() {
-            return List.of(ConfigFieldDescriptor.field("script_id", ConfigValueType.TEXT).asRequired()
-                    .withHelp("BRNTalk dialogue script ID to start"));
+            return List.of(
+                    ConfigFieldDescriptor.field("title", ConfigValueType.TEXT)
+                            .withHelp("Optional player-facing reward title"),
+                    ConfigFieldDescriptor.field("script_id", ConfigValueType.TEXT).asRequired()
+                            .withHelp("BRNTalk dialogue script ID to start"));
         }
 
         public RewardResult execute(RewardContext context, StartConversationConfig config) {
@@ -241,6 +264,8 @@ public final class BrnQuestIntegration {
 
         public List<ConfigFieldDescriptor> configFields() {
             return List.of(
+                    ConfigFieldDescriptor.field("title", ConfigValueType.TEXT)
+                            .withHelp("Optional player-facing reward title"),
                     ConfigFieldDescriptor.field("script_id", ConfigValueType.TEXT).asRequired()
                             .withHelp("BRNTalk dialogue script ID to resume"),
                     ConfigFieldDescriptor.field("message_id", ConfigValueType.TEXT)
@@ -262,6 +287,11 @@ public final class BrnQuestIntegration {
 
         public Codec<Optional<Boolean>> configCodec() {
             return CODEC;
+        }
+
+        public List<ConfigFieldDescriptor> configFields() {
+            return List.of(ConfigFieldDescriptor.field("title", ConfigValueType.TEXT)
+                    .withHelp("Optional player-facing reward title"));
         }
 
         public RewardResult execute(RewardContext context, Optional<Boolean> ignored) {
