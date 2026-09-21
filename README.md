@@ -292,7 +292,11 @@ BRNTalk 还提供服务端配置，用于控制 `/reload` 后的校验提示行�
 - `brntalk:resume_conversation`：必填 `script_id`，可选 `message_id`，领取时继续匹配的等待中对话。
 - `brntalk:open_screen`：无配置，先同步服务端状态再打开 BRNTalk 界面。
 
-每次奖励投递会按 BRNQuest 进度 owner、奖励 ID 和本轮完成时间生成稳定键，并在执行副作用前写入 BRNTalk 玩家存档。重复调用不会再次启动或推进对话；异常中断会留下可诊断的 `PENDING`/`FAILED` 收据。BRNQuest 未安装时不会加载兼容类，也不影响 BRNTalk 的对话功能。
+独立奖励投递会按 BRNQuest 进度 owner、奖励 ID 和本轮完成时间生成稳定键，并在执行副作用前写入 BRNTalk 玩家存档。重复调用不会再次启动或推进对话；异常中断会留下可诊断的 `PENDING`/`FAILED` 收据。BRNQuest 未安装时不会加载兼容类，也不影响 BRNTalk 的对话功能。
+
+联动要求 BRNQuest **0.1.0-alpha.2 或更新版本**。上述三个奖励也可放入奖励表，参与组合、随机抽取和玩家选择，配置字段与独立奖励相同。准备或预览奖励表不会触发对话；每个选中项目由 BRNQuest 分别记录执行状态，同一表中的多个对话动作可分别执行。若执行中断且结果不明，系统会保留 `UNKNOWN` 状态供管理员核查，不会自动重播动作。
+
+本地联动开发可先发布 BRNQuest 到 Maven local，或使用 `-PbrnquestJar=<BRNQuest JAR 绝对路径>` 指定编译与测试依赖。
 
 ---
 

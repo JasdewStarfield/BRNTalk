@@ -12,6 +12,10 @@ def includeBrnQuest = providers.gradleProperty('includeBrnQuest')
         .map { it.isBlank() || it.toBoolean() }.orElse(false).get()
 // BRNQuest is published to Maven local during paired-workspace development.
 def brnQuestCoordinate = "yourscraft.jasdewstarfield:BRNQuest-1.21.1-neoforge:${brnquest_version}"
+// Paired-workspace builds can use a current BRNQuest artifact without replacing Maven-local releases.
+def brnQuestDependency = providers.gradleProperty('brnquestJar').isPresent()
+        ? files(providers.gradleProperty('brnquestJar').get())
+        : dependencies.create(brnQuestCoordinate) { transitive = false }
 
 repositories {
     maven { url "https://maven.shedaniel.me/" }
@@ -138,13 +142,14 @@ dependencies {
     runtimeOnly "curse.maven:jei-238222:7391682"
 
     // The integration is compiled into BRNTalk but NeoForge only loads it when BRNQuest is installed.
-    compileOnly(brnQuestCoordinate) { transitive = false }
+    compileOnly(brnQuestDependency)
     if (includeBrnQuest) {
-        runtimeOnly(brnQuestCoordinate) { transitive = false }
+        runtimeOnly(brnQuestDependency)
     }
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation(brnQuestDependency)
 }
 
 test {

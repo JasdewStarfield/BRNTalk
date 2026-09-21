@@ -227,6 +227,10 @@ public final class BrnQuestIntegration {
     private record StartConversationConfig(String scriptId) {}
 
     private static final class StartConversationReward implements RewardType<StartConversationConfig> {
+        public Optional<yourscraft.jasdewstarfield.brnquest.reward.ComposableReward> composition() {
+            return Optional.of(new BrnQuestRewardComposition(BrnQuestRewardComposition.Action.START));
+        }
+
         private static final Codec<StartConversationConfig> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 NON_BLANK.fieldOf("script_id").forGetter(StartConversationConfig::scriptId)
         ).apply(instance, StartConversationConfig::new));
@@ -253,6 +257,10 @@ public final class BrnQuestIntegration {
     private record ResumeConversationConfig(String scriptId, Optional<String> messageId) {}
 
     private static final class ResumeConversationReward implements RewardType<ResumeConversationConfig> {
+        public Optional<yourscraft.jasdewstarfield.brnquest.reward.ComposableReward> composition() {
+            return Optional.of(new BrnQuestRewardComposition(BrnQuestRewardComposition.Action.RESUME));
+        }
+
         private static final Codec<ResumeConversationConfig> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 NON_BLANK.fieldOf("script_id").forGetter(ResumeConversationConfig::scriptId),
                 NON_BLANK.optionalFieldOf("message_id").forGetter(ResumeConversationConfig::messageId)
@@ -283,6 +291,10 @@ public final class BrnQuestIntegration {
     }
 
     private static final class OpenScreenReward implements RewardType<Optional<Boolean>> {
+        public Optional<yourscraft.jasdewstarfield.brnquest.reward.ComposableReward> composition() {
+            return Optional.of(new BrnQuestRewardComposition(BrnQuestRewardComposition.Action.OPEN_SCREEN));
+        }
+
         private static final Codec<Optional<Boolean>> CODEC = Codec.BOOL.optionalFieldOf("open").codec();
 
         public Codec<Optional<Boolean>> configCodec() {

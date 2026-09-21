@@ -292,7 +292,11 @@ The plugin also provides three reward types:
 - `brntalk:resume_conversation` requires `script_id`, accepts an optional `message_id`, and resumes matching waiting conversations.
 - `brntalk:open_screen` has no configuration and synchronizes server state before opening the BRNTalk screen.
 
-Each delivery derives a stable key from the BRNQuest progress owner, reward ID, and current completion timestamp, then persists a BRNTalk receipt before applying the side effect. Replayed calls do not start or advance the dialogue again, while interrupted or failed deliveries leave diagnosable `PENDING`/`FAILED` receipts. When BRNQuest is absent, the compatibility class is not loaded and normal dialogue behavior is unchanged.
+Each standalone delivery derives a stable key from the BRNQuest progress owner, reward ID, and current completion timestamp, then persists a BRNTalk receipt before applying the side effect. Replayed calls do not start or advance the dialogue again, while interrupted or failed deliveries leave diagnosable `PENDING`/`FAILED` receipts. When BRNQuest is absent, the compatibility class is not loaded and normal dialogue behavior is unchanged.
+
+Integration requires BRNQuest **0.1.0-alpha.2 or newer**. All three rewards can also appear in grouped, random and player-choice reward tables, using the same configuration fields as standalone rewards. Preparation and previews never dispatch dialogue actions. BRNQuest records each selected occurrence separately, allowing multiple dialogue actions in one table to execute independently. An interrupted execution with an uncertain outcome remains `UNKNOWN` for administrator review and is not replayed automatically.
+
+For paired local development, publish BRNQuest to Maven local or select the compile and test dependency with `-PbrnquestJar=<absolute BRNQuest JAR path>`.
 
 ---
 

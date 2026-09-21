@@ -103,6 +103,6 @@ side = "CLIENT"
 [[dependencies."${mod_id}"]]
 modId = "brnquest"
 type = "optional"
-versionRange = "[0.1.0-alpha.1,)"
+versionRange = "[0.1.0-alpha.2,)"
 ordering = "AFTER"
 side = "BOTH"

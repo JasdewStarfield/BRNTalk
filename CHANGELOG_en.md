@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Nothing yet.
+- The three BRNQuest dialogue rewards on Minecraft 1.21.1 NeoForge now support reward-table entries, including grouped, random and choice rewards. Selected occurrences execute independently; interrupted actions with uncertain outcomes are not replayed automatically. Integration requires BRNQuest 0.1.0-alpha.2 or newer.
 
 ## [1.4.1] - 2026-09-05
 
