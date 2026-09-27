@@ -69,7 +69,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Added rule-level validation fixtures for every current blocking error and non-blocking warning.
 - Added `tools/debug/run-validation-fixtures.ps1` to inject fixtures, run `reload`, and verify logs in batches through RCON.
-- Updated `docs/EXTERNAL_VALIDATION_PLAN.md` to describe the current fixture, RCON smoke, and batch validation workflow.
 
 ### Fixed
 

@@ -257,7 +257,7 @@ In-game messages only include a short summary. Detailed resource, script, messag
 
 ### Java API (`BrntalkAPI`)
 
-See [`docs/API.md`](../docs/API.md) for stable boundaries and event semantics.
+See the [BrntalkAPI source](src/main/java/yourscraft/jasdewstarfield/brntalk/BrntalkAPI.java) for method signatures and usage notes.
 
 Other Java mods can call:
 
@@ -279,7 +279,7 @@ Other Java mods can call:
 
 ### Optional BRNQuest integration
 
-When BRNQuest is installed, BRNTalk registers two objective types from its isolated compatibility package:
+With BRNQuest installed, two objective types are available:
 
 - `brntalk:message_seen` uses `script_id` and `message_id` and completes when the player reaches that node.
 - `brntalk:conversation_complete` uses `script_id` and completes when the player finishes that script.
@@ -292,7 +292,7 @@ The plugin also provides three reward types:
 - `brntalk:resume_conversation` requires `script_id`, accepts an optional `message_id`, and resumes matching waiting conversations.
 - `brntalk:open_screen` has no configuration and synchronizes server state before opening the BRNTalk screen.
 
-Each standalone delivery derives a stable key from the BRNQuest progress owner, reward ID, and current completion timestamp, then persists a BRNTalk receipt before applying the side effect. Replayed calls do not start or advance the dialogue again, while interrupted or failed deliveries leave diagnosable `PENDING`/`FAILED` receipts. When BRNQuest is absent, the compatibility class is not loaded and normal dialogue behavior is unchanged.
+Each standalone delivery derives a stable key from the BRNQuest progress owner, reward ID, and current completion timestamp, then persists a BRNTalk receipt before applying the side effect. Replayed calls do not start or advance the dialogue again, while interrupted or failed deliveries leave diagnosable `PENDING`/`FAILED` receipts.
 
 Integration requires BRNQuest **0.1.0-alpha.2 or newer**. All three rewards can also appear in grouped, random and player-choice reward tables, using the same configuration fields as standalone rewards. Preparation and previews never dispatch dialogue actions. BRNQuest records each selected occurrence separately, allowing multiple dialogue actions in one table to execute independently. An interrupted execution with an uncertain outcome remains `UNKNOWN` for administrator review and is not replayed automatically.
 
@@ -303,13 +303,6 @@ For paired local development, publish BRNQuest to Maven local or select the comp
 ## License
 
 MIT License. See `LICENSE`.
-
----
-
-## Development and releases
-
-- See [`docs/`](docs/README.md) for project planning, debugging workflows, and release docs.
-- See [`docs/RELEASE_WORKFLOW.md`](docs/RELEASE_WORKFLOW.md) for the two-version build gates and publication workflow.
 
 ---
 
