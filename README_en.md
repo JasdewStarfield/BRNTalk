@@ -255,7 +255,7 @@ In-game messages only include a short summary. Detailed resource, script, messag
 
 ### Java API (`BrntalkAPI`)
 
-See [`docs/API.md`](../docs/API.md) for stable boundaries and event semantics.
+See the [BrntalkAPI source](src/main/java/yourscraft/jasdewstarfield/brntalk/BrntalkAPI.java) for method signatures and usage notes.
 
 Other Java mods can call:
 
@@ -280,13 +280,6 @@ Other Java mods can call:
 ## License
 
 MIT License. See `LICENSE`.
-
----
-
-## Development and releases
-
-- See [`docs/`](docs/README.md) for project planning, debugging workflows, and release docs.
-- The NeoForge control branch maintains the two-version build and publication workflow; see [`docs/RELEASE_WORKFLOW.md`](docs/RELEASE_WORKFLOW.md).
 
 ---
 

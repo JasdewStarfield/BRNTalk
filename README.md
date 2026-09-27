@@ -255,7 +255,7 @@ BRNTalk 还提供服务端配置，用于控制 `/reload` 后的校验提示行�
 
 ### API（`BrntalkAPI`）
 
-稳定边界和事件触发语义见 [`docs/API.md`](../docs/API.md)。
+接口签名与调用说明见 [BrntalkAPI 源码](src/main/java/yourscraft/jasdewstarfield/brntalk/BrntalkAPI.java)。
 
 你可以从其他 Java 模组直接调用：
 
@@ -280,13 +280,6 @@ BRNTalk 还提供服务端配置，用于控制 `/reload` 后的校验提示行�
 ## 许可证
 
 MIT License（见 `LICENSE`）。
-
----
-
-## 开发与发布
-
-- 项目规划、调试流程与发布流程见 [`docs/`](docs/README.md)。
-- 双版本发布、构建门禁与平台上传流程由 NeoForge 主控分支维护，见 [`docs/RELEASE_WORKFLOW.md`](docs/RELEASE_WORKFLOW.md)。
 
 ---
 

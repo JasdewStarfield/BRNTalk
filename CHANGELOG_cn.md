@@ -56,7 +56,6 @@
 
 - 新增规则级校验 fixture，覆盖所有当前阻断式错误和非阻断式警告。
 - 新增 `tools/debug/run-validation-fixtures.ps1`，可通过 RCON 批量注入 fixture、执行 `reload` 并检查日志判定。
-- 更新 `docs/EXTERNAL_VALIDATION_PLAN.md`，改为记录当前 fixture、RCON smoke 和批量校验工作流。
 
 ### 修复
 
