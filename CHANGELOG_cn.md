@@ -6,22 +6,15 @@
 
 ## [未发布]
 
-### 新增
+## [1.4.1] - 2026-10-08
 
-- 为 BRNQuest 插件的两种任务目标和三种对话奖励新增独立像素图标，用于类型选择器、详情和奖励表。
-- Minecraft 1.21.1 NeoForge 的三个 BRNQuest 对话奖励现可作为奖励表项目使用，支持组合、随机和选择奖励；各次选中独立执行，中断后不自动重播状态不明的对话动作。联动要求 BRNQuest 0.1.0-alpha.2 或更新版本。
-
-## [1.4.1] - 2026-09-05
+> **BRNQuest 联动仅适用于 Minecraft 1.21.1 NeoForge，要求 BRNQuest 1.0.2 或更新版本。Minecraft 1.20.1 Forge 同步提供下述对话完成状态与 API 更新。**
 
 ### 新增
 
-- 新增持久化的剧本完成状态、`BrntalkAPI.hasCompleted` 与只触发一次的 `PlayerCompletedConversationEvent`。
-- Minecraft 1.21.1 NeoForge 版本新增可选 BRNQuest 插件，提供 `brntalk:message_seen` 与 `brntalk:conversation_complete` 目标类型；未安装 BRNQuest 时保持原有加载路径。
-- BRNQuest 插件新增 `brntalk:start_conversation`、`brntalk:resume_conversation` 与 `brntalk:open_screen` 奖励类型，并以持久化投递收据阻止跨模组副作用被重复执行。
-
-### 修复
-
-- 修复 BRNQuest 编辑器无法发现或配置 BRNTalk 类型、配置字段与默认标题缺少本地化，以及对话目标满足后任务未自动结算的问题。
+- 对话完成状态会随玩家存档保存；新增 `BrntalkAPI.hasCompleted` 查询与 `PlayerCompletedConversationEvent` 完成事件，清除对话时同步清除完成状态。
+- **[1.21.1 NeoForge]** 新增 BRNQuest“到达对话消息”和“完成对话”目标。
+- **[1.21.1 NeoForge]** 新增“开始对话”“继续对话”和“打开对话界面”奖励，可用于独立奖励及组合、随机、选择奖励表。
 
 ## [1.4.0] - 2026-08-09
 

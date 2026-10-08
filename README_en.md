@@ -2,6 +2,8 @@
 
 [简体中文](README.md) | [English](README_en.md)
 
+> **BRNQuest integration is available only on Minecraft 1.21.1 NeoForge and requires BRNQuest 1.0.2 or newer.**
+
 A **Minecraft NeoForge dialogue-system mod** with an instant-messaging-style interface for story-driven quests, RPG modpacks, and servers.
 It provides scriptable conversation threads, branching choices, pause/resume behavior, command actions, and a client-side message UI with HUD notifications.
 
@@ -294,9 +296,9 @@ The plugin also provides three reward types:
 
 Each standalone delivery derives a stable key from the BRNQuest progress owner, reward ID, and current completion timestamp, then persists a BRNTalk receipt before applying the side effect. Replayed calls do not start or advance the dialogue again, while interrupted or failed deliveries leave diagnosable `PENDING`/`FAILED` receipts.
 
-Integration requires BRNQuest **0.1.0-alpha.2 or newer**. All three rewards can also appear in grouped, random and player-choice reward tables, using the same configuration fields as standalone rewards. Preparation and previews never dispatch dialogue actions. BRNQuest records each selected occurrence separately, allowing multiple dialogue actions in one table to execute independently. An interrupted execution with an uncertain outcome remains `UNKNOWN` for administrator review and is not replayed automatically.
+Integration requires BRNQuest **1.0.2 or newer**. All three rewards can also appear in grouped, random and player-choice reward tables, using the same configuration fields as standalone rewards. Preparation and previews never dispatch dialogue actions. BRNQuest records each selected occurrence separately, allowing multiple dialogue actions in one table to execute independently. An interrupted execution with an uncertain outcome remains `UNKNOWN` for administrator review and is not replayed automatically.
 
-For paired local development, publish BRNQuest to Maven local or select the compile and test dependency with `-PbrnquestJar=<absolute BRNQuest JAR path>`.
+Builds fetch BRNQuest 1.0.2 from GitHub Releases by default. For local integration development, select the compile and test dependency with `-PbrnquestJar=<absolute BRNQuest JAR path>`.
 
 ---
 

@@ -6,22 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Added
+## [1.4.1] - 2026-10-08
 
-- Added distinct pixel icons for the BRNQuest plugin's two objectives and three dialogue rewards, used in type pickers, details and reward tables.
-- The three BRNQuest dialogue rewards on Minecraft 1.21.1 NeoForge now support reward-table entries, including grouped, random and choice rewards. Selected occurrences execute independently; interrupted actions with uncertain outcomes are not replayed automatically. Integration requires BRNQuest 0.1.0-alpha.2 or newer.
-
-## [1.4.1] - 2026-09-05
+> **BRNQuest integration is available only on Minecraft 1.21.1 NeoForge and requires BRNQuest 1.0.2 or newer. Minecraft 1.20.1 Forge also receives the conversation-completion state and API updates below.**
 
 ### Added
 
-- Added persistent conversation-completion state, `BrntalkAPI.hasCompleted`, and the once-only `PlayerCompletedConversationEvent`.
-- Added an optional BRNQuest plugin to the Minecraft 1.21.1 NeoForge build with `brntalk:message_seen` and `brntalk:conversation_complete` objective types; the normal loading path remains unchanged when BRNQuest is absent.
-- Added `brntalk:start_conversation`, `brntalk:resume_conversation`, and `brntalk:open_screen` reward types to the BRNQuest plugin, with persistent delivery receipts preventing replayed cross-mod side effects.
-
-### Fixed
-
-- Fixed BRNQuest editors not discovering or configuring BRNTalk types, missing localization for configuration fields and default titles, and quests not completing automatically after dialogue objectives were satisfied.
+- Conversation completion is saved with player data, with a new `BrntalkAPI.hasCompleted` query and `PlayerCompletedConversationEvent` completion event. Clearing a conversation also clears its completion state.
+- **[1.21.1 NeoForge]** Added BRNQuest objectives for reaching a dialogue message and completing a conversation.
+- **[1.21.1 NeoForge]** Added rewards for starting or resuming a conversation and opening the dialogue screen, usable individually or in grouped, random and choice reward tables.
 
 ## [1.4.0] - 2026-08-09
 

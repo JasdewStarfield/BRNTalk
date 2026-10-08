@@ -11,7 +11,14 @@
       "minecraft_version": "1.21.1",
       "modrinth_loader": "neoforge",
       "curseforge_loader": "NeoForge",
-      "jar_name": "brntalk-mc{minecraft_version}-{version}.jar"
+      "jar_name": "brntalk-mc{minecraft_version}-{version}.jar",
+      "curseforge_relations": [
+        {
+          "slug": "brnquest",
+          "projectID": "1714617",
+          "type": "optionalDependency"
+        }
+      ]
     },
     "forge_1_20_1": {
       "minecraft_version": "1.20.1",

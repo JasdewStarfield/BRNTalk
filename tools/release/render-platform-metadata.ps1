@@ -73,7 +73,12 @@ $modrinthDependencies = @($template.modrinth.dependencies | ForEach-Object {
         dependency_type = $_.dependency_type
     }
 })
-$curseForgeRelations = @($template.curseforge.relations.projects | ForEach-Object {
+# Merge shared relations with this target's integrations so Forge receives only compatible mods.
+$targetRelations = @()
+if ($targetTemplate.PSObject.Properties.Name -contains 'curseforge_relations') {
+    $targetRelations = @($targetTemplate.curseforge_relations)
+}
+$curseForgeRelations = @((@($template.curseforge.relations.projects) + $targetRelations) | ForEach-Object {
     [ordered]@{
         slug      = $_.slug
         # CurseForge's upload endpoint requires numeric project IDs inside relation metadata.

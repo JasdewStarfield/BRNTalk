@@ -10,7 +10,7 @@ group = mod_group_id
 
 def includeBrnQuest = providers.gradleProperty('includeBrnQuest')
         .map { it.isBlank() || it.toBoolean() }.orElse(false).get()
-// BRNQuest is published to Maven local during paired-workspace development.
+// Resolve the pinned public release so local builds and CI use the same BRNQuest API.
 def brnQuestCoordinate = "yourscraft.jasdewstarfield:BRNQuest-1.21.1-neoforge:${brnquest_version}"
 // Paired-workspace builds can use a current BRNQuest artifact without replacing Maven-local releases.
 def brnQuestDependency = providers.gradleProperty('brnquestJar').isPresent()
@@ -18,6 +18,18 @@ def brnQuestDependency = providers.gradleProperty('brnquestJar').isPresent()
         : dependencies.create(brnQuestCoordinate) { transitive = false }
 
 repositories {
+    // GitHub Releases serves JAR assets directly, without Maven POM metadata.
+    exclusiveContent {
+        forRepository {
+            ivy {
+                name = 'brnQuestReleases'
+                url = 'https://github.com/JasdewStarfield/BRNQuest/releases/download'
+                patternLayout { artifact '[revision]/brnquest-mc1.21.1-[revision].[ext]' }
+                metadataSources { artifact() }
+            }
+        }
+        filter { includeModule('yourscraft.jasdewstarfield', 'BRNQuest-1.21.1-neoforge') }
+    }
     maven { url "https://maven.shedaniel.me/" }
     maven { url "https://cursemaven.com" }
     mavenLocal()
@@ -170,7 +182,8 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
                              mod_license            : mod_license,
                              mod_version            : mod_version,
                              mod_authors            : mod_authors,
-                             mod_description        : mod_description]
+                             mod_description        : mod_description,
+                             brnquest_version       : brnquest_version]
     inputs.properties replaceProperties
     expand replaceProperties
     from "src/main/templates"
