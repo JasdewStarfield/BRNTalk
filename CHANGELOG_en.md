@@ -6,9 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-08
+
+> **BRNQuest integration is available only on Minecraft 1.21.1 NeoForge and requires BRNQuest 1.0.2 or newer. Minecraft 1.20.1 Forge also receives the conversation-completion state and API updates below.**
+
 ### Added
 
-- Added persistent conversation-completion state, `BrntalkAPI.hasCompleted`, and the once-only `PlayerCompletedConversationEvent`.
+- Conversation completion is saved with player data, with a new `BrntalkAPI.hasCompleted` query and `PlayerCompletedConversationEvent` completion event. Clearing a conversation also clears its completion state.
+- **[1.21.1 NeoForge]** Added BRNQuest objectives for reaching a dialogue message and completing a conversation.
+- **[1.21.1 NeoForge]** Added rewards for starting or resuming a conversation and opening the dialogue screen, usable individually or in grouped, random and choice reward tables.
 
 ## [1.4.0] - 2026-08-09
 

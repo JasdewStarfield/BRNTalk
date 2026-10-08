@@ -2,6 +2,8 @@
 
 [简体中文](README.md) | [English](README_en.md)
 
+> **BRNQuest integration is available only on Minecraft 1.21.1 NeoForge and requires BRNQuest 1.0.2 or newer.**
+
 A **Minecraft Forge dialogue-system mod** with an instant-messaging-style interface for story-driven quests, RPG modpacks, and servers.
 It provides scriptable conversation threads, branching choices, pause/resume behavior, command actions, and a client-side message UI with HUD notifications.
 

@@ -6,9 +6,15 @@
 
 ## [未发布]
 
+## [1.4.1] - 2026-10-08
+
+> **BRNQuest 联动仅适用于 Minecraft 1.21.1 NeoForge，要求 BRNQuest 1.0.2 或更新版本。Minecraft 1.20.1 Forge 同步提供下述对话完成状态与 API 更新。**
+
 ### 新增
 
-- 新增持久化的剧本完成状态、`BrntalkAPI.hasCompleted` 与只触发一次的 `PlayerCompletedConversationEvent`。
+- 对话完成状态会随玩家存档保存；新增 `BrntalkAPI.hasCompleted` 查询与 `PlayerCompletedConversationEvent` 完成事件，清除对话时同步清除完成状态。
+- **[1.21.1 NeoForge]** 新增 BRNQuest“到达对话消息”和“完成对话”目标。
+- **[1.21.1 NeoForge]** 新增“开始对话”“继续对话”和“打开对话界面”奖励，可用于独立奖励及组合、随机、选择奖励表。
 
 ## [1.4.0] - 2026-08-09
 

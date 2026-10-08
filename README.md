@@ -2,6 +2,8 @@
 
 [简体中文](README.md) | [English](README_en.md)
 
+> **BRNQuest 联动仅适用于 Minecraft 1.21.1 NeoForge，要求 BRNQuest 1.0.2 或更新版本。**
+
 一个面向剧情任务与 RPG 整合包/服务器的即时通讯软件风格 **Minecraft Forge 对话系统模组**。
 它提供了可脚本化的对话线程、分支选项、暂停/恢复、命令动作执行，以及客户端消息 UI/HUD 提示。
 
