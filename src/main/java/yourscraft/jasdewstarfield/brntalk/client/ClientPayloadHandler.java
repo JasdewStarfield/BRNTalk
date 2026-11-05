@@ -1,5 +1,6 @@
 package yourscraft.jasdewstarfield.brntalk.client;
 
+import yourscraft.jasdewstarfield.brntalk.network.TalkTransfer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
@@ -16,6 +17,21 @@ import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import java.util.List;
 
 public class ClientPayloadHandler {
+    private static final TalkTransfer.Assembler TRANSFER =
+            new TalkTransfer.Assembler();
+
+    public static void handleTransfer(TalkTransfer.Frame frame, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            var payload = TRANSFER.accept(frame, System.nanoTime());
+            // Apply on this same task to preserve ordering with subsequent state and open-screen packets.
+            if (payload instanceof PayloadSync.SyncThreadsPayload value) applySyncThreads(value);
+            else if (payload instanceof PayloadSync.AddThreadPayload value) applyAddThread(value);
+            else if (payload instanceof PayloadSync.AppendMessagesPayload value) applyAppendMessages(value);
+        });
+    }
+
+    public static void expireTransfer() { TRANSFER.expire(System.nanoTime()); }
+    public static void clearTransfer() { TRANSFER.clear(); }
 
     public static void handleOpenTalkScreen(final TalkNetwork.OpenTalkScreenPayload payload,
                                             final IPayloadContext context) {
@@ -25,45 +41,51 @@ public class ClientPayloadHandler {
     // 处理全量同步
     public static void handleSyncThreads(PayloadSync.SyncThreadsPayload payload,
                                          IPayloadContext context) {
-        context.enqueueWork(() -> {
-            List<TalkThread> threads = payload.threads().stream()
-                    .map(PayloadSync.NetThread::toThread)
-                    .toList();
-            // 状态写入和监听器通知必须在同一个客户端主线程任务内完成。
-            ClientTalkState.get().setThreads(threads);
-        });
+        context.enqueueWork(() -> applySyncThreads(payload));
+    }
+
+    private static void applySyncThreads(PayloadSync.SyncThreadsPayload payload) {
+        List<TalkThread> threads = payload.threads().stream()
+                .map(PayloadSync.NetThread::toThread)
+                .toList();
+        // 状态写入和监听器通知必须在同一个客户端主线程任务内完成。
+        ClientTalkState.get().setThreads(threads);
     }
 
     // 处理新增线程
     public static void handleAddThread(final PayloadSync.AddThreadPayload payload, final IPayloadContext context) {
-        context.enqueueWork(() -> {
-            TalkThread thread = payload.thread().toThread();
-            // 将 NetThread 还原为 TalkThread 并加入状态管理器
-            ClientTalkState.get().addThread(thread);
+        context.enqueueWork(() -> applyAddThread(payload));
+    }
 
-            List<TalkMessage> msgs = thread.getMessages();
-            if (!msgs.isEmpty()) {
-                processIncomingMessages(msgs, thread.getId());
-                maybeAutoOpenTalkScreen(thread.getId());
-            }
-        });
+    private static void applyAddThread(PayloadSync.AddThreadPayload payload) {
+        TalkThread thread = payload.thread().toThread();
+        // 将 NetThread 还原为 TalkThread 并加入状态管理器
+        ClientTalkState.get().addThread(thread);
+
+        List<TalkMessage> msgs = thread.getMessages();
+        if (!msgs.isEmpty()) {
+            processIncomingMessages(msgs, thread.getId());
+            maybeAutoOpenTalkScreen(thread.getId());
+        }
     }
 
     // 处理附加消息
     public static void handleAppendMessages(final PayloadSync.AppendMessagesPayload payload, final IPayloadContext context) {
-        context.enqueueWork(() -> {
-            // 将 NetMessage 转回 TalkMessage
-            List<TalkMessage> msgs = payload.newMessages().stream()
-                    .map(PayloadSync.NetMessage::toMessage)
-                    .toList();
-            // 更新客户端状态
-            ClientTalkState.get().appendMessages(payload.threadId(), msgs);
+        context.enqueueWork(() -> applyAppendMessages(payload));
+    }
 
-            if (!msgs.isEmpty()) {
-                processIncomingMessages(msgs, payload.threadId());
-                maybeAutoOpenTalkScreen(payload.threadId());
-            }
-        });
+    private static void applyAppendMessages(PayloadSync.AppendMessagesPayload payload) {
+        // 将 NetMessage 转回 TalkMessage
+        List<TalkMessage> msgs = payload.newMessages().stream()
+                .map(PayloadSync.NetMessage::toMessage)
+                .toList();
+        // 更新客户端状态
+        ClientTalkState.get().appendMessages(payload.threadId(), msgs);
+
+        if (!msgs.isEmpty()) {
+            processIncomingMessages(msgs, payload.threadId());
+            maybeAutoOpenTalkScreen(payload.threadId());
+        }
     }
 
     // 处理未读状态更新

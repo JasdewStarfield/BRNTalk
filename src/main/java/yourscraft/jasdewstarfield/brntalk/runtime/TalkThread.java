@@ -13,6 +13,9 @@ import java.util.List;
 public class TalkThread {
     private final String id;
     private final String scriptId;
+    // Rebuilding a thread starts a new session, invalidating packets from before a reload.
+    private final String sessionId;
+    private int consumedChoicePosition = -1;
     private final long startTime;
     private long lastReadTime;
     private long cachedTotalDuration = -1;
@@ -25,8 +28,13 @@ public class TalkThread {
      * @param startTime 启动时间
      */
     public TalkThread(String id, String scriptId, long startTime, long lastReadTime) {
+        this(id, scriptId, startTime, lastReadTime, java.util.UUID.randomUUID().toString());
+    }
+
+    public TalkThread(String id, String scriptId, long startTime, long lastReadTime, String sessionId) {
         this.id = id;
         this.scriptId = scriptId;
+        this.sessionId = sessionId;
         this.startTime = startTime;
         this.lastReadTime = lastReadTime;
     }
@@ -39,6 +47,22 @@ public class TalkThread {
 
     public String getScriptId() {
         return scriptId;
+    }
+
+    public String getSessionId() { return sessionId; }
+
+    /** Claim one choice at the exact displayed position before executing any actions. */
+    public TalkMessage.Choice consumeChoice(String session, int position, String choiceId) {
+        if (!sessionId.equals(session) || position != messages.size() || consumedChoicePosition == position) return null;
+        TalkMessage current = getCurrentMessage();
+        if (current == null || current.getType() != TalkMessage.Type.CHOICE) return null;
+        for (var choice : current.getChoices()) {
+            if (choice.getId().equals(choiceId)) {
+                consumedChoicePosition = position;
+                return choice;
+            }
+        }
+        return null;
     }
 
     public long getStartTime() {

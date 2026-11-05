@@ -1,5 +1,10 @@
 package yourscraft.jasdewstarfield.brntalk.platform;
 
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.chat.Component;
+import yourscraft.jasdewstarfield.brntalk.Brntalk;
+import yourscraft.jasdewstarfield.brntalk.network.TalkTransfer;
+import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
@@ -20,8 +25,10 @@ public final class TalkNetworking {
     }
 
     public static void sendSelectChoice(String threadId, String choiceId) {
-        // 选择结果由服务端校验和推进，客户端只发送 thread/choice 标识。
-        PacketDistributor.sendToServer(new TalkNetwork.SelectChoicePayload(threadId, choiceId));
+        // 连同当前会话和消息位置发送，服务端可以识别重复或过期的选择。
+        var thread = ClientTalkState.get().getThread(threadId);
+        if (thread != null) PacketDistributor.sendToServer(new TalkNetwork.SelectChoicePayload(
+                threadId, choiceId, thread.getSessionId(), thread.getMessages().size()));
     }
 
     public static void sendMarkRead(String threadId) {
@@ -41,12 +48,12 @@ public final class TalkNetworking {
                 .map(PayloadSync.NetThread::fromThread)
                 .toList();
 
-        PacketDistributor.sendToPlayer(player, new PayloadSync.SyncThreadsPayload(netThreads));
+        sendTransfer(player, new PayloadSync.SyncThreadsPayload(netThreads));
     }
 
     public static void sendAddThread(ServerPlayer player, TalkThread thread) {
         PayloadSync.NetThread netThread = PayloadSync.NetThread.fromThread(thread);
-        PacketDistributor.sendToPlayer(player, new PayloadSync.AddThreadPayload(netThread));
+        sendTransfer(player, new PayloadSync.AddThreadPayload(netThread));
     }
 
     public static void sendAppendMessages(ServerPlayer player, String threadId, List<TalkMessage> newMessages) {
@@ -56,10 +63,23 @@ public final class TalkNetworking {
                 .map(PayloadSync.NetMessage::fromMessage)
                 .toList();
 
-        PacketDistributor.sendToPlayer(player, new PayloadSync.AppendMessagesPayload(threadId, netMsgs));
+        sendTransfer(player, new PayloadSync.AppendMessagesPayload(threadId, netMsgs));
     }
 
     public static void sendUpdateState(ServerPlayer player, String threadId, long lastReadTime) {
         PacketDistributor.sendToPlayer(player, new PayloadSync.UpdateStatePayload(threadId, lastReadTime));
+    }
+
+    private static void sendTransfer(ServerPlayer player, CustomPacketPayload payload) {
+        List<TalkTransfer.Frame> frames;
+        try {
+            frames = TalkTransfer.split(payload);
+        } catch (RuntimeException error) {
+            // Encoding failures leave saved history intact and must not disconnect the player.
+            Brntalk.LOGGER.error("Cannot encode dialogue history for {}", player.getUUID(), error);
+            player.sendSystemMessage(Component.translatable("message.brntalk.sync_failed"));
+            return;
+        }
+        frames.forEach(frame -> PacketDistributor.sendToPlayer(player, frame));
     }
 }

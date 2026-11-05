@@ -20,9 +20,28 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
     // The latest reload report is shared with the datapack sync listener so
     // admins can be notified after /reload finishes.
     private static volatile ConversationLoadReport lastLoadReport = ConversationLoadReport.empty();
+    private static volatile boolean lastReloadApplied = true;
 
     public ConversationLoader() {
         super(GSON, "brntalk/dialogues");
+    }
+
+    @Override
+    protected Map<ResourceLocation, JsonElement> prepare(ResourceManager resources, ProfilerFiller profiler) {
+        // The vanilla JSON listener skips malformed files. Here a missing entry could look
+        // like an intentional deletion, so abort preparation and retain the active scripts.
+        Map<ResourceLocation, JsonElement> prepared = new LinkedHashMap<>();
+        String prefix = "brntalk/dialogues/";
+        resources.listResources("brntalk/dialogues", id -> id.getPath().endsWith(".json")).forEach((id, resource) -> {
+            try (var reader = resource.openAsReader()) {
+                String path = id.getPath();
+                var key = ResourceLocation.fromNamespaceAndPath(id.getNamespace(), path.substring(prefix.length(), path.length() - 5));
+                prepared.put(key, com.google.gson.JsonParser.parseReader(reader));
+            } catch (Exception error) {
+                throw new IllegalStateException("BRNTalk reload rejected; retaining active scripts. Invalid resource: " + id, error);
+            }
+        });
+        return prepared;
     }
 
     private static class RawMessage {
@@ -60,7 +79,7 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
                          @NotNull ProfilerFiller profiler) {
 
         TalkManager manager = TalkManager.getInstance();
-        manager.clear();
+        Map<String, TalkConversation> candidate = new LinkedHashMap<>();
         ConversationLoadReport.Builder reportBuilder = new ConversationLoadReport.Builder();
 
         for (Map.Entry<ResourceLocation, JsonElement> entry : jsons.entrySet()) {
@@ -77,26 +96,26 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
                         RawConversation[] convArray = GSON.fromJson(root.get("conversations"), RawConversation[].class);
                         if (convArray != null) {
                             for (RawConversation rawConv : convArray) {
-                                LoadSingleResult result = loadSingleConversation(manager, rawConv, rl);
+                                LoadSingleResult result = loadSingleConversation(candidate, rawConv, rl);
                                 if (result.isLoaded()) {
                                     reportBuilder.incrementLoaded();
                                 } else {
                                     reportBuilder.addInvalidConversation(result.report());
                                 }
                             }
-                        }
+                        } else throw new IllegalArgumentException("conversations must be an array");
                     }
                     // 情况 B: 根本身就是单个 Conversation (兼容旧格式)
                     else {
                         RawConversation rawConv = GSON.fromJson(root, RawConversation.class);
-                        LoadSingleResult result = loadSingleConversation(manager, rawConv, rl);
+                        LoadSingleResult result = loadSingleConversation(candidate, rawConv, rl);
                         if (result.isLoaded()) {
                             reportBuilder.incrementLoaded();
                         } else {
                             reportBuilder.addInvalidConversation(result.report());
                         }
                     }
-                }
+                } else throw new IllegalArgumentException("Conversation file must be a JSON object");
             } catch (Exception e) {
                 Brntalk.LOGGER.error("[BRNTalk] Failed to load conversation file: {}", rl, e);
                 reportBuilder.addFileLoadFailure(rl, e);
@@ -104,7 +123,14 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
         }
 
         lastLoadReport = reportBuilder.build();
-        Brntalk.LOGGER.info("[BRNTalk] Loaded {} conversations, skipped {} invalid conversations, {} file load failures.",
+        lastReloadApplied = !lastLoadReport.hasProblems();
+        if (lastReloadApplied) {
+            // An empty valid set is an intentional deletion; failed sets never remove old scripts.
+            manager.replaceConversations(candidate);
+        } else {
+            Brntalk.LOGGER.error("[BRNTalk] Rejected conversation reload; retaining all active scripts and threads.");
+        }
+        Brntalk.LOGGER.info("[BRNTalk] Candidate validation: {} valid conversations, {} invalid conversations, {} file load failures.",
                 lastLoadReport.loadedConversations(),
                 lastLoadReport.skippedConversations(),
                 lastLoadReport.failedFileCount());
@@ -114,7 +140,9 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
         return lastLoadReport;
     }
 
-    private static LoadSingleResult loadSingleConversation(TalkManager manager,
+    public static boolean wasLastReloadApplied() { return lastReloadApplied; }
+
+    private static LoadSingleResult loadSingleConversation(Map<String, TalkConversation> candidate,
                                                            RawConversation rawConv,
                                                            ResourceLocation fileId) {
         // 1. 处理 ID
@@ -203,7 +231,9 @@ public class ConversationLoader extends SimpleJsonResourceReloadListener {
             return LoadSingleResult.invalid(report);
         }
 
-        manager.registerConversation(conv);
+        if (candidate.putIfAbsent(convId, conv) != null) {
+            throw new IllegalArgumentException("Duplicate conversation ID: " + convId);
+        }
         return LoadSingleResult.loaded();
     }
 

@@ -67,12 +67,13 @@ public class SyncEventListener {
 
         if (event.getPlayer() == null) {
             // 情况 1：/reload，给所有玩家同步
-            manager.clearAllThreads();
+            if (ConversationLoader.wasLastReloadApplied()) manager.clearAllThreads();
             List<ServerPlayer> relevantPlayers = new ArrayList<>();
             event.getRelevantPlayers().forEach(relevantPlayers::add);
             // 通过 getRelevantPlayers() 拿到要同步的玩家（/reload 时是所有在线玩家）
             relevantPlayers.forEach(player -> {
-                SyncEventListener.rebuildThreadsForPlayer(player);
+                // Failed candidates retain live positions and their existing session tokens.
+                if (ConversationLoader.wasLastReloadApplied()) SyncEventListener.rebuildThreadsForPlayer(player);
                 TalkNetworking.syncThreadsTo(player);
             });
             // Only the global /reload path should surface validation results.
@@ -125,6 +126,8 @@ public class SyncEventListener {
                     report.loadedConversations(), report.skippedConversations());
 
             player.sendSystemMessage(summary.withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Component.translatable("validation.brntalk.reload.retained")
+                    .withStyle(ChatFormatting.YELLOW));
             // Chat stays short for admins; latest.log carries the structured
             // source/script/message/choice details for author debugging.
             player.sendSystemMessage(Component.translatable("validation.brntalk.reload.details_in_log")

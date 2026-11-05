@@ -1,5 +1,8 @@
 package yourscraft.jasdewstarfield.brntalk.platform;
 
+import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadHandler;
+import yourscraft.jasdewstarfield.brntalk.client.ClientTalkState;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import com.mojang.brigadier.Command;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -39,6 +42,7 @@ public final class PlatformClientHooks {
         modEventBus.addListener(PlatformClientHooks::onRegisterClientReloadListeners);
         modEventBus.addListener(PlatformClientHooks::onRegisterGuiLayers);
         NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onClientTick);
+        NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onLogout);
         NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onScreenInit);
         NeoForge.EVENT_BUS.addListener(PlatformClientHooks::onRegisterClientCommands);
         // Install before BRNQuest freezes client presentations during client setup.
@@ -62,10 +66,17 @@ public final class PlatformClientHooks {
     }
 
     private static void onClientTick(ClientTickEvent.Post event) {
+        ClientPayloadHandler.expireTransfer();
         ClientKeyRegistry.onClientTick();
         if (Minecraft.getInstance().player != null) {
             TalkHud.tick();
         }
+    }
+
+    private static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
+        // A different server must never inherit an unfinished snapshot or a previous session token.
+        ClientPayloadHandler.clearTransfer();
+        ClientTalkState.get().clear();
     }
 
     private static void onRegisterClientReloadListeners(RegisterClientReloadListenersEvent event) {

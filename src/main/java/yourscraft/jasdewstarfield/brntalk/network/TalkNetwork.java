@@ -55,7 +55,7 @@ public class TalkNetwork {
         }
     }
 
-    public record SelectChoicePayload(String threadId, String choiceId) implements CustomPacketPayload {
+    public record SelectChoicePayload(String threadId, String choiceId, String sessionId, int position) implements CustomPacketPayload {
         public static final Type<SelectChoicePayload> TYPE =
                 new Type<>(ResourceLocation.fromNamespaceAndPath(Brntalk.MODID, "select_choice"));
 
@@ -63,6 +63,8 @@ public class TalkNetwork {
                 StreamCodec.composite(
                         ByteBufCodecs.STRING_UTF8, SelectChoicePayload::threadId,
                         ByteBufCodecs.STRING_UTF8, SelectChoicePayload::choiceId,
+                        ByteBufCodecs.stringUtf8(36), SelectChoicePayload::sessionId,
+                        ByteBufCodecs.VAR_INT, SelectChoicePayload::position,
                         SelectChoicePayload::new
                 );
 
@@ -89,7 +91,10 @@ public class TalkNetwork {
 
     @SubscribeEvent
     public static void register(final RegisterPayloadHandlersEvent event) {
-        final PayloadRegistrar registrar = event.registrar("1");
+        // Choice receipts and bounded transfers require matching client/server protocol versions.
+        final PayloadRegistrar registrar = event.registrar("2");
+        registerClientPacket(registrar, TalkTransfer.Frame.TYPE, TalkTransfer.Frame.CODEC,
+                ClientPacketDelegate::handleTransfer);
 
         // 客户端 -> 服务端 的包
         registrar.playToServer(
@@ -172,16 +177,7 @@ public class TalkNetwork {
         if (thread == null) return;
 
         // 1. 在最后一条消息里找到玩家选的那个 Choice
-        TalkMessage lastMsg = thread.getCurrentMessage();
-        if (lastMsg == null) return;
-
-        TalkMessage.Choice selected = null;
-        for (TalkMessage.Choice c : lastMsg.getChoices()) {
-            if (c.getId().equals(choiceId)) {
-                selected = c;
-                break;
-            }
-        }
+        TalkMessage.Choice selected = thread.consumeChoice(payload.sessionId(), payload.position(), choiceId);
         if (selected == null) return;
 
         // 2. 获取跳转目标 ID (nextId)
@@ -272,6 +268,9 @@ public class TalkNetwork {
     }
 
     private static class ClientPacketDelegate {
+        public static void handleTransfer(TalkTransfer.Frame p, IPayloadContext c) {
+            ClientPayloadHandler.handleTransfer(p, c);
+        }
         public static void handleSyncThreads(PayloadSync.SyncThreadsPayload p, IPayloadContext c) {
             ClientPayloadHandler.handleSyncThreads(p, c);
         }

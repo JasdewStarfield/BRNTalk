@@ -14,7 +14,7 @@ public class TalkManager {
     private static final TalkManager INSTANCE = new TalkManager();
 
     // 从json加载脚本
-    private final Map<String, TalkConversation> conversations = new HashMap<>();
+    private Map<String, TalkConversation> conversations = new HashMap<>();
 
     // 已触发的聊天串
     private final Map<UUID, Map<String, TalkThread>> playerThreads = new HashMap<>();
@@ -45,6 +45,11 @@ public class TalkManager {
 
     public void registerConversation(TalkConversation conversation) {
         conversations.put(conversation.getId(), conversation);
+    }
+
+    /** Publish a fully validated set in one assignment; consumers never see a partial reload. */
+    public void replaceConversations(Map<String, TalkConversation> candidate) {
+        conversations = new HashMap<>(candidate);
     }
 
     public void clear() {

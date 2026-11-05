@@ -1,4 +1,6 @@
 {
+  "validation.brntalk.reload.retained": "This dialogue reload was rejected. The previous scripts and active conversations remain in use.",
+  "message.brntalk.sync_failed": "Dialogue sync failed: history exceeds the transfer budget or contains invalid data. Saved history is retained; see the server log.",
   "screen.brntalk.brnquest.task.message_seen": "Reach dialogue message",
   "screen.brntalk.brnquest.task.conversation_complete": "Complete conversation",
   "screen.brntalk.brnquest.task.completed": "Completed",

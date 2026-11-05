@@ -125,7 +125,8 @@ public class PayloadSync {
             String scriptId,
             long startedAt,
             long lastReadTime,
-            List<NetMessage> messages
+            List<NetMessage> messages,
+            String sessionId
     ) {
         public static final StreamCodec<ByteBuf, NetThread> STREAM_CODEC =
                 StreamCodec.composite(
@@ -134,6 +135,7 @@ public class PayloadSync {
                         ByteBufCodecs.VAR_LONG, NetThread::startedAt,
                         ByteBufCodecs.VAR_LONG, NetThread::lastReadTime,
                         NetMessage.STREAM_CODEC.apply(ByteBufCodecs.list()), NetThread::messages,
+                        ByteBufCodecs.stringUtf8(36), NetThread::sessionId,
                         NetThread::new
                 );
 
@@ -142,12 +144,12 @@ public class PayloadSync {
                     .stream()
                     .map(NetMessage::fromMessage)
                     .toList();
-            return new NetThread(thread.getId(), thread.getScriptId(), thread.getStartTime(), thread.getLastReadTime(), msgs);
+            return new NetThread(thread.getId(), thread.getScriptId(), thread.getStartTime(), thread.getLastReadTime(), msgs, thread.getSessionId());
         }
 
         /** 在客户端把快照还原成 TalkThread（内部用一个临时 TalkConversation 来填充消息） */
         public TalkThread toThread() {
-            TalkThread thread = new TalkThread(id, scriptId, startedAt, lastReadTime);
+            TalkThread thread = new TalkThread(id, scriptId, startedAt, lastReadTime, sessionId);
 
             for (NetMessage nm : messages) {
                 thread.appendMessage(nm.toMessage());

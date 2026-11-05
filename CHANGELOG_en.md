@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-11-06
+
+> Minecraft 1.21.1 NeoForge only. Network protocol 2 requires both clients and servers to update.
+
+### Fixed
+
+- Bind choices to a session and message position, rejecting replayed or stale requests before dialogue actions run.
+- Activate scripts only after complete validation. Malformed files, invalid scripts and duplicate IDs retain the previous scripts and live conversations; intentional deletion still applies.
+- Transfer full history, new threads and appended messages in frames of at most 32 KiB, applying only complete transfers. Clear incomplete transfers on timeout/disconnect. A 64 MiB transfer budget reports encoding failures without deleting saved history.
+- Clear client dialogue state when leaving a server.
+
 ## [1.4.1] - 2026-10-08
 
 > **BRNQuest integration is available only on Minecraft 1.21.1 NeoForge and requires BRNQuest 1.0.2 or newer. Minecraft 1.20.1 Forge also receives the conversation-completion state and API updates below.**

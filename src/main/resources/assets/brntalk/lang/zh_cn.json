@@ -1,4 +1,6 @@
 {
+  "validation.brntalk.reload.retained": "本次对话重载未生效，继续使用原有剧本和正在进行的对话。",
+  "message.brntalk.sync_failed": "对话同步失败：历史超过传输预算或含有无效数据。存档记录已保留，请查看服务端日志。",
   "screen.brntalk.brnquest.task.message_seen": "到达对话消息",
   "screen.brntalk.brnquest.task.conversation_complete": "完成对话",
   "screen.brntalk.brnquest.task.completed": "已完成",
