@@ -2,6 +2,7 @@ package yourscraft.jasdewstarfield.brntalk.runtime;
 
 import net.minecraft.server.level.ServerPlayer;
 import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
+import yourscraft.jasdewstarfield.brntalk.data.ConversationRepository;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.platform.ServerConversationPlayer;
 
@@ -10,7 +11,7 @@ import java.util.*;
 /** 运行数据的兼容门面；对话操作统一交给 ConversationService。 */
 public class TalkManager {
     private static final TalkManager INSTANCE = new TalkManager();
-    private Map<String, TalkConversation> conversations = new HashMap<>();
+    private final ConversationRepository conversations = new ConversationRepository();
     private final Map<UUID, Map<String, TalkThread>> playerThreads = new HashMap<>();
     private final ConversationService operations = new ConversationService(this);
 
@@ -24,8 +25,9 @@ public class TalkManager {
     public void clearAllThreads() { playerThreads.clear(); }
     public void clearThreadsForPlayer(UUID playerUuid) { playerThreads.remove(playerUuid); }
     public TalkConversation getConversation(String id) { return conversations.get(id); }
-    public void registerConversation(TalkConversation conversation) { conversations.put(conversation.getId(), conversation); }
-    public void replaceConversations(Map<String, TalkConversation> candidate) { conversations = new HashMap<>(candidate); }
+    public ConversationRepository scripts() { return conversations; }
+    public void registerConversation(TalkConversation conversation) { conversations.register(conversation); }
+    public void replaceConversations(Map<String, TalkConversation> candidate) { conversations.replace(candidate); }
     public void clear() { conversations.clear(); playerThreads.clear(); }
 
     /** 保留旧内存操作签名，调用方自行处理存档和通知的约定不变。 */

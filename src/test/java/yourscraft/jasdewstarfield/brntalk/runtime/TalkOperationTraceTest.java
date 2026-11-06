@@ -32,7 +32,9 @@ class TalkOperationTraceTest {
     }
 
     private TalkMessage message(String id, TalkMessage.Type type, String next) {
-        return new TalkMessage(id, type, TalkMessage.SpeakerType.NPC, "NPC", id, "action", 0, next);
+        var message = new TalkMessage(id, type, TalkMessage.SpeakerType.NPC, "NPC", id, "action", 0, next);
+        if (type == TalkMessage.Type.CHOICE) message.addChoice(new TalkMessage.Choice("yes", "Yes", ""));
+        return message;
     }
 
     @Test void startAdvancesInMessageOrderAndWaitResumeStopsAtChoice() {
