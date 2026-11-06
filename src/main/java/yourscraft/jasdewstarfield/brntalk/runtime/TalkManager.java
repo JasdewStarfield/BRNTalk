@@ -8,6 +8,7 @@ import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 public class TalkManager {
 
@@ -18,8 +19,22 @@ public class TalkManager {
 
     // 已触发的聊天串
     private final Map<UUID, Map<String, TalkThread>> playerThreads = new HashMap<>();
+    private final Function<ServerPlayer, UUID> playerId;
+    private final ActionExecutor actions;
 
     private TalkManager() {
+        this(ServerPlayer::getUUID, TalkManager::executeAction);
+    }
+
+    // 最小测试端口：记录动作发生时的线程位置，生产仍使用原来的命令执行器。
+    TalkManager(Function<ServerPlayer, UUID> playerId, ActionExecutor actions) {
+        this.playerId = playerId;
+        this.actions = actions;
+    }
+
+    @FunctionalInterface
+    interface ActionExecutor {
+        void execute(ServerPlayer player, TalkThread thread, TalkMessage message);
     }
 
     public static TalkManager getInstance() {
@@ -88,12 +103,12 @@ public class TalkManager {
         TalkMessage msgWithTime = firstMsg.withTimestamp(now);
         thread.appendMessage(msgWithTime);
 
-        executeAction(player, thread, msgWithTime);
+        actions.execute(player, thread, msgWithTime);
 
         // 尝试自动推进
         autoAdvance(player, thread, conv);
 
-        playerThreads.computeIfAbsent(player.getUUID(), k -> new ConcurrentHashMap<>())
+        playerThreads.computeIfAbsent(playerId.apply(player), k -> new ConcurrentHashMap<>())
                 .put(threadId, thread);
 
         return thread;
@@ -111,7 +126,7 @@ public class TalkManager {
     }
 
     public List<TalkMessage> proceedThread(ServerPlayer player, String threadId, String nextMsgId) {
-        TalkThread thread = getActiveThread(player.getUUID(), threadId);
+        TalkThread thread = getActiveThread(playerId.apply(player), threadId);
         if (thread == null) return Collections.emptyList();
 
         TalkConversation conv = conversations.get(thread.getScriptId());
@@ -126,7 +141,7 @@ public class TalkManager {
         // 1. 添加目标消息
         TalkMessage msgWithTime = nextMsg.withTimestamp(System.currentTimeMillis());
         thread.appendMessage(msgWithTime);
-        executeAction(player, thread, msgWithTime);
+        actions.execute(player, thread, msgWithTime);
 
         // 2. 尝试自动推进
         autoAdvance(player, thread, conv);
@@ -166,7 +181,7 @@ public class TalkManager {
                 TalkMessage msgWithTime = nextMsg.withTimestamp(System.currentTimeMillis());
                 thread.appendMessage(msgWithTime);
 
-                executeAction(player, thread, msgWithTime);
+                actions.execute(player, thread, msgWithTime);
 
                 count++;
             }
@@ -191,7 +206,7 @@ public class TalkManager {
      * @return 新增的消息 ID 列表
      */
     public List<TalkMessage> resumeThread(ServerPlayer player, String threadId) {
-        TalkThread thread = getActiveThread(player.getUUID(), threadId);
+        TalkThread thread = getActiveThread(playerId.apply(player), threadId);
         if (thread == null) return Collections.emptyList();
 
         TalkMessage lastMsg = thread.getCurrentMessage();
@@ -215,7 +230,7 @@ public class TalkManager {
     /**
      * 执行命令的辅助方法
      */
-    private void executeAction(ServerPlayer player, TalkThread thread, TalkMessage msg) {
+    private static void executeAction(ServerPlayer player, TalkThread thread, TalkMessage msg) {
         String action = msg.getAction();
         if (action != null && !action.isBlank()) {
             CommandSourceStack source = player.createCommandSourceStack()
