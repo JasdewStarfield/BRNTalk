@@ -1,267 +1,55 @@
 package yourscraft.jasdewstarfield.brntalk.runtime;
 
-import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
-import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
+import yourscraft.jasdewstarfield.brntalk.platform.ServerConversationPlayer;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
+/** 运行数据的兼容门面；对话操作统一交给 ConversationService。 */
 public class TalkManager {
-
     private static final TalkManager INSTANCE = new TalkManager();
-
-    // 从json加载脚本
     private Map<String, TalkConversation> conversations = new HashMap<>();
-
-    // 已触发的聊天串
     private final Map<UUID, Map<String, TalkThread>> playerThreads = new HashMap<>();
-    private final Function<ServerPlayer, UUID> playerId;
-    private final ActionExecutor actions;
+    private final ConversationService operations = new ConversationService(this);
 
-    private TalkManager() {
-        this(ServerPlayer::getUUID, TalkManager::executeAction);
+    TalkManager() {}
+    public static TalkManager getInstance() { return INSTANCE; }
+    ConversationService operations() { return operations; }
+
+    public void restoreThread(UUID playerUuid, TalkThread thread) {
+        playerThreads.computeIfAbsent(playerUuid, k -> new HashMap<>()).put(thread.getId(), thread);
     }
+    public void clearAllThreads() { playerThreads.clear(); }
+    public void clearThreadsForPlayer(UUID playerUuid) { playerThreads.remove(playerUuid); }
+    public TalkConversation getConversation(String id) { return conversations.get(id); }
+    public void registerConversation(TalkConversation conversation) { conversations.put(conversation.getId(), conversation); }
+    public void replaceConversations(Map<String, TalkConversation> candidate) { conversations = new HashMap<>(candidate); }
+    public void clear() { conversations.clear(); playerThreads.clear(); }
 
-    // 最小测试端口：记录动作发生时的线程位置，生产仍使用原来的命令执行器。
-    TalkManager(Function<ServerPlayer, UUID> playerId, ActionExecutor actions) {
-        this.playerId = playerId;
-        this.actions = actions;
-    }
-
-    @FunctionalInterface
-    interface ActionExecutor {
-        void execute(ServerPlayer player, TalkThread thread, TalkMessage message);
-    }
-
-    public static TalkManager getInstance() {
-        return INSTANCE;
-    }
-
-    public void restoreThread(UUID playerUuid,TalkThread thread) {
-        playerThreads.computeIfAbsent(playerUuid, k -> new HashMap<>())
-                .put(thread.getId(), thread);
-    }
-
-    public void clearAllThreads() {
-        playerThreads.clear();
-    }
-
-    public void clearThreadsForPlayer(UUID playerUuid) {
-        playerThreads.remove(playerUuid);
-    }
-
-    public TalkConversation getConversation(String id) {
-        return conversations.get(id);
-    }
-
-    public void registerConversation(TalkConversation conversation) {
-        conversations.put(conversation.getId(), conversation);
-    }
-
-    /** Publish a fully validated set in one assignment; consumers never see a partial reload. */
-    public void replaceConversations(Map<String, TalkConversation> candidate) {
-        conversations = new HashMap<>(candidate);
-    }
-
-    public void clear() {
-        conversations.clear();
-        playerThreads.clear();
-    }
-
-    /**
-     * 启动线程逻辑
-     */
+    /** 保留旧内存操作签名，调用方自行处理存档和通知的约定不变。 */
     public TalkThread startThread(ServerPlayer player, String scriptId, String startMsgId) {
-        TalkConversation conv = conversations.get(scriptId);
-        if (conv == null) {
-            return null;
-        }
-
-        // 确定起始消息
-        TalkMessage firstMsg;
-        if (startMsgId == null) {
-            firstMsg = conv.getFirstMessage();
-        } else {
-            firstMsg = conv.getMessage(startMsgId);
-        }
-
-        if (firstMsg == null) {
-            // 剧本可能是空的，或者找不到指定ID
-            return null;
-        }
-
-        // 创建新线程
-        long now = System.currentTimeMillis();
-        String threadId = UUID.randomUUID().toString();
-        TalkThread thread = new TalkThread(threadId, scriptId, now, 0L);
-
-        // 存入对应玩家的初始消息
-        TalkMessage msgWithTime = firstMsg.withTimestamp(now);
-        thread.appendMessage(msgWithTime);
-
-        actions.execute(player, thread, msgWithTime);
-
-        // 尝试自动推进
-        autoAdvance(player, thread, conv);
-
-        playerThreads.computeIfAbsent(playerId.apply(player), k -> new ConcurrentHashMap<>())
-                .put(threadId, thread);
-
-        return thread;
+        return operations.startRuntime(new ServerConversationPlayer(player), scriptId, startMsgId);
     }
-
+    public List<TalkMessage> proceedThread(ServerPlayer player, String threadId, String nextMsgId) {
+        return operations.proceedRuntime(new ServerConversationPlayer(player), threadId, nextMsgId);
+    }
+    public List<TalkMessage> resumeThread(ServerPlayer player, String threadId) {
+        return operations.resumeRuntime(new ServerConversationPlayer(player), threadId);
+    }
     public void removeThread(UUID playerUuid, String threadId) {
         Map<String, TalkThread> threads = playerThreads.get(playerUuid);
         if (threads != null) {
             threads.remove(threadId);
-            // 如果玩家没有任何对话了，把玩家的空 Map 也移除
-            if (threads.isEmpty()) {
-                playerThreads.remove(playerUuid);
-            }
+            if (threads.isEmpty()) playerThreads.remove(playerUuid);
         }
     }
-
-    public List<TalkMessage> proceedThread(ServerPlayer player, String threadId, String nextMsgId) {
-        TalkThread thread = getActiveThread(playerId.apply(player), threadId);
-        if (thread == null) return Collections.emptyList();
-
-        TalkConversation conv = conversations.get(thread.getScriptId());
-        if (conv == null) return Collections.emptyList();
-
-        TalkMessage nextMsg = conv.getMessage(nextMsgId);
-        if (nextMsg == null) return Collections.emptyList();
-
-        // 记录添加前的状态，方便计算新增了哪些
-        int oldSize = thread.getMessages().size();
-
-        // 1. 添加目标消息
-        TalkMessage msgWithTime = nextMsg.withTimestamp(System.currentTimeMillis());
-        thread.appendMessage(msgWithTime);
-        actions.execute(player, thread, msgWithTime);
-
-        // 2. 尝试自动推进
-        autoAdvance(player, thread, conv);
-
-        // 3. 收集所有新增的消息 ID
-        List<TalkMessage> allMsgs = thread.getMessages();
-        if (allMsgs.size() <= oldSize) return Collections.emptyList();
-
-        return allMsgs.subList(oldSize, allMsgs.size());
-    }
-
-    private void autoAdvance(ServerPlayer player, TalkThread thread, TalkConversation conv) {
-        int safetyLimit = 100; // 防止恶意脚本死循环
-        int count = 0;
-
-        while (count < safetyLimit) {
-            TalkMessage lastMsg = thread.getCurrentMessage();
-            if (lastMsg == null) break;
-
-            // 若为 WAIT，CHOICE 类型，则停止
-            if (lastMsg.getType() == TalkMessage.Type.WAIT ||
-                    lastMsg.getType() == TalkMessage.Type.CHOICE ||
-                    lastMsg.getNextId() == null) {
-                break;
-            }
-
-            // 只有 TEXT 类型且有 nextId 才自动推进
-            if (lastMsg.getType() == TalkMessage.Type.TEXT) {
-                String nextId = lastMsg.getNextId();
-                TalkMessage nextMsg = conv.getMessage(nextId);
-
-                if (nextMsg == null) {
-                    // 脚本断链了
-                    break;
-                }
-
-                TalkMessage msgWithTime = nextMsg.withTimestamp(System.currentTimeMillis());
-                thread.appendMessage(msgWithTime);
-
-                actions.execute(player, thread, msgWithTime);
-
-                count++;
-            }
-        }
-
-        if (count >= safetyLimit) {
-            TalkMessage lastMsg = thread.getCurrentMessage();
-            String messageId = lastMsg == null ? "<unknown>" : lastMsg.getId();
-            Brntalk.LOGGER.warn(
-                    "[BRNTalk] Auto-advance stopped after {} steps for script '{}' thread '{}' at message '{}'. " +
-                            "This is a runtime safety guard; check the dialogue graph for an unexpected loop.",
-                    safetyLimit,
-                    thread.getScriptId(),
-                    thread.getId(),
-                    messageId
-            );
-        }
-    }
-
-    /**
-     * 恢复/继续指定线程的对话 (用于从 WAIT 状态解除)
-     * @return 新增的消息 ID 列表
-     */
-    public List<TalkMessage> resumeThread(ServerPlayer player, String threadId) {
-        TalkThread thread = getActiveThread(playerId.apply(player), threadId);
-        if (thread == null) return Collections.emptyList();
-
-        TalkMessage lastMsg = thread.getCurrentMessage();
-        if (lastMsg == null || lastMsg.getNextId() == null) {
-            return Collections.emptyList();
-        }
-
-        return proceedThread(player, threadId, lastMsg.getNextId());
-    }
-
     public Collection<TalkThread> getActiveThreads(UUID playerUuid) {
         return playerThreads.getOrDefault(playerUuid, Collections.emptyMap()).values();
     }
-
     public TalkThread getActiveThread(UUID playerUuid, String threadId) {
-        var map = playerThreads.get(playerUuid);
-        if (map == null) return null;
-        return map.get(threadId);
-    }
-
-    /**
-     * 执行命令的辅助方法
-     */
-    private static void executeAction(ServerPlayer player, TalkThread thread, TalkMessage msg) {
-        String action = msg.getAction();
-        if (action != null && !action.isBlank()) {
-            CommandSourceStack source = player.createCommandSourceStack()
-                    .withPermission(2)
-                    .withSuppressedOutput()
-                    .withCallback((success, result) -> {
-                        if (!success || result == 0) {
-                            Brntalk.LOGGER.warn(
-                                    "[BRNTalk] Action command returned {} (success={}) for script '{}' thread '{}' message '{}': {}",
-                                    result,
-                                    success,
-                                    thread.getScriptId(),
-                                    thread.getId(),
-                                    msg.getId(),
-                                    action
-                            );
-                        }
-                    });
-
-            try {
-                player.server.getCommands().performPrefixedCommand(source, action);
-            } catch (RuntimeException ex) {
-                Brntalk.LOGGER.error(
-                        "[BRNTalk] Action command failed for script '{}' thread '{}' message '{}': {}",
-                        thread.getScriptId(),
-                        thread.getId(),
-                        msg.getId(),
-                        action,
-                        ex
-                );
-            }
-        }
+        var threads = playerThreads.get(playerUuid);
+        return threads == null ? null : threads.get(threadId);
     }
 }

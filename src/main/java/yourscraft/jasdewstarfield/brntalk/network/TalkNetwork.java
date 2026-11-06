@@ -18,11 +18,11 @@ import org.jetbrains.annotations.NotNull;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.client.ClientPayloadHandler;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
-import yourscraft.jasdewstarfield.brntalk.platform.BrntalkPlatform;
 import yourscraft.jasdewstarfield.brntalk.platform.TalkNetworking;
-import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
-import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
+
+import yourscraft.jasdewstarfield.brntalk.runtime.ConversationService;
+import yourscraft.jasdewstarfield.brntalk.platform.ServerConversationPlayer;
 
 import java.util.List;
 
@@ -157,77 +157,19 @@ public class TalkNetwork {
         if (!(context.player() instanceof ServerPlayer serverPlayer)) {
             return;
         }
-        TalkNetworking.syncThreadsTo(serverPlayer);
-        TalkNetworking.sendOpenTalkScreen(serverPlayer);
+        ConversationService.getInstance().open(new ServerConversationPlayer(serverPlayer));
     }
 
     public static void handleSelectChoice(final SelectChoicePayload payload,
                                           final IPayloadContext context) {
-        // 这个 handler 在服务端逻辑线程上调用
-        if (!(context.player() instanceof ServerPlayer serverPlayer)) {
-            return;
-        }
-
-        String threadId = payload.threadId();
-        String choiceId = payload.choiceId();
-
-        TalkManager manager = TalkManager.getInstance();
-        TalkThread thread = manager.getActiveThread(serverPlayer.getUUID(), threadId);
-
-        if (thread == null) return;
-
-        // 1. 在最后一条消息里找到玩家选的那个 Choice
-        TalkMessage.Choice selected = thread.consumeChoice(payload.sessionId(), payload.position(), choiceId);
-        if (selected == null) return;
-
-        // 2. 获取跳转目标 ID (nextId)
-        String nextMsgId = selected.getNextId();
-        if (nextMsgId == null || nextMsgId.isEmpty()) {
-            // 无后继选项是玩家在服务端明确选择的结束点。
-            BrntalkPlatform.completeConversation(serverPlayer, thread);
-            return;
-        }
-
-        // 3. 推进剧情 (在内存中追加消息)
-        List<TalkMessage> newMsgs = manager.proceedThread(serverPlayer, threadId, nextMsgId);
-        if (!newMsgs.isEmpty()) {
-            List<String> newIds = newMsgs.stream().map(TalkMessage::getId).toList();
-            // 4. 保存到存档 (批量追加)
-            PlayerTalkState state = BrntalkPlatform.getTalkState(serverPlayer);
-            state.appendMessages(threadId, newIds);
-
-            // 5. 触发 PlayerSeenMessageEvent 事件
-            String scriptId = thread.getScriptId();
-            for (String msgId : newIds) {
-                BrntalkPlatform.postPlayerSeenMessage(serverPlayer, scriptId, msgId);
-            }
-
-            BrntalkPlatform.completeConversationIfTerminal(serverPlayer, thread);
-
-            // 6. 同步给客户端
-            TalkNetworking.sendAppendMessages(serverPlayer, threadId, newMsgs);
-        }
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        ConversationService.getInstance().select(new ServerConversationPlayer(player), payload.threadId(),
+                payload.choiceId(), payload.sessionId(), payload.position());
     }
 
     public static void handleMarkRead(final MarkThreadReadPayload payload, final IPayloadContext context) {
-        if (!(context.player() instanceof ServerPlayer serverPlayer)) return;
-
-        context.enqueueWork(() -> {
-            String threadId = payload.threadId();
-            long now = System.currentTimeMillis();
-
-            PlayerTalkState state = BrntalkPlatform.getTalkState(serverPlayer);
-            state.updateLastReadTime(threadId, now);
-
-            TalkManager manager = TalkManager.getInstance();
-            TalkThread activeThread = manager.getActiveThread(serverPlayer.getUUID(), threadId);
-            if (activeThread != null) {
-                activeThread.setLastReadTime(now);
-            }
-
-            // 更新完 NBT 后，同步回客户端
-            TalkNetworking.sendUpdateState(serverPlayer, threadId, now);
-        });
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        context.enqueueWork(() -> ConversationService.getInstance().markRead(new ServerConversationPlayer(player), payload.threadId()));
     }
 
     // 保留旧入口，避免外部调用方在迁移期间立刻断裂。

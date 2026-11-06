@@ -1,16 +1,13 @@
 package yourscraft.jasdewstarfield.brntalk;
 
 import net.minecraft.server.level.ServerPlayer;
-import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.platform.BrntalkPlatform;
-import yourscraft.jasdewstarfield.brntalk.platform.TalkNetworking;
-import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
-import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
 
+import yourscraft.jasdewstarfield.brntalk.runtime.ConversationService;
+import yourscraft.jasdewstarfield.brntalk.platform.ServerConversationPlayer;
+
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 这是一个对外公开的 API 类。
@@ -25,13 +22,8 @@ public class BrntalkAPI {
      * @return 成功发送打开请求时返回 true；玩家为空时返回 false
      */
     public static boolean openTalkScreen(ServerPlayer player) {
-        if (player == null) {
-            return false;
-        }
-
-        // 先发送完整状态，确保客户端打开界面时展示的是服务端最新数据。
-        TalkNetworking.syncThreadsTo(player);
-        TalkNetworking.sendOpenTalkScreen(player);
+        if (player == null) return false;
+        ConversationService.getInstance().open(new ServerConversationPlayer(player));
         return true;
     }
 
@@ -43,49 +35,8 @@ public class BrntalkAPI {
      * @return 如果成功启动返回 true，如果 ID 不存在或玩家无效返回 false
      */
     public static boolean startConversation(ServerPlayer player, String scriptId) {
-        if (player == null || scriptId == null) {
-            return false;
-        }
-
-        TalkManager manager = TalkManager.getInstance();
-
-        // 1. 尝试在内存中启动线程
-        TalkThread thread = manager.startThread(player, scriptId, null);
-        if (thread == null) {
-            // 脚本 ID 不存在
-            return false;
-        }
-
-        // 2. 写入玩家数据 (NBT)
-        PlayerTalkState state = BrntalkPlatform.getTalkState(player);
-
-        List<String> allMsgIds = thread.getMessages().stream()
-                .map(TalkMessage::getId)
-                .toList();
-
-        if (!allMsgIds.isEmpty()) {
-            // 1. 存第一条 (创建线程结构)
-            state.startThread(thread.getId(), scriptId, allMsgIds.get(0));
-
-            // 2. 如果还有后续，批量追加
-            if (allMsgIds.size() > 1) {
-                List<String> restIds = allMsgIds.subList(1, allMsgIds.size());
-                state.appendMessages(thread.getId(), restIds);
-            }
-
-            // 3. 触发事件
-            for (String msgId : allMsgIds) {
-                BrntalkPlatform.postPlayerSeenMessage(player, scriptId, msgId);
-            }
-
-            // Persist completion only after every reached message has been recorded.
-            BrntalkPlatform.completeConversationIfTerminal(player, thread);
-        }
-
-        // 4. 同步网络包给客户端
-        TalkNetworking.sendAddThread(player, thread);
-
-        return true;
+        if (player == null || scriptId == null) return false;
+        return ConversationService.getInstance().start(new ServerConversationPlayer(player), scriptId, null).succeeded();
     }
 
     /**
@@ -95,28 +46,7 @@ public class BrntalkAPI {
      * @return 如果找到了对话并成功清除，返回 true；如果没找到，返回 false
      */
     public static boolean clearAllConversation(ServerPlayer player) {
-        if (player == null) {
-            return false;
-        }
-
-        // 1. 清除存档
-        PlayerTalkState state = BrntalkPlatform.getTalkState(player);
-
-        if (state.isEmpty()) {
-            return false;
-        }
-
-        // 直接设置一个新的空状态对象来清除所有数据
-        BrntalkPlatform.setTalkState(player, new PlayerTalkState());
-
-        // 2. 清除运行时内存
-        TalkManager manager = TalkManager.getInstance();
-        manager.clearThreadsForPlayer(player.getUUID());
-
-        // 3. 同步状态
-        TalkNetworking.syncThreadsTo(player);
-
-        return true;
+        return player != null && ConversationService.getInstance().clearAll(new ServerConversationPlayer(player));
     }
 
     /**
@@ -127,37 +57,8 @@ public class BrntalkAPI {
      * @return 如果找到了对应的对话并成功清除，返回 true；如果没找到，返回 false
      */
     public static boolean clearConversation(ServerPlayer player, String scriptId) {
-        if (player == null || scriptId == null) {
-            return false;
-        }
-
-        // 1. 查找所有属于该 scriptId 的 threadId
-        PlayerTalkState state = BrntalkPlatform.getTalkState(player);
-
-        List<String> threadsToRemove = new ArrayList<>();
-        for (String tid : state.getThreadIds()) {
-            PlayerTalkState.SavedThread st = state.getThread(tid);
-            if (st != null && st.getScriptId().equals(scriptId)) {
-                threadsToRemove.add(tid);
-            }
-        }
-
-        boolean completionRemoved = state.clearCompletedConversation(scriptId);
-        if (threadsToRemove.isEmpty() && !completionRemoved) {
-            return false;
-        }
-
-        // 2. 清除存档和运行时内存
-        TalkManager manager = TalkManager.getInstance();
-        for (String tid : threadsToRemove) {
-            state.removeThread(tid);      // 移除存档
-            manager.removeThread(player.getUUID(), tid);   // 移除内存
-        }
-
-        // 3. 同步状态
-        TalkNetworking.syncThreadsTo(player);
-
-        return true;
+        return player != null && scriptId != null
+                && ConversationService.getInstance().clear(new ServerConversationPlayer(player), scriptId);
     }
 
     /**
@@ -194,67 +95,6 @@ public class BrntalkAPI {
      */
     public static int resumeConversation(ServerPlayer player, String scriptId, @Nullable String matchMessageId) {
         if (player == null || scriptId == null) return 0;
-
-        TalkManager manager = TalkManager.getInstance();
-
-        // 获取玩家存档数据
-        PlayerTalkState state = BrntalkPlatform.getTalkState(player);
-        if (state.getThreadIds().isEmpty()) return 0;
-
-        List<String> targetThreadIds = new ArrayList<>();
-
-        // 遍历玩家所有活跃线程，找到匹配 scriptId 的那个
-        for (String tid : state.getThreadIds()) {
-            PlayerTalkState.SavedThread st = state.getThread(tid);
-
-            // 匹配 Script ID
-            if (!st.getScriptId().equals(scriptId)) {
-                continue;
-            }
-
-            // 匹配 Message ID (如果参数不为空)
-            if (matchMessageId != null) {
-                // 为了准确，我们检查运行时对象(TalkThread)的当前消息
-                TalkThread runtimeThread = manager.getActiveThread(player.getUUID(), tid);
-
-                // 如果运行时线程存在，且当前消息ID匹配
-                if (runtimeThread != null) {
-                    TalkMessage current = runtimeThread.getCurrentMessage();
-                    if (current != null && current.getId().equals(matchMessageId)) {
-                        targetThreadIds.add(tid);
-                    }
-                }
-            } else {
-                // 没指定 messageId，则匹配所有该脚本的线程
-                targetThreadIds.add(tid);
-            }
-        }
-
-        if (targetThreadIds.isEmpty()) return 0;
-
-        int successCount = 0;
-
-        for (String tid : targetThreadIds) {
-            // 调用 TalkManager 的单线程恢复方法
-            List<TalkMessage> newMsgs = manager.resumeThread(player, tid);
-
-            if (!newMsgs.isEmpty()) {
-                // 存入玩家数据
-                List<String> newIds = newMsgs.stream().map(TalkMessage::getId).toList();
-                state.appendMessages(tid, newIds);
-
-                // 触发事件
-                for (String msgId : newIds) {
-                    BrntalkPlatform.postPlayerSeenMessage(player, scriptId, msgId);
-                }
-
-                BrntalkPlatform.completeConversationIfTerminal(player, manager.getActiveThread(player.getUUID(), tid));
-
-                TalkNetworking.sendAppendMessages(player, tid, newMsgs);
-                successCount++;
-            }
-        }
-
-        return successCount;
+        return ConversationService.getInstance().resume(new ServerConversationPlayer(player), scriptId, matchMessageId);
     }
 }

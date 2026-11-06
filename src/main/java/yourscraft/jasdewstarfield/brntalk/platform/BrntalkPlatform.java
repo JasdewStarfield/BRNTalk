@@ -4,7 +4,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
 import yourscraft.jasdewstarfield.brntalk.save.TalkWorldData;
-import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
+import yourscraft.jasdewstarfield.brntalk.runtime.ConversationService;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 
 public final class BrntalkPlatform {
@@ -47,18 +47,11 @@ public final class BrntalkPlatform {
 
     /** Marks a terminal text node complete; WAIT and CHOICE nodes require an explicit continuation decision. */
     public static void completeConversationIfTerminal(ServerPlayer player, TalkThread thread) {
-        TalkMessage current = thread == null ? null : thread.getCurrentMessage();
-        if (current != null && current.getType() == TalkMessage.Type.TEXT && current.getNextId() == null) {
-            completeConversation(player, thread);
-        }
+        if (player != null) ConversationService.getInstance().completeIfTerminal(new ServerConversationPlayer(player), thread);
     }
 
     /** Persists a completion exactly once before notifying optional integrations. */
     public static void completeConversation(ServerPlayer player, TalkThread thread) {
-        if (player == null || thread == null) return;
-        PlayerTalkState state = getTalkState(player);
-        if (state.markConversationCompleted(thread.getScriptId())) {
-            PlatformEvents.postPlayerCompletedConversation(player, thread.getScriptId(), thread.getId());
-        }
+        if (player != null) ConversationService.getInstance().complete(new ServerConversationPlayer(player), thread);
     }
 }
