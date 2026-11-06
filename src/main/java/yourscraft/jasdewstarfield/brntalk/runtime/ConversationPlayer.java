@@ -11,6 +11,7 @@ public interface ConversationPlayer {
     UUID id();
     PlayerTalkState state();
     void replaceState(PlayerTalkState state);
+    void migrateLegacyState();
     void executeAction(TalkThread thread, TalkMessage message);
     void seen(String scriptId, String messageId);
     void completed(TalkThread thread);

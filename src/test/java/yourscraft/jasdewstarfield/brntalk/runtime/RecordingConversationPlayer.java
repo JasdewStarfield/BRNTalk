@@ -14,6 +14,7 @@ class RecordingConversationPlayer implements ConversationPlayer {
     final List<String> trace = new ArrayList<>();
     PlayerTalkState state = new PlayerTalkState();
     BiConsumer<TalkThread, TalkMessage> action = (thread, message) -> {};
+    Runnable migrate = () -> {};
     Runnable onCompleted = () -> {};
     BiConsumer<String, String> onSeen = (script, message) -> {};
 
@@ -24,6 +25,7 @@ class RecordingConversationPlayer implements ConversationPlayer {
         trace.add("action:" + message.getId());
         action.accept(thread, message);
     }
+    @Override public void migrateLegacyState() { migrate.run(); }
     @Override public void seen(String scriptId, String messageId) {
         trace.add("seen:" + messageId);
         onSeen.accept(scriptId, messageId);

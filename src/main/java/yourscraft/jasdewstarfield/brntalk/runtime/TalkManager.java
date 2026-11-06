@@ -12,7 +12,7 @@ import java.util.*;
 public class TalkManager {
     private static final TalkManager INSTANCE = new TalkManager();
     private final ConversationRepository conversations = new ConversationRepository();
-    private final Map<UUID, Map<String, TalkThread>> playerThreads = new HashMap<>();
+    private final PlayerThreadStore playerThreads = new PlayerThreadStore();
     private final ConversationService operations = new ConversationService(this);
 
     TalkManager() {}
@@ -20,10 +20,10 @@ public class TalkManager {
     ConversationService operations() { return operations; }
 
     public void restoreThread(UUID playerUuid, TalkThread thread) {
-        playerThreads.computeIfAbsent(playerUuid, k -> new HashMap<>()).put(thread.getId(), thread);
+        playerThreads.put(playerUuid, thread);
     }
     public void clearAllThreads() { playerThreads.clear(); }
-    public void clearThreadsForPlayer(UUID playerUuid) { playerThreads.remove(playerUuid); }
+    public void clearThreadsForPlayer(UUID playerUuid) { playerThreads.clearPlayer(playerUuid); }
     public TalkConversation getConversation(String id) { return conversations.get(id); }
     public ConversationRepository scripts() { return conversations; }
     public void registerConversation(TalkConversation conversation) { conversations.register(conversation); }
@@ -41,17 +41,12 @@ public class TalkManager {
         return operations.resumeRuntime(new ServerConversationPlayer(player), threadId);
     }
     public void removeThread(UUID playerUuid, String threadId) {
-        Map<String, TalkThread> threads = playerThreads.get(playerUuid);
-        if (threads != null) {
-            threads.remove(threadId);
-            if (threads.isEmpty()) playerThreads.remove(playerUuid);
-        }
+        playerThreads.remove(playerUuid, threadId);
     }
     public Collection<TalkThread> getActiveThreads(UUID playerUuid) {
-        return playerThreads.getOrDefault(playerUuid, Collections.emptyMap()).values();
+        return playerThreads.getAll(playerUuid);
     }
     public TalkThread getActiveThread(UUID playerUuid, String threadId) {
-        var threads = playerThreads.get(playerUuid);
-        return threads == null ? null : threads.get(threadId);
+        return playerThreads.get(playerUuid, threadId);
     }
 }

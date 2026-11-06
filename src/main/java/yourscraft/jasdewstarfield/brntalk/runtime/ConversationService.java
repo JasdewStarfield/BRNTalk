@@ -10,8 +10,12 @@ import java.util.*;
 /** 服务端对话操作的唯一协调入口；每条动作仍与消息追加交错执行。 */
 public final class ConversationService {
     private final TalkManager manager;
+    private final ConversationRestorer restorer;
 
-    ConversationService(TalkManager manager) { this.manager = manager; }
+    ConversationService(TalkManager manager) {
+        this.manager = manager;
+        this.restorer = new ConversationRestorer(manager, this);
+    }
 
     public static ConversationService getInstance() { return TalkManager.getInstance().operations(); }
 
@@ -122,6 +126,24 @@ public final class ConversationService {
     public void open(ConversationPlayer player) {
         player.sync();
         player.openScreen();
+    }
+
+    /** 登录迁移先于历史恢复，客户端只接收迁移后的一个全量快照。 */
+    public void login(ConversationPlayer player) {
+        player.migrateLegacyState();
+        rebuild(player);
+        player.sync();
+    }
+
+    public void rebuild(ConversationPlayer player) { restorer.rebuild(player); }
+
+    public void synchronizeReload(Collection<? extends ConversationPlayer> players, boolean applied) {
+        if (applied) manager.clearAllThreads();
+        for (var player : players) {
+            // 失败重载不重建，保留线程身份和原会话回执。
+            if (applied) rebuild(player);
+            player.sync();
+        }
     }
 
     public void markRead(ConversationPlayer player, String threadId) {

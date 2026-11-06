@@ -7,17 +7,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import yourscraft.jasdewstarfield.brntalk.runtime.ConversationService;
+import yourscraft.jasdewstarfield.brntalk.platform.ServerConversationPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
 import yourscraft.jasdewstarfield.brntalk.data.ConversationLoadReport;
 import yourscraft.jasdewstarfield.brntalk.data.ConversationLoader;
-import yourscraft.jasdewstarfield.brntalk.data.TalkConversation;
-import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
-import yourscraft.jasdewstarfield.brntalk.platform.BrntalkPlatform;
-import yourscraft.jasdewstarfield.brntalk.platform.TalkNetworking;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkManager;
-import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
-import yourscraft.jasdewstarfield.brntalk.save.PlayerTalkState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,83 +22,38 @@ import java.util.List;
 @EventBusSubscriber(modid = Brntalk.MODID)
 public class SyncEventListener {
     public static void rebuildThreadsForPlayer(ServerPlayer player) {
-        PlayerTalkState state = BrntalkPlatform.getTalkState(player);
-
-        if (state.getThreadIds().isEmpty()) {
-            return;
-        }
-
-        TalkManager manager = TalkManager.getInstance();
-
-        for (String threadId : state.getThreadIds()) {
-            PlayerTalkState.SavedThread saved = state.getThread(threadId);
-            if (saved == null) continue;
-
-            String scriptId = saved.getScriptId();
-            TalkConversation conv = manager.getConversation(scriptId);
-            if (conv == null) continue;
-
-            long startedAt = saved.getStartTime();
-            long lastRead = saved.getLastReadTime();
-            TalkThread thread = new TalkThread(threadId, scriptId, startedAt, lastRead);
-
-            // 逐条恢复消息
-            List<String> historyIds = saved.getHistory();
-            for (String msgId : historyIds) {
-                TalkMessage msg = conv.getMessage(msgId);
-                if (msg != null) {
-                    thread.appendMessage(msg.withTimestamp(0L));
-                }
-            }
-
-            manager.restoreThread(player.getUUID(), thread);
-            // Older saves did not carry a completion ledger. Rebuild it from a reached
-            // terminal text node and emit at most once through the persisted marker.
-            BrntalkPlatform.completeConversationIfTerminal(player, thread);
-        }
+        ConversationService.getInstance().rebuild(new ServerConversationPlayer(player));
     }
 
     @SubscribeEvent
     public static void onDatapackSync(OnDatapackSyncEvent event) {
-        TalkManager manager = TalkManager.getInstance();
+        if (event.getPlayer() != null) {
+            // NeoForge 21.1.216 的单玩家同步先于 PlayerLoggedIn，统一等迁移后恢复。
+            return;
+        }
+        List<ServerPlayer> players = new ArrayList<>();
+        event.getRelevantPlayers().forEach(players::add);
+        ConversationService.getInstance().synchronizeReload(
+                players.stream().map(ServerConversationPlayer::new).toList(), ConversationLoader.wasLastReloadApplied());
+        notifyPrivilegedPlayersAboutValidationReport(players);
+    }
 
-        if (event.getPlayer() == null) {
-            // 情况 1：/reload，给所有玩家同步
-            if (ConversationLoader.wasLastReloadApplied()) manager.clearAllThreads();
-            List<ServerPlayer> relevantPlayers = new ArrayList<>();
-            event.getRelevantPlayers().forEach(relevantPlayers::add);
-            // 通过 getRelevantPlayers() 拿到要同步的玩家（/reload 时是所有在线玩家）
-            relevantPlayers.forEach(player -> {
-                // Failed candidates retain live positions and their existing session tokens.
-                if (ConversationLoader.wasLastReloadApplied()) SyncEventListener.rebuildThreadsForPlayer(player);
-                TalkNetworking.syncThreadsTo(player);
-            });
-            // Only the global /reload path should surface validation results.
-            notifyPrivilegedPlayersAboutValidationReport(relevantPlayers);
-
-        } else {
-            // 情况 2：某个玩家加入服务器时（OnDatapackSync 也会触发）
-            ServerPlayer player = event.getPlayer();
-            manager.clearThreadsForPlayer(player.getUUID());
-            SyncEventListener.rebuildThreadsForPlayer(player);
-            TalkNetworking.syncThreadsTo(player);
+    @SubscribeEvent
+    public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            ConversationService.getInstance().login(new ServerConversationPlayer(player));
         }
     }
 
-    // 这个类用来迁移旧版世界数据到玩家数据
     @SubscribeEvent
-    @SuppressWarnings("deprecation")
-    public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        TalkManager.getInstance().clearThreadsForPlayer(event.getEntity().getUUID());
+    }
 
-        if (BrntalkPlatform.migrateLegacyTalkStateOnLogin(player)) {
-            player.sendSystemMessage(Component.translatable("system.brntalk.migration.success").withStyle(ChatFormatting.GREEN));
-            Brntalk.LOGGER.info("[BRNTalk] Migrated talk data for player {}", player.getName().getString());
-        }
-
-        // 登录后总是从平台状态后端重建并同步一次，确保客户端 UI 拿到最新线程。
-        SyncEventListener.rebuildThreadsForPlayer(player);
-        TalkNetworking.syncThreadsTo(player);
+    @SubscribeEvent
+    public static void onServerStopped(ServerStoppedEvent event) {
+        // 集成服务器可能在同一 JVM 再开世界，剧本和玩家线程一起释放。
+        TalkManager.getInstance().clear();
     }
 
     private static void notifyPrivilegedPlayersAboutValidationReport(List<ServerPlayer> players) {

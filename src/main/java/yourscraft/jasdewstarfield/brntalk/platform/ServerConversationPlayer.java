@@ -1,6 +1,8 @@
 package yourscraft.jasdewstarfield.brntalk.platform;
 
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import yourscraft.jasdewstarfield.brntalk.Brntalk;
 import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
@@ -25,6 +27,14 @@ public record ServerConversationPlayer(ServerPlayer player) implements Conversat
     @Override public void sync() { TalkNetworking.syncThreadsTo(player); }
     @Override public void openScreen() { TalkNetworking.sendOpenTalkScreen(player); }
     @Override public void read(String threadId, long time) { TalkNetworking.sendUpdateState(player, threadId, time); }
+
+    @Override
+    public void migrateLegacyState() {
+        if (BrntalkPlatform.migrateLegacyTalkStateOnLogin(player)) {
+            player.sendSystemMessage(Component.translatable("system.brntalk.migration.success").withStyle(ChatFormatting.GREEN));
+            Brntalk.LOGGER.info("[BRNTalk] Migrated talk data for player {}", player.getName().getString());
+        }
+    }
 
     @Override
     public void executeAction(TalkThread thread, TalkMessage msg) {
