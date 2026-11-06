@@ -14,7 +14,6 @@ import yourscraft.jasdewstarfield.brntalk.client.ui.scroll.TalkScrollMath;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.ChainBoxButton;
 import yourscraft.jasdewstarfield.brntalk.client.ui.button.CloseButton;
 import yourscraft.jasdewstarfield.brntalk.config.BrntalkConfig;
-import yourscraft.jasdewstarfield.brntalk.data.TalkMessage;
 import yourscraft.jasdewstarfield.brntalk.platform.TalkNetworking;
 import yourscraft.jasdewstarfield.brntalk.runtime.TalkThread;
 import net.minecraft.client.Minecraft;
@@ -37,11 +36,10 @@ public class TalkScreen extends Screen {
     // --- 滚动与动画控制变量 ---
     private int totalContentHeight = 0;
     private boolean needScrollToBottom = true;
-    private boolean choiceControlsVisible = false;
-
-    private final List<AbstractWidget> choiceButtons = new ArrayList<>();
+    private final TalkChoicePanel choicePanel = new TalkChoicePanel(intent -> TalkNetworking.sendSelectChoice(
+            intent.threadId(), intent.choiceId(), intent.sessionId(), intent.position()));
     private final TalkChatContentRenderer chatContentRenderer = new TalkChatContentRenderer();
-    private final Map<String, Long> pendingReadActivityTimes = new HashMap<>();
+    private final TalkReadCoordinator readCoordinator = new TalkReadCoordinator(TalkNetworking::sendMarkRead);
     private final ClientTalkState.StateListener stateListener = this::onTalkStateChanged;
     private boolean stateListenerRegistered = false;
 
@@ -103,7 +101,7 @@ public class TalkScreen extends Screen {
         // 清理
         chatContentRenderer.invalidateTimeline();
         this.clearWidgets();
-        this.choiceButtons.clear();
+        this.choicePanel.clear();
 
         // 锁链盒，功能待定
         if (!BrntalkConfig.CLIENT.useVanillaStyleUI.get()) {
@@ -155,10 +153,8 @@ public class TalkScreen extends Screen {
         this.threadList.restoreScroll(listScroll);
 
         // 选项按钮只有在打字机播放完毕后才显示，也只有此时才为按钮区预留高度。
-        this.choiceControlsVisible = shouldShowChoiceControls();
-
-        // 根据当前对话的最后一条消息，生成选项按钮（如果是 CHOICE 类型）
-        addChoiceButtonsForCurrentConversation();
+        this.choicePanel.rebuild(this.selectedThread, TalkTimeline.isFinished(this.selectedThread),
+                chatAreaX, chatAreaW, innerY + innerH, this::addRenderableWidget);
 
         // 在创建 ChatWidget 之前，立即预计算正确的内容高度
         if (this.selectedThread != null) {
@@ -176,7 +172,7 @@ public class TalkScreen extends Screen {
 
         // ChatWidget
         double chatScroll = (this.chatWidget != null) ? this.chatWidget.getTargetScroll() : 0;
-        int chatWidgetHeight = getChatViewHeight();
+        int chatWidgetHeight = choicePanel.chatViewHeight(this.innerH);
         this.chatWidget = new TalkChatWidget(
                 chatAreaX,
                 innerY,
@@ -219,92 +215,19 @@ public class TalkScreen extends Screen {
         }
     }
 
-    private void addChoiceButtonsForCurrentConversation() {
-        TalkMessage last = getLastMessageOfSelected();
-        if (last == null || !hasChoice()) {
-            return;
-        }
-
-        List<TalkMessage.Choice> choices = last.getChoices();
-        if (choices.isEmpty()) return;
-
-        int choiceWidth = 140;
-        int choiceHeight = 20;
-        int spacing = 5;
-        int startY = this.innerY + this.innerH;
-        int centerX = chatAreaX + chatAreaW / 2;
-
-
-        for (int i = 0; i < choices.size(); i++) {
-            TalkMessage.Choice c = choices.get(choices.size() - 1 - i);
-            int cy = startY - (choiceHeight + spacing) * (i + 1);
-
-            Button btn = Button.builder(
-                            Component.literal(ClientTextFormatter.process(c.getText())),
-                            b -> onChoiceClicked(c)
-                    )
-                    .bounds(centerX - choiceWidth / 2, cy, choiceWidth, choiceHeight)
-                    .build();
-            btn.visible = this.choiceControlsVisible;
-            btn.active = this.choiceControlsVisible;
-
-            this.addRenderableWidget(btn);
-            this.choiceButtons.add(btn);
-        }
-    }
-
-    private int getChatViewHeight() {
-        int defaultHeight = this.innerH;
-
-        TalkMessage last = getLastMessageOfSelected();
-        if (last != null && this.choiceControlsVisible) {
-            int choiceCount = last.getChoices().size();
-            if (choiceCount > 0) {
-                int buttonAreaHeight = choiceCount * 25 + 5;
-                return Math.max(10, defaultHeight - buttonAreaHeight);
-            }
-        }
-        return defaultHeight;
-    }
-
-    private boolean shouldShowChoiceControls() {
-        return this.selectedThread != null && hasChoice() && TalkTimeline.isFinished(this.selectedThread);
-    }
-
-    private void syncChoiceButtonVisibility() {
-        for (AbstractWidget btn : this.choiceButtons) {
-            btn.visible = this.choiceControlsVisible;
-            btn.active = this.choiceControlsVisible;
-        }
-    }
-
     private void updateChoiceControlLayoutIfNeeded() {
-        boolean shouldShow = shouldShowChoiceControls();
-        if (shouldShow == this.choiceControlsVisible) {
-            syncChoiceButtonVisibility();
+        boolean shouldShow = TalkChoicePanel.shouldShow(this.selectedThread, TalkTimeline.isFinished(this.selectedThread));
+        if (shouldShow == this.choicePanel.isVisible()) {
+            this.choicePanel.syncVisibility();
             return;
         }
 
         // 打字机播完时才重建布局：既避免提前空白，也让聊天区高度和滚动上限一起更新。
         boolean wasAtBottom = this.chatWidget == null || this.chatWidget.isScrolledToBottom(1.0);
-        this.choiceControlsVisible = shouldShow;
         if (wasAtBottom) {
             this.needScrollToBottom = true;
         }
         rebuildUI();
-    }
-
-    // 工具方法：判定当前是否有选项按钮
-    private boolean hasChoice() {
-        TalkMessage last = getLastMessageOfSelected();
-        if (last == null) return false;
-        return last.getType() == TalkMessage.Type.CHOICE;
-    }
-
-    // 工具方法：取当前选中聊天串的最后一条消息
-    private TalkMessage getLastMessageOfSelected() {
-        if (selectedThread == null) return null;
-        return selectedThread.getCurrentMessage();
     }
 
     public void onThreadSelected(TalkThread thread) {
@@ -313,22 +236,10 @@ public class TalkScreen extends Screen {
         }
     }
 
-    // 选项按钮点击：根据 nextConversationId 跳转到新的对话脚本，同时创建/更新对应聊天串
-    private void onChoiceClicked(TalkMessage.Choice choice) {
-        if (this.selectedThread == null) {
-            return;
-        }
-
-        String threadId = this.selectedThread.getId();
-        String choiceId = choice.getId();
-
-        TalkNetworking.sendSelectChoice(threadId, choiceId);
-    }
-
     private void onTalkStateChanged(ClientTalkState.StateChange change) {
         chatContentRenderer.invalidateTimeline();
         ClientTalkState state = ClientTalkState.get();
-        reconcilePendingReadRequests(state);
+        readCoordinator.reconcile(state);
         String selectedId = state.getSelectedThreadId();
         boolean affectsSelectedThread = Objects.equals(selectedId, change.threadId());
         boolean selectedThreadWasAtBottom = this.chatWidget == null
@@ -346,13 +257,6 @@ public class TalkScreen extends Screen {
         }
         this.reloadThreadList();
         this.rebuildUI();
-    }
-
-    private void reconcilePendingReadRequests(ClientTalkState state) {
-        pendingReadActivityTimes.entrySet().removeIf(entry -> {
-            TalkThread thread = state.getThread(entry.getKey());
-            return thread == null || thread.getLastReadTime() >= entry.getValue();
-        });
     }
 
     private void updateSelectedThread(TalkThread thread) {
@@ -487,8 +391,8 @@ public class TalkScreen extends Screen {
         gfx.pose().translate(0, yOffset, 0);
 
         // 如果有选项，渲染一个分界线
-        if (this.choiceControlsVisible) {
-            int buttonTopY = this.innerY + getChatViewHeight();
+        if (this.choicePanel.isVisible()) {
+            int buttonTopY = this.innerY + this.choicePanel.chatViewHeight(this.innerH);
             gfx.fill(
                     chatAreaX + 5,
                     buttonTopY,
@@ -559,32 +463,7 @@ public class TalkScreen extends Screen {
             gfx.pose().popPose();
         }
 
-        if (this.selectedThread != null) {
-            boolean isFinished = TalkTimeline.isFinished(this.selectedThread);
-
-            if (isFinished) {
-                requestSelectedThreadReadIfNeeded();
-            }
-        }
-    }
-
-    private void requestSelectedThreadReadIfNeeded() {
-        ClientTalkState state = ClientTalkState.get();
-        if (!state.hasUnread(this.selectedThread)) {
-            pendingReadActivityTimes.remove(this.selectedThread.getId());
-            return;
-        }
-
-        String threadId = this.selectedThread.getId();
-        long lastActivityTime = this.selectedThread.getLastActivityTime();
-        long pendingActivityTime = pendingReadActivityTimes.getOrDefault(threadId, Long.MIN_VALUE);
-        if (pendingActivityTime >= lastActivityTime) {
-            return;
-        }
-
-        // 客户端只记录请求去重；正式 lastReadTime 必须等待服务端 UpdateState 确认。
-        pendingReadActivityTimes.put(threadId, lastActivityTime);
-        TalkNetworking.sendMarkRead(threadId);
+        readCoordinator.requestIfNeeded(this.selectedThread, TalkTimeline.isFinished(this.selectedThread));
     }
 
     public void renderChatContents(GuiGraphics gfx, int x, int yOffset, int width) {
@@ -672,6 +551,8 @@ public class TalkScreen extends Screen {
             ClientTalkState.get().removeListener(stateListener);
             stateListenerRegistered = false;
         }
+        readCoordinator.clear();
+        choicePanel.clear();
         super.removed();
     }
 

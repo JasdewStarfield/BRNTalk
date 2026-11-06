@@ -27,8 +27,12 @@ public final class TalkNetworking {
     public static void sendSelectChoice(String threadId, String choiceId) {
         // 连同当前会话和消息位置发送，服务端可以识别重复或过期的选择。
         var thread = ClientTalkState.get().getThread(threadId);
-        if (thread != null) PacketDistributor.sendToServer(new TalkNetwork.SelectChoicePayload(
-                threadId, choiceId, thread.getSessionId(), thread.getMessages().size()));
+        if (thread != null) sendSelectChoice(threadId, choiceId, thread.getSessionId(), thread.getMessages().size());
+    }
+
+    /** 使用按钮显示时捕获的回执；原双参数入口继续为外部调用方保留。 */
+    public static void sendSelectChoice(String threadId, String choiceId, String sessionId, int position) {
+        PacketDistributor.sendToServer(new TalkNetwork.SelectChoicePayload(threadId, choiceId, sessionId, position));
     }
 
     public static void sendMarkRead(String threadId) {
