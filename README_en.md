@@ -10,7 +10,7 @@ It provides scriptable conversation threads, branching choices, pause/resume beh
 ## Features
 
 - **Hot-reloadable JSON dialogue scripts**: place scripts under `data/<namespace>/brntalk/dialogues/*.json` and reload them with `/reload`.
-- **Strict script validation**: broken links, duplicate IDs, empty choices, and infinite TEXT auto-advance loops block the invalid script; online operators receive a summary after `/reload`.
+- **Strict script validation**: broken links, duplicate IDs, empty choices, and infinite TEXT auto-advance loops reject the entire candidate set, retaining the active scripts and conversations; online operators receive a summary after `/reload`.
 - **Conversation threads**: each player can keep multiple persistent conversation threads synchronized to the client.
 - **Three message types**:
   - `text`: normal text messages
@@ -46,6 +46,8 @@ It provides scriptable conversation threads, branching choices, pause/resume beh
 ## Quick start
 
 ### 1. Install and start
+
+> When upgrading from 1.4.1 to 1.4.2, update both clients and servers. Version 1.4.2 uses network protocol 2.
 
 1. Put the mod jar in the `mods` folder.
 2. Start the game and enter a world.

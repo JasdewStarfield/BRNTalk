@@ -1,4 +1,4 @@
-name: Release both Minecraft versions
+name: Release selected Minecraft versions
 
 on:
   workflow_dispatch:
@@ -7,6 +7,15 @@ on:
         description: BRNTalk SemVer without a leading v
         required: true
         type: string
+      target:
+        description: Minecraft version to publish (both preserves the existing release scope)
+        required: true
+        default: both
+        type: choice
+        options:
+          - both
+          - neoforge_1_21_1
+          - forge_1_20_1
       release_type:
         description: Distribution channel
         required: true
@@ -22,12 +31,12 @@ on:
         default: false
         type: boolean
       publish_modrinth:
-        description: Upload both jars to Modrinth
+        description: Upload selected jars to Modrinth
         required: true
         default: false
         type: boolean
       publish_curseforge:
-        description: Upload both jars to CurseForge
+        description: Upload selected jars to CurseForge
         required: true
         default: false
         type: boolean
@@ -40,23 +49,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  select_targets:
+    name: Select release targets
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - name: Resolve requested Minecraft versions
+        id: targets
+        shell: pwsh
+        env:
+          RELEASE_TARGET: ${{ inputs.target || 'both' }}
+        run: |
+          # Keep both versions as the default; reject unknown inputs before any build or upload.
+          $targets = @(
+            @{ target = 'neoforge_1_21_1'; branch = 'mc/1.21.1-neoforge'; minecraft = '1.21.1'; loader = 'NeoForge'; java = '21'; artifact = 'neoforge-1.21.1' },
+            @{ target = 'forge_1_20_1'; branch = 'mc/1.20.1-forge'; minecraft = '1.20.1'; loader = 'Forge'; java = '17'; artifact = 'forge-1.20.1' }
+          )
+          if ($env:RELEASE_TARGET -ne 'both') {
+            $targets = @($targets | Where-Object { $_.target -eq $env:RELEASE_TARGET })
+          }
+          if ($targets.Count -eq 0) { throw "Unknown release target: $env:RELEASE_TARGET" }
+          "matrix=$(@{ include = $targets } | ConvertTo-Json -Depth 4 -Compress)" >> $env:GITHUB_OUTPUT
+
   build:
     name: Build ${{ matrix.loader }} ${{ matrix.minecraft }}
     runs-on: ubuntu-latest
+    needs: select_targets
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - branch: mc/1.21.1-neoforge
-            minecraft: 1.21.1
-            loader: NeoForge
-            java: '21'
-            artifact: neoforge-1.21.1
-          - branch: mc/1.20.1-forge
-            minecraft: 1.20.1
-            loader: Forge
-            java: '17'
-            artifact: forge-1.20.1
+      matrix: ${{ fromJSON(needs.select_targets.outputs.matrix) }}
 
     steps:
       # Release automation is maintained on the NeoForge/default branch.
@@ -100,41 +122,37 @@ jobs:
           if-no-files-found: error
 
   render_metadata:
-    name: Render platform metadata
-    needs: build
+    name: Render ${{ matrix.loader }} metadata
+    needs: [select_targets, build]
     runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.select_targets.outputs.matrix) }}
     steps:
       - name: Check out release tooling and changelogs
         uses: actions/checkout@v4
         with:
           ref: mc/1.21.1-neoforge
 
-      - name: Render both platform payloads
+      - name: Render selected platform payload
         shell: pwsh
         run: |
           ./tools/release/render-platform-metadata.ps1 `
             -ProjectRoot . `
             -Version '${{ inputs.version }}' `
-            -Target neoforge_1_21_1 `
+            -Target '${{ matrix.target }}' `
             -ReleaseType '${{ inputs.release_type }}' `
-            -OutputPath ./build/release-metadata/neoforge_1_21_1.json
-          ./tools/release/render-platform-metadata.ps1 `
-            -ProjectRoot . `
-            -Version '${{ inputs.version }}' `
-            -Target forge_1_20_1 `
-            -ReleaseType '${{ inputs.release_type }}' `
-            -OutputPath ./build/release-metadata/forge_1_20_1.json
+            -OutputPath './build/release-metadata/${{ matrix.target }}.json'
 
       - name: Upload rendered metadata
         uses: actions/upload-artifact@v4
         with:
-          name: release-metadata
+          name: metadata-${{ matrix.artifact }}
           path: build/release-metadata/*.json
           if-no-files-found: error
 
   github_release:
     name: Publish GitHub Release
-    needs: build
+    needs: [select_targets, build]
     runs-on: ubuntu-latest
     steps:
       - name: Check out release tooling and changelogs
@@ -143,7 +161,7 @@ jobs:
           ref: mc/1.21.1-neoforge
           path: source
 
-      - name: Download both jars
+      - name: Download selected jars
         uses: actions/download-artifact@v4
         with:
           path: dist
@@ -161,14 +179,17 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_MATRIX: ${{ needs.select_targets.outputs.matrix }}
         run: |
           $ErrorActionPreference = 'Stop'
           $version = '${{ inputs.version }}'
           # The job stores release inputs outside the checkout root, so pass the repository explicitly.
           $repo = $env:GITHUB_REPOSITORY
           $jars = @(Get-ChildItem -LiteralPath ./dist -Filter '*.jar' -File)
-          if ($jars.Count -ne 2) {
-            throw "Expected exactly two release jars, found $($jars.Count)."
+          $targets = @((ConvertFrom-Json $env:RELEASE_MATRIX).include)
+          $expectedNames = @($targets | ForEach-Object { "brntalk-mc$($_.minecraft)-$version.jar" })
+          if ($jars.Count -ne $expectedNames.Count -or @($jars | Where-Object { $_.Name -notin $expectedNames }).Count -gt 0) {
+            throw "Release jars do not match the selected targets: $($expectedNames -join ', ')."
           }
 
           gh release view $version --repo $repo *> $null
@@ -212,7 +233,7 @@ jobs:
           ref: mc/1.21.1-neoforge
           path: source
 
-      - name: Download both jars
+      - name: Download selected jars and metadata
         uses: actions/download-artifact@v4
         with:
           path: dist
@@ -232,12 +253,15 @@ jobs:
             Token = $env:MODRINTH_TOKEN
             Confirm = $false
           }
-          ./source/tools/release/publish-modrinth.ps1 @common `
-            -JarPath './dist/brntalk-mc1.21.1-${{ inputs.version }}.jar' `
-            -MetadataPath './dist/neoforge_1_21_1.json'
-          ./source/tools/release/publish-modrinth.ps1 @common `
-            -JarPath './dist/brntalk-mc1.20.1-${{ inputs.version }}.jar' `
-            -MetadataPath './dist/forge_1_20_1.json'
+          # Only selected targets produced metadata artifacts; each payload names its own jar.
+          $metadataFiles = @(Get-ChildItem ./dist -Filter '*.json' -File)
+          if ($metadataFiles.Count -eq 0) { throw 'No selected release metadata was downloaded.' }
+          foreach ($metadata in $metadataFiles) {
+            $rendered = Get-Content -LiteralPath $metadata.FullName -Raw | ConvertFrom-Json
+            ./source/tools/release/publish-modrinth.ps1 @common `
+              -JarPath (Join-Path ./dist $rendered.jar_name) `
+              -MetadataPath $metadata.FullName
+          }
 
   curseforge:
     name: Publish CurseForge files
@@ -254,7 +278,7 @@ jobs:
           ref: mc/1.21.1-neoforge
           path: source
 
-      - name: Download both jars
+      - name: Download selected jars and metadata
         uses: actions/download-artifact@v4
         with:
           path: dist
@@ -274,9 +298,11 @@ jobs:
             Token = $env:CURSEFORGE_TOKEN
             Confirm = $false
           }
-          ./source/tools/release/publish-curseforge.ps1 @common `
-            -JarPath './dist/brntalk-mc1.21.1-${{ inputs.version }}.jar' `
-            -MetadataPath './dist/neoforge_1_21_1.json'
-          ./source/tools/release/publish-curseforge.ps1 @common `
-            -JarPath './dist/brntalk-mc1.20.1-${{ inputs.version }}.jar' `
-            -MetadataPath './dist/forge_1_20_1.json'
+          $metadataFiles = @(Get-ChildItem ./dist -Filter '*.json' -File)
+          if ($metadataFiles.Count -eq 0) { throw 'No selected release metadata was downloaded.' }
+          foreach ($metadata in $metadataFiles) {
+            $rendered = Get-Content -LiteralPath $metadata.FullName -Raw | ConvertFrom-Json
+            ./source/tools/release/publish-curseforge.ps1 @common `
+              -JarPath (Join-Path ./dist $rendered.jar_name) `
+              -MetadataPath $metadata.FullName
+          }

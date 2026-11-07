@@ -6,16 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-## [1.4.2] - 2026-11-06
+## [1.4.2] - 2026-11-07
 
 > Minecraft 1.21.1 NeoForge only. Network protocol 2 requires both clients and servers to update.
 
-### Fixed
+### Changed
 
-- Bind choices to a session and message position, rejecting replayed or stale requests before dialogue actions run.
-- Activate scripts only after complete validation. Malformed files, invalid scripts and duplicate IDs retain the previous scripts and live conversations; intentional deletion still applies.
-- Transfer full history, new threads and appended messages in frames of at most 32 KiB, applying only complete transfers. Clear incomplete transfers on timeout/disconnect. A 64 MiB transfer budget reports encoding failures without deleting saved history.
-- Clear client dialogue state when leaving a server.
+- **Dialogue choices**: bind buttons to the session and message position displayed when they were created. Reject duplicate or stale requests to prevent answering the next question or repeating dialogue actions.
+- **Script reloads**: activate the full candidate set only after validation succeeds. Syntax errors, broken links and duplicate IDs retain the previous scripts and live conversations; intentional deletion still applies.
+- **History synchronization**: transfer full history, new threads and appended messages in frames of at most 32 KiB, applying only complete transfers. Each transfer is limited to 64 MiB; encoding failures display a message and preserve saved history, while timeouts and disconnects clear incomplete transfers.
+- **Client state**: clear dialogue state when leaving a server and discard pending read requests from old sessions after full synchronization replaces them.
+
+### Technical Changes
+
+- **Conversation operations**: centralize start, choice, resume and clear flows, including persistence, message events, completion checks and client synchronization. Operation results use independent message snapshots.
+- **Runtime data and recovery**: separate the script repository, player thread storage and history restoration. Consolidate duplicate login rebuilds and full synchronization, and clean up runtime state on player logout and server shutdown. Programmatic script registration also validates the complete candidate set; invalid candidates throw `IllegalArgumentException` and retain the active set.
+- **UI responsibilities**: separate the choice area and read-request coordinator so button layout, click context and read acknowledgements can be maintained independently.
 
 ## [1.4.1] - 2026-10-08
 
